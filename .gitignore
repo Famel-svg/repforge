@@ -3,6 +3,13 @@
 # dependencies
 node_modules/
 
+# local AI/editor instructions
+.claude/
+.agents/
+.codex/
+AGENTS.md
+CLAUDE.md
+
 # Expo
 .expo/
 dist/
@@ -11,6 +18,7 @@ expo-env.d.ts
 
 # Native
 .kotlin/
+*.apk
 *.orig.*
 *.jks
 *.p8
@@ -31,6 +39,7 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
