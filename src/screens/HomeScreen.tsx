@@ -16,7 +16,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { EmptyState } from '@/components/EmptyState';
+import { StatCard } from '@/components/StatCard';
 import { createSheet, deleteSheet, listSheets } from '@/db/sheets';
+import { getDashboardStats, type DashboardStats } from '@/db/stats';
 import type { RootStackParamList } from '@/navigation/types';
 import { colors, radius, spacing } from '@/theme';
 import type { Sheet } from '@/types';
@@ -25,17 +27,45 @@ import { formatDateTime } from '@/utils/format';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
+function formatCount(value: number | undefined): string {
+  return value === undefined ? '...' : String(value);
+}
+
+function formatVolume(value: number | undefined): string {
+  if (value === undefined) {
+    return '...';
+  }
+  return `${Math.round(value).toLocaleString('pt-BR')} kg`;
+}
+
+function formatCompactVolume(value: number): string {
+  if (value >= 1000) {
+    return `${(Math.round(value / 100) / 10).toLocaleString('pt-BR')}k`;
+  }
+  return String(Math.round(value));
+}
+
 export function HomeScreen({ navigation }: Props) {
   const db = useSQLiteContext();
   const [sheets, setSheets] = useState<Sheet[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [name, setName] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
 
-  const loadSheets = useCallback(async () => {
+  const dailyVolumes = stats?.last7Days ?? [];
+  const maxDailyVolume = Math.max(
+    1,
+    ...dailyVolumes.map((day) => day.volume),
+  );
+
+  const loadHome = useCallback(async () => {
     try {
-      setSheets(await listSheets(db));
+      const nextSheets = await listSheets(db);
+      const nextStats = await getDashboardStats(db);
+      setSheets(nextSheets);
+      setStats(nextStats);
     } catch (error) {
       Alert.alert('Erro', error instanceof Error ? error.message : 'Falha ao carregar fichas.');
     }
@@ -43,8 +73,8 @@ export function HomeScreen({ navigation }: Props) {
 
   useFocusEffect(
     useCallback(() => {
-      void loadSheets();
-    }, [loadSheets]),
+      void loadHome();
+    }, [loadHome]),
   );
 
   async function handleCreate() {
@@ -53,7 +83,7 @@ export function HomeScreen({ navigation }: Props) {
       await createSheet(db, name);
       setName('');
       setModalVisible(false);
-      await loadSheets();
+      await loadHome();
     } catch (error) {
       Alert.alert('Ficha não criada', error instanceof Error ? error.message : 'Tente novamente.');
     } finally {
@@ -71,7 +101,7 @@ export function HomeScreen({ navigation }: Props) {
           text: 'Excluir',
           style: 'destructive',
           onPress: () => {
-            void deleteSheet(db, sheet.id).then(loadSheets);
+            void deleteSheet(db, sheet.id).then(loadHome);
           },
         },
       ],
@@ -94,7 +124,7 @@ export function HomeScreen({ navigation }: Props) {
     try {
       const count = await pickAndImportBackup(db);
       if (count !== null) {
-        await loadSheets();
+        await loadHome();
         Alert.alert('Backup importado', `${count} ficha(s) adicionada(s).`);
       }
     } catch (error) {
@@ -131,6 +161,55 @@ export function HomeScreen({ navigation }: Props) {
           style={styles.actionButton}
           variant="secondary"
         />
+      </View>
+
+      <View style={styles.statsSection}>
+        <View style={styles.statsGrid}>
+          <StatCard label="Fichas" value={formatCount(stats?.totals.sheets)} />
+          <StatCard
+            label="Exercícios"
+            value={formatCount(stats?.totals.exercises)}
+          />
+        </View>
+        <View style={styles.statsGrid}>
+          <StatCard
+            label="Registros"
+            value={formatCount(stats?.totals.entries)}
+          />
+          <StatCard
+            hint="Séries x reps x kg"
+            label="Volume semana"
+            tone="primary"
+            value={formatVolume(stats?.totals.weeklyVolume)}
+          />
+        </View>
+
+        <View style={styles.chartCard}>
+          <View style={styles.chartHeader}>
+            <Text style={styles.chartTitle}>Últimos 7 dias</Text>
+            <Text style={styles.chartSubtitle}>Volume por dia</Text>
+          </View>
+          <View style={styles.barChart}>
+            {dailyVolumes.map((day) => {
+              const barHeight =
+                day.volume === 0
+                  ? 4
+                  : Math.max(8, (day.volume / maxDailyVolume) * 92);
+
+              return (
+                <View key={day.date} style={styles.barColumn}>
+                  <Text style={styles.barValue}>
+                    {formatCompactVolume(day.volume)}
+                  </Text>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { height: barHeight }]} />
+                  </View>
+                  <Text style={styles.barLabel}>{day.label}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
       </View>
 
       <FlatList
@@ -251,6 +330,74 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  statsSection: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  chartCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    gap: spacing.md,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  chartTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  chartSubtitle: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  barChart: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  barColumn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  barValue: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  barTrack: {
+    width: '100%',
+    height: 92,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    borderRadius: radius.sm,
+    backgroundColor: colors.background,
+    overflow: 'hidden',
+  },
+  barFill: {
+    width: '70%',
+    borderTopLeftRadius: radius.sm,
+    borderTopRightRadius: radius.sm,
+    backgroundColor: colors.primary,
+  },
+  barLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
   },
   list: {
     padding: spacing.md,
