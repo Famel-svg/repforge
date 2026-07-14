@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -27,6 +27,12 @@ import {
   estimateOneRepMax,
 } from '@/utils/calculations';
 import { formatDateTime, normalizeDecimal } from '@/utils/format';
+import {
+  clampRestSeconds,
+  DEFAULT_REST_SECONDS,
+  formatRestTime,
+  REST_STEP_SECONDS,
+} from '@/utils/timer';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Exercise'>;
 
@@ -50,6 +56,22 @@ export function ExerciseScreen({ route }: Props) {
   const [sets, setSets] = useState<SetData[]>([{ reps: '', weight: '' }]);
   const [saving, setSaving] = useState(false);
   const [expandedEntryId, setExpandedEntryId] = useState<number | null>(null);
+  const [restDurationSeconds, setRestDurationSeconds] = useState(DEFAULT_REST_SECONDS);
+  const [restRemainingSeconds, setRestRemainingSeconds] = useState(0);
+
+  const restTimerActive = restRemainingSeconds > 0;
+
+  useEffect(() => {
+    if (!restTimerActive) {
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      setRestRemainingSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [restTimerActive]);
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +98,21 @@ export function ExerciseScreen({ route }: Props) {
 
   function updateSet(index: number, field: keyof SetData, value: string) {
     setSets((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
+  }
+
+  function changeRestSeconds(delta: number) {
+    setRestDurationSeconds((seconds) => clampRestSeconds(seconds + delta));
+    setRestRemainingSeconds((seconds) =>
+      seconds > 0 ? clampRestSeconds(seconds + delta) : seconds,
+    );
+  }
+
+  function startRestTimer() {
+    setRestRemainingSeconds(restDurationSeconds);
+  }
+
+  function stopRestTimer() {
+    setRestRemainingSeconds(0);
   }
 
   async function handleSave() {
@@ -112,6 +149,7 @@ export function ExerciseScreen({ route }: Props) {
         });
       }
       setSets([{ reps: '', weight: '' }]);
+      startRestTimer();
       await load();
     } catch (error) {
       Alert.alert('Registro não salvo', error instanceof Error ? error.message : 'Tente novamente.');
@@ -194,6 +232,41 @@ export function ExerciseScreen({ route }: Props) {
               </Pressable>
             </View>
           )}
+          <View style={styles.restCard}>
+            <View style={styles.restHeader}>
+              <View>
+                <Text style={styles.restLabel}>Descanso</Text>
+                <Text style={styles.restHint}>
+                  Inicia automaticamente após salvar
+                </Text>
+              </View>
+              <Text style={styles.restTime}>
+                {formatRestTime(restTimerActive ? restRemainingSeconds : restDurationSeconds)}
+              </Text>
+            </View>
+            <View style={styles.restActions}>
+              <Pressable
+                onPress={() => changeRestSeconds(-REST_STEP_SECONDS)}
+                style={styles.restButton}
+              >
+                <Text style={styles.restButtonText}>-15s</Text>
+              </Pressable>
+              <Pressable
+                onPress={restTimerActive ? stopRestTimer : startRestTimer}
+                style={[styles.restButton, styles.restButtonPrimary]}
+              >
+                <Text style={styles.restButtonPrimaryText}>
+                  {restTimerActive ? 'Pular' : 'Iniciar'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => changeRestSeconds(REST_STEP_SECONDS)}
+                style={styles.restButton}
+              >
+                <Text style={styles.restButtonText}>+15s</Text>
+              </Pressable>
+            </View>
+          </View>
           {sets.map((set, index) => (
             <View key={index} style={styles.setRow}>
               <Text style={styles.setLabel}>Série {index + 1}</Text>
@@ -400,6 +473,60 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '800',
   },
+  restCard: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    backgroundColor: colors.background,
+    gap: spacing.md,
+  },
+  restHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  restLabel: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  restHint: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  restTime: {
+    color: colors.primary,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  restActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  restButton: {
+    flex: 1,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surfaceRaised,
+  },
+  restButtonPrimary: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  restButtonText: {
+    color: colors.text,
+    fontWeight: '800',
+  },
+  restButtonPrimaryText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+  },
   setRow: {
     gap: spacing.xs,
   },
@@ -544,4 +671,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
 
