@@ -21,6 +21,11 @@ import { addEntry, deleteEntry, listEntries } from '@/db/entries';
 import type { RootStackParamList } from '@/navigation/types';
 import { colors, radius, spacing } from '@/theme';
 import type { Entry } from '@/types';
+import {
+  calculateVolume,
+  detectPersonalRecords,
+  estimateOneRepMax,
+} from '@/utils/calculations';
 import { formatDateTime, normalizeDecimal } from '@/utils/format';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Exercise'>;
@@ -29,6 +34,14 @@ type SetData = {
   reps: string;
   weight: string;
 };
+
+function formatLiftNumber(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace('.', ',');
+}
+
+function formatInputNumber(value: number): string {
+  return String(value).replace('.', ',');
+}
 
 export function ExerciseScreen({ route }: Props) {
   const db = useSQLiteContext();
@@ -128,6 +141,22 @@ export function ExerciseScreen({ route }: Props) {
     setExpandedEntryId((prev) => (prev === entryId ? null : entryId));
   }
 
+  const latestEntry = entries[0] ?? null;
+
+  function copyLatestEntry() {
+    if (!latestEntry) {
+      return;
+    }
+
+    setSets((prev) => {
+      const next = prev.length > 0 ? [...prev] : [{ reps: '', weight: '' }];
+      next[0] = {
+        reps: String(latestEntry.reps),
+        weight: formatInputNumber(latestEntry.weightKg),
+      };
+      return next;
+    });
+  }
 
   return (
     <KeyboardAvoidingView
@@ -148,6 +177,23 @@ export function ExerciseScreen({ route }: Props) {
 
         <View style={styles.form}>
           <Text style={styles.sectionTitle}>Novo registro</Text>
+          {latestEntry && (
+            <View style={styles.lastEntryCard}>
+              <View style={styles.lastEntryText}>
+                <Text style={styles.lastEntryLabel}>Último registro</Text>
+                <Text style={styles.lastEntryValue}>
+                  {latestEntry.sets}x{latestEntry.reps} · {formatLiftNumber(latestEntry.weightKg)} kg
+                </Text>
+                <Text style={styles.lastEntryMeta}>
+                  Volume {formatLiftNumber(calculateVolume(latestEntry))} kg · 1RM{' '}
+                  {formatLiftNumber(estimateOneRepMax(latestEntry))} kg
+                </Text>
+              </View>
+              <Pressable onPress={copyLatestEntry} style={styles.copyLastBtn}>
+                <Text style={styles.copyLastText}>Copiar última</Text>
+              </Pressable>
+            </View>
+          )}
           {sets.map((set, index) => (
             <View key={index} style={styles.setRow}>
               <Text style={styles.setLabel}>Série {index + 1}</Text>
@@ -200,9 +246,13 @@ export function ExerciseScreen({ route }: Props) {
           />
         ) : (
           <View style={styles.history}>
-            {entries.map((entry) => {
+            {entries.map((entry, index) => {
               const isExpanded = expandedEntryId === entry.id;
-              const isLatest = entries.indexOf(entry) === 0;
+              const isLatest = index === 0;
+              const personalRecords = detectPersonalRecords(
+                entry,
+                entries.slice(index + 1),
+              );
               return (
                 <View key={entry.id} style={[styles.entry, isLatest && styles.entryLatest]}>
                   <Pressable
@@ -215,6 +265,8 @@ export function ExerciseScreen({ route }: Props) {
                         {entry.sets}x{entry.reps}
                       </Text>
                       {isLatest && <Text style={styles.latestBadge}>ÚLTIMA</Text>}
+                      {personalRecords.weight && <Text style={styles.prBadge}>PR CARGA</Text>}
+                      {personalRecords.oneRepMax && <Text style={styles.prBadge}>PR 1RM</Text>}
                     </View>
                     <View style={styles.entryActions}>
                       <Text style={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</Text>
@@ -236,6 +288,18 @@ export function ExerciseScreen({ route }: Props) {
                       <View style={styles.expandedRow}>
                         <Text style={styles.expandedLabel}>Carga:</Text>
                         <Text style={styles.expandedValue}>{entry.weightKg} kg</Text>
+                      </View>
+                      <View style={styles.expandedRow}>
+                        <Text style={styles.expandedLabel}>Volume:</Text>
+                        <Text style={styles.expandedValue}>
+                          {formatLiftNumber(calculateVolume(entry))} kg
+                        </Text>
+                      </View>
+                      <View style={styles.expandedRow}>
+                        <Text style={styles.expandedLabel}>1RM estimado:</Text>
+                        <Text style={styles.expandedValue}>
+                          {formatLiftNumber(estimateOneRepMax(entry))} kg
+                        </Text>
                       </View>
                       <View style={styles.expandedRow}>
                         <Text style={styles.expandedLabel}>Data:</Text>
@@ -296,6 +360,45 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 20,
     fontWeight: '900',
+  },
+  lastEntryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceRaised,
+  },
+  lastEntryText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  lastEntryLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  lastEntryValue: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  lastEntryMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
+  },
+  copyLastBtn: {
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  copyLastText: {
+    color: colors.primary,
+    fontWeight: '800',
   },
   setRow: {
     gap: spacing.xs,
@@ -392,6 +495,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
     backgroundColor: colors.primary + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  prBadge: {
+    color: colors.success,
+    fontSize: 10,
+    fontWeight: '900',
+    backgroundColor: colors.success + '20',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
