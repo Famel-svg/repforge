@@ -17,6 +17,8 @@ import { ExerciseScreen } from '@/screens/ExerciseScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { SearchExerciseScreen } from '@/screens/SearchExerciseScreen';
 import { SheetScreen } from '@/screens/SheetScreen';
+import { SheetsScreen } from '@/screens/SheetsScreen';
+import { TrainingTrackScreen } from '@/screens/TrainingTrackScreen';
 import { colors } from '@/theme';
 
 enableScreens();
@@ -60,6 +62,16 @@ function AppNavigator() {
           name="Home"
           component={HomeScreen}
           options={{ title: 'RepForge' }}
+        />
+        <Stack.Screen
+          name="Sheets"
+          component={SheetsScreen}
+          options={{ title: 'Planilhas' }}
+        />
+        <Stack.Screen
+          name="Track"
+          component={TrainingTrackScreen}
+          options={{ title: 'Track de treino' }}
         />
         <Stack.Screen
           name="Sheet"

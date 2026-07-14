@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 
-import { getDashboardStats } from '@/db/stats';
 import { SCHEMA_SQL } from '@/db/schema';
+import { getDashboardStats, getTrainingTrackStats } from '@/db/stats';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 type StatsDb = Parameters<typeof getDashboardStats>[0];
@@ -99,5 +99,63 @@ describe('dashboard stats', () => {
     expect(stats.last7Days.map((day) => day.volume)).toEqual([
       1500, 0, 1920, 0, 0, 0, 1920,
     ]);
+  });
+
+  it('calcula track de dias treinados e sequências', async () => {
+    const sheet = insertSheet(sqlite, 'Treino A');
+    const supino = insertExercise(sqlite, sheet, 'Supino', 0);
+
+    insertEntry(sqlite, supino, 3, 10, 50, '2026-06-01T10:00:00.000Z');
+    insertEntry(sqlite, supino, 3, 10, 60, '2026-06-02T10:00:00.000Z');
+    insertEntry(sqlite, supino, 3, 10, 70, '2026-06-04T10:00:00.000Z');
+    insertEntry(sqlite, supino, 3, 10, 80, '2026-06-05T10:00:00.000Z');
+    insertEntry(sqlite, supino, 3, 10, 90, '2026-06-06T10:00:00.000Z');
+    insertEntry(sqlite, supino, 2, 8, 100, '2026-06-14T10:00:00.000Z');
+    insertEntry(sqlite, supino, 1, 5, 100, '2026-06-14T12:00:00.000Z');
+
+    const track = await getTrainingTrackStats(
+      createAdapter(sqlite),
+      new Date('2026-06-15T09:00:00.000Z'),
+    );
+
+    expect(track.totalTrainingDays).toBe(6);
+    expect(track.thisMonthTrainingDays).toBe(6);
+    expect(track.bestStreak).toBe(3);
+    expect(track.currentStreak).toBe(1);
+    expect(track.last28Days).toHaveLength(28);
+    expect(track.last28Days.at(-2)).toMatchObject({
+      date: '2026-06-14',
+      entries: 2,
+      trained: true,
+      volume: 2100,
+    });
+    expect(track.last28Days.at(-1)).toMatchObject({
+      date: '2026-06-15',
+      trained: false,
+    });
+  });
+  it('agrupa o track pelo fuso local informado', async () => {
+    const sheet = insertSheet(sqlite, 'Treino A');
+    const supino = insertExercise(sqlite, sheet, 'Supino', 0);
+
+    insertEntry(sqlite, supino, 3, 10, 50, '2026-06-15T02:30:00.000Z');
+
+    const track = await getTrainingTrackStats(
+      createAdapter(sqlite),
+      new Date('2026-06-15T12:00:00.000Z'),
+      'America/Sao_Paulo',
+    );
+
+    expect(track.totalTrainingDays).toBe(1);
+    expect(track.thisMonthTrainingDays).toBe(1);
+    expect(track.last28Days.at(-2)).toMatchObject({
+      date: '2026-06-14',
+      trained: true,
+      volume: 1500,
+    });
+    expect(track.last28Days.at(-1)).toMatchObject({
+      date: '2026-06-15',
+      trained: false,
+    });
   });
 });
