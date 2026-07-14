@@ -48,3 +48,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# generated knowledge graph
+graphify-out/
+
