@@ -1,4 +1,6 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, radius } from '@/theme';
 
@@ -8,7 +10,9 @@ type Props = {
 };
 
 export function ExerciseImage({ uri, size = 76 }: Props) {
-  if (!uri) {
+  const [failed, setFailed] = useState(false);
+
+  if (!uri || failed) {
     return (
       <View style={[styles.placeholder, { width: size, height: size }]}>
         <Text style={styles.placeholderText}>RF</Text>
@@ -17,18 +21,27 @@ export function ExerciseImage({ uri, size = 76 }: Props) {
   }
 
   return (
-    <Image
-      resizeMode="cover"
-      source={{ uri }}
-      style={[styles.image, { width: size, height: size }]}
-    />
+    <View style={[styles.container, { width: size, height: size }]}>
+      <Image
+        cachePolicy="none"
+        contentFit="contain"
+        onError={() => setFailed(true)}
+        source={{ uri }}
+        style={[styles.image, { width: size, height: size }]}
+        transition={150}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    borderRadius: radius.md,
+    backgroundColor: '#1a1a2e',
+    overflow: 'hidden',
+  },
   image: {
     borderRadius: radius.md,
-    backgroundColor: '#FFFFFF',
   },
   placeholder: {
     alignItems: 'center',

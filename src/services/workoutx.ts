@@ -1,41 +1,81 @@
 import axios, { isAxiosError } from 'axios';
 
 import type { WorkoutXExercise } from '@/types';
+import {
+  translateBodyPart,
+  translateEquipment,
+  translateExerciseName,
+  translateMuscle,
+  translateSearchTerm,
+} from '@/utils/translations';
 
 const API_URL = 'https://api.workoutxapp.com/v1';
 
 export const BODY_PARTS = [
-  'back',
-  'cardio',
-  'chest',
-  'lower arms',
-  'lower legs',
-  'neck',
-  'shoulders',
-  'upper arms',
-  'upper legs',
-  'waist',
+  'Costas',
+  'Cardio',
+  'Peito',
+  'Antebraços',
+  'Pernas (inferior)',
+  'Pescoço',
+  'Ombros',
+  'Braços',
+  'Pernas (superior)',
+  'Abdômen',
 ];
 
+export const BODY_PARTS_MAP: Record<string, string> = {
+  'Costas': 'back',
+  'Cardio': 'cardio',
+  'Peito': 'chest',
+  'Antebraços': 'lower arms',
+  'Pernas (inferior)': 'lower legs',
+  'Pescoço': 'neck',
+  'Ombros': 'shoulders',
+  'Braços': 'upper arms',
+  'Pernas (superior)': 'upper legs',
+  'Abdômen': 'waist',
+};
+
 export const EQUIPMENT = [
-  'assisted',
-  'barbell',
-  'body weight',
-  'bosu ball',
-  'cable',
-  'dumbbell',
-  'elliptical machine',
-  'ez barbell',
-  'kettlebell',
-  'leverage machine',
-  'medicine ball',
-  'resistance band',
-  'roller',
-  'rope',
-  'smith machine',
-  'stability ball',
-  'weighted',
+  'Assistido',
+  'Halter barra',
+  'Peso corporal',
+  'Bosu',
+  'Polia',
+  'Halter',
+  'Elíptica',
+  'Barra W',
+  'Kettlebell',
+  'Máquina alavanca',
+  'Bola medicinal',
+  'Faixa elástica',
+  'Rolo',
+  'Corda',
+  'Máquina Smith',
+  'Bola de estabilidade',
+  'Com peso',
 ];
+
+export const EQUIPMENT_MAP: Record<string, string> = {
+  'Assistido': 'assisted',
+  'Halter barra': 'barbell',
+  'Peso corporal': 'body weight',
+  'Bosu': 'bosu ball',
+  'Polia': 'cable',
+  'Halter': 'dumbbell',
+  'Elíptica': 'elliptical machine',
+  'Barra W': 'ez barbell',
+  'Kettlebell': 'kettlebell',
+  'Máquina alavanca': 'leverage machine',
+  'Bola medicinal': 'medicine ball',
+  'Faixa elástica': 'resistance band',
+  'Rolo': 'roller',
+  'Corda': 'rope',
+  'Máquina Smith': 'smith machine',
+  'Bola de estabilidade': 'stability ball',
+  'Com peso': 'weighted',
+};
 
 type WorkoutXRaw = {
   id?: string | number;
@@ -71,22 +111,57 @@ export function normalizeWorkoutXResponse(input: unknown): WorkoutXExercise[] {
 
       return {
         id: String(raw.id),
-        name: raw.name,
+        name: translateExerciseName(raw.name),
         gifUrl: raw.gifUrl ?? raw.gif_url ?? null,
-        target: raw.target ?? '',
-        bodyPart: raw.bodyPart ?? raw.body_part ?? '',
-        equipment: raw.equipment ?? '',
+        target: translateMuscle(raw.target),
+        bodyPart: translateBodyPart(raw.bodyPart ?? raw.body_part),
+        equipment: translateEquipment(raw.equipment),
       };
     })
     .filter((item): item is WorkoutXExercise => item !== null);
 }
 
+
+async function hydrateGifUrls(
+  exercises: WorkoutXExercise[],
+): Promise<WorkoutXExercise[]> {
+  const { downloadGif } = await import('@/utils/downloadGif');
+  const hydrated: WorkoutXExercise[] = [];
+
+  for (let index = 0; index < exercises.length; index += 6) {
+    const chunk = exercises.slice(index, index + 6);
+    hydrated.push(
+      ...(await Promise.all(
+        chunk.map(async (exercise) => {
+          if (!exercise.gifUrl) return exercise;
+          const localGifUrl = await downloadGif(exercise.gifUrl);
+          return localGifUrl ? { ...exercise, gifUrl: localGifUrl } : exercise;
+        }),
+      )),
+    );
+  }
+
+  return hydrated;
+}
 export type SearchExerciseParams = {
   bodyPart?: string;
   equipment?: string;
   name?: string;
   limit?: number;
 };
+
+async function fetchFromEndpoint(
+  endpoint: string,
+  apiKey: string,
+  limit: number,
+): Promise<WorkoutXExercise[]> {
+  const response = await axios.get(`${API_URL}${endpoint}`, {
+    headers: { 'X-WorkoutX-Key': apiKey },
+    params: { limit },
+    timeout: 12_000,
+  });
+  return normalizeWorkoutXResponse(response.data).slice(0, limit);
+}
 
 export async function searchExercises({
   bodyPart,
@@ -102,18 +177,35 @@ export async function searchExercises({
   }
 
   try {
-    const response = await axios.get(`${API_URL}/exercises/search`, {
-      headers: { 'X-WorkoutX-Key': apiKey },
-      params: {
-        bodyPart: bodyPart || undefined,
-        equipment: equipment || undefined,
-        query: name?.trim() || undefined,
-        limit,
-      },
-      timeout: 12_000,
-    });
+    const trimmedName = name?.trim();
+    const apiName = trimmedName ? translateSearchTerm(trimmedName) : '';
+    let results: WorkoutXExercise[] = [];
 
-    return normalizeWorkoutXResponse(response.data).slice(0, limit);
+    if (trimmedName) {
+      results = await fetchFromEndpoint(
+        `/exercises/name/${encodeURIComponent(apiName)}`,
+        apiKey,
+        limit,
+      );
+    } else if (bodyPart) {
+      const apiBodyPart = BODY_PARTS_MAP[bodyPart] ?? bodyPart;
+      results = await fetchFromEndpoint(
+        `/exercises/bodyPart/${encodeURIComponent(apiBodyPart)}`,
+        apiKey,
+        limit,
+      );
+    } else if (equipment) {
+      const apiEquipment = EQUIPMENT_MAP[equipment] ?? equipment;
+      results = await fetchFromEndpoint(
+        `/exercises/equipment/${encodeURIComponent(apiEquipment)}`,
+        apiKey,
+        limit,
+      );
+    } else {
+      results = await fetchFromEndpoint('/exercises', apiKey, limit);
+    }
+
+    return hydrateGifUrls(results.slice(0, limit));
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Chave WorkoutX')) {
       throw error;
@@ -130,3 +222,6 @@ export async function searchExercises({
     throw new Error('Não foi possível buscar exercícios agora.');
   }
 }
+
+
+

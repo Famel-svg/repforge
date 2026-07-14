@@ -79,6 +79,13 @@ export async function addExercise(
 ): Promise<number> {
   let insertedId = 0;
 
+  const localGif = exercise.gifUrl
+    ? await import('@/utils/downloadGif').then(({ downloadGif }) =>
+        downloadGif(exercise.gifUrl ?? ''),
+      )
+    : null;
+  const gifToSave = localGif ?? exercise.gifUrl;
+
   await db.withExclusiveTransactionAsync(async (txn) => {
     const positionRow = await txn.getFirstAsync<{ next_position: number }>(
       'SELECT COALESCE(MAX(position), -1) + 1 AS next_position FROM exercises WHERE sheet_id = ?',
@@ -88,7 +95,7 @@ export async function addExercise(
       'INSERT INTO exercises (sheet_id, name, gif_url, position) VALUES (?, ?, ?, ?)',
       sheetId,
       exercise.name.trim(),
-      exercise.gifUrl,
+      gifToSave,
       positionRow?.next_position ?? 0,
     );
     insertedId = result.lastInsertRowId;
@@ -123,3 +130,4 @@ export async function deleteExercise(
     );
   });
 }
+

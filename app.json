@@ -24,7 +24,8 @@
     },
     "plugins": [
       "expo-sqlite",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-image"
     ],
     "extra": {
       "eas": {
