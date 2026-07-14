@@ -8,13 +8,16 @@ dispositivo e podem ser exportados ou importados em JSON.
 
 ## Recursos
 
-- Criação e exclusão de fichas de treino
+- Criação, exclusão e duplicação de fichas de treino
 - Busca de exercícios pela API WorkoutX
 - Filtros por nome, parte do corpo e equipamento
-- GIF, nome e dados do exercício salvos localmente
-- Registro de séries, repetições e carga em quilogramas
-- Histórico ordenado do registro mais recente ao mais antigo
+- GIF, nome traduzido e dados do exercício salvos localmente
+- Registro rápido de múltiplas séries, repetições e carga em quilogramas
+- Histórico ordenado com último registro, volume, PR de carga e 1RM estimado
 - Exibição automática da carga atual na ficha
+- Dashboard com volume semanal, totais e barras dos últimos 7 dias
+- Timer de descanso ajustável que inicia após salvar registro
+- Botão para copiar o último registro do exercício
 - Banco SQLite com exclusão em cascata
 - Exportação e importação de backup JSON
 - Importação transacional com rollback em caso de erro
@@ -64,7 +67,7 @@ repforge/
 │   ├── screens/               telas do aplicativo
 │   ├── services/              cliente WorkoutX
 │   ├── types/                 contratos do domínio
-│   └── utils/                 backup, importação e formatação
+│   └── utils/                 backup, importação, timer, cálculos e formatação
 └── tests/                     testes de banco, backup e API
 ```
 
@@ -171,7 +174,10 @@ Cobertura funcional atual:
 - importação válida e inválida;
 - rollback transacional;
 - normalização da resposta WorkoutX;
-- erro de chave ausente.
+- erro de chave ausente;
+- cálculos de volume, PR e 1RM;
+- agregação do dashboard;
+- timer de descanso.
 
 ## Gerar APK
 
@@ -201,3 +207,5 @@ distribuição futura em AAB.
 ## Licença
 
 Distribuído sob licença MIT. Consulte [LICENSE](LICENSE).
+
+
