@@ -2,6 +2,14 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { Sheet } from '@/types';
 
+export const COPY_SHEET_EXERCISES_SQL = `
+  INSERT INTO exercises (sheet_id, name, gif_url, position)
+  SELECT ?, name, gif_url, position
+  FROM exercises
+  WHERE sheet_id = ?
+  ORDER BY position ASC, id ASC
+`;
+
 type SheetRow = {
   id: number;
   name: string;
@@ -49,6 +57,36 @@ export async function createSheet(
     new Date().toISOString(),
   );
   return result.lastInsertRowId;
+}
+
+export async function duplicateSheet(
+  db: SQLiteDatabase,
+  sourceSheetId: number,
+): Promise<number> {
+  let duplicatedId = 0;
+  const updatedAt = new Date().toISOString();
+
+  await db.withExclusiveTransactionAsync(async (txn) => {
+    const source = await txn.getFirstAsync<{ name: string }>(
+      'SELECT name FROM sheets WHERE id = ?',
+      sourceSheetId,
+    );
+
+    if (!source) {
+      throw new Error('Ficha não encontrada.');
+    }
+
+    const result = await txn.runAsync(
+      'INSERT INTO sheets (name, updated_at) VALUES (?, ?)',
+      `${source.name} (cópia)`,
+      updatedAt,
+    );
+    duplicatedId = result.lastInsertRowId;
+
+    await txn.runAsync(COPY_SHEET_EXERCISES_SQL, duplicatedId, sourceSheetId);
+  });
+
+  return duplicatedId;
 }
 
 export async function deleteSheet(

@@ -17,7 +17,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppButton } from '@/components/AppButton';
 import { EmptyState } from '@/components/EmptyState';
 import { StatCard } from '@/components/StatCard';
-import { createSheet, deleteSheet, listSheets } from '@/db/sheets';
+import {
+  createSheet,
+  deleteSheet,
+  duplicateSheet,
+  listSheets,
+} from '@/db/sheets';
 import { getDashboardStats, type DashboardStats } from '@/db/stats';
 import type { RootStackParamList } from '@/navigation/types';
 import { colors, radius, spacing } from '@/theme';
@@ -52,6 +57,7 @@ export function HomeScreen({ navigation }: Props) {
   const [name, setName] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [duplicatingSheetId, setDuplicatingSheetId] = useState<number | null>(null);
   const [backupBusy, setBackupBusy] = useState(false);
 
   const dailyVolumes = stats?.last7Days ?? [];
@@ -101,13 +107,55 @@ export function HomeScreen({ navigation }: Props) {
           text: 'Excluir',
           style: 'destructive',
           onPress: () => {
-            void deleteSheet(db, sheet.id).then(loadHome);
+            void deleteSheet(db, sheet.id)
+              .then(loadHome)
+              .catch((error) => {
+                Alert.alert(
+                  'Ficha não excluída',
+                  error instanceof Error ? error.message : 'Tente novamente.',
+                );
+              });
           },
         },
       ],
     );
   }
 
+  async function handleDuplicate(sheet: Sheet) {
+    setDuplicatingSheetId(sheet.id);
+    try {
+      const duplicatedId = await duplicateSheet(db, sheet.id);
+      const duplicatedName = `${sheet.name} (cópia)`;
+      await loadHome();
+      navigation.navigate('Sheet', {
+        sheetId: duplicatedId,
+        sheetName: duplicatedName,
+      });
+    } catch (error) {
+      Alert.alert(
+        'Ficha não duplicada',
+        error instanceof Error ? error.message : 'Tente novamente.',
+      );
+    } finally {
+      setDuplicatingSheetId(null);
+    }
+  }
+
+  function confirmDuplicate(sheet: Sheet) {
+    Alert.alert(
+      'Duplicar ficha?',
+      `${sheet.name} será copiada com os mesmos exercícios, sem histórico.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Duplicar',
+          onPress: () => {
+            void handleDuplicate(sheet);
+          },
+        },
+      ],
+    );
+  }
   async function handleExport() {
     setBackupBusy(true);
     try {
@@ -238,13 +286,28 @@ export function HomeScreen({ navigation }: Props) {
                 Atualizada em {formatDateTime(item.updatedAt)}
               </Text>
             </View>
-            <Pressable
-              hitSlop={12}
-              onPress={() => confirmDelete(item)}
-              style={styles.deleteButton}
-            >
-              <Text style={styles.deleteText}>Excluir</Text>
-            </Pressable>
+            <View style={styles.cardActions}>
+              <Pressable
+                disabled={duplicatingSheetId === item.id}
+                hitSlop={12}
+                onPress={() => confirmDuplicate(item)}
+                style={[
+                  styles.cardAction,
+                  duplicatingSheetId === item.id && styles.disabledAction,
+                ]}
+              >
+                <Text style={styles.duplicateText}>
+                  {duplicatingSheetId === item.id ? 'Duplicando...' : 'Duplicar'}
+                </Text>
+              </Pressable>
+              <Pressable
+                hitSlop={12}
+                onPress={() => confirmDelete(item)}
+                style={styles.cardAction}
+              >
+                <Text style={styles.deleteText}>Excluir</Text>
+              </Pressable>
+            </View>
           </Pressable>
         )}
       />
@@ -432,8 +495,20 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
   },
-  deleteButton: {
-    padding: spacing.sm,
+  cardActions: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  cardAction: {
+    padding: spacing.xs,
+  },
+  disabledAction: {
+    opacity: 0.55,
+  },
+  duplicateText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   deleteText: {
     color: colors.danger,
@@ -483,3 +558,4 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
