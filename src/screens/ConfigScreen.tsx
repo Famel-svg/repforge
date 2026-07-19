@@ -9,17 +9,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
-import { workoutXProxyOrigin } from '@/config';
-import {
-  clearWorkoutXKey,
-  getWorkoutXKey,
-  setWorkoutXKey,
-} from '@/db/settings';
 import { listSheets } from '@/db/sheets';
 import type { MainTabParamList, RootStackParamList } from '@/navigation/types';
 import { colors, radius, spacing } from '@/theme';
@@ -32,27 +26,15 @@ type Props = CompositeScreenProps<
 
 export function ConfigScreen(_props: Props) {
   const db = useSQLiteContext();
+  const insets = useSafeAreaInsets();
   const [sheetCount, setSheetCount] = useState(0);
   const [backupAction, setBackupAction] = useState<'import' | 'export' | null>(null);
-  const [workoutXKey, setWorkoutXKeyInput] = useState('');
-  const [hasWorkoutXKey, setHasWorkoutXKey] = useState(false);
-  const [savingKey, setSavingKey] = useState(false);
   const backupBusy = backupAction !== null;
-  const workoutXStatus = workoutXProxyOrigin
-    ? 'Proxy Cloudflare ativo neste build'
-    : hasWorkoutXKey
-      ? 'Chave configurada neste aparelho'
-      : 'Cole sua chave wx_ para buscar exercícios';
 
   const load = useCallback(async () => {
     try {
-      const [sheets, savedKey] = await Promise.all([
-        listSheets(db),
-        getWorkoutXKey(db),
-      ]);
+      const sheets = await listSheets(db);
       setSheetCount(sheets.length);
-      setHasWorkoutXKey(savedKey !== null);
-      setWorkoutXKeyInput(savedKey ?? '');
     } catch {
       setSheetCount(0);
     }
@@ -96,47 +78,14 @@ export function ConfigScreen(_props: Props) {
     }
   }
 
-  async function handleSaveWorkoutXKey() {
-    const key = workoutXKey.trim();
-    if (!key.startsWith('wx_')) {
-      Alert.alert('Chave inválida', 'A chave WorkoutX deve começar com wx_.');
-      return;
-    }
-
-    setSavingKey(true);
-    try {
-      await setWorkoutXKey(db, key);
-      setHasWorkoutXKey(true);
-      Alert.alert('Chave salva', 'Busca de exercícios liberada neste aparelho.');
-    } catch (error) {
-      Alert.alert(
-        'Chave não salva',
-        error instanceof Error ? error.message : 'Tente novamente.',
-      );
-    } finally {
-      setSavingKey(false);
-    }
-  }
-
-  async function handleClearWorkoutXKey() {
-    setSavingKey(true);
-    try {
-      await clearWorkoutXKey(db);
-      setWorkoutXKeyInput('');
-      setHasWorkoutXKey(false);
-    } catch (error) {
-      Alert.alert(
-        'Chave não removida',
-        error instanceof Error ? error.message : 'Tente novamente.',
-      );
-    } finally {
-      setSavingKey(false);
-    }
-  }
-
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + spacing.lg },
+        ]}
+      >
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>CONFIG</Text>
           <Text style={styles.title}>Dados e backup.</Text>
@@ -144,46 +93,6 @@ export function ConfigScreen(_props: Props) {
             Importe e exporte suas planilhas em JSON. Bom lugar para trocar de
             aparelho ou guardar uma cópia local.
           </Text>
-        </View>
-
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View>
-              <Text style={styles.cardTitle}>WorkoutX API</Text>
-              <Text style={styles.cardText}>{workoutXStatus}</Text>
-            </View>
-          </View>
-
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!workoutXProxyOrigin}
-            onChangeText={setWorkoutXKeyInput}
-            placeholder={workoutXProxyOrigin ? 'Proxy ativo' : 'wx_sua_chave'}
-            placeholderTextColor={colors.textMuted}
-            secureTextEntry
-            style={styles.input}
-            value={workoutXKey}
-          />
-
-          <View style={styles.actionStack}>
-            <AppButton
-              disabled={
-                !!workoutXProxyOrigin || !workoutXKey.trim() || savingKey
-              }
-              label="Salvar chave"
-              loading={savingKey}
-              onPress={() => void handleSaveWorkoutXKey()}
-            />
-            {hasWorkoutXKey ? (
-              <AppButton
-                disabled={!!workoutXProxyOrigin || savingKey}
-                label="Remover chave"
-                onPress={() => void handleClearWorkoutXKey()}
-                variant="secondary"
-              />
-            ) : null}
-          </View>
         </View>
 
         <View style={styles.card}>
@@ -274,16 +183,6 @@ const styles = StyleSheet.create({
   cardText: {
     color: colors.textMuted,
     marginTop: spacing.xs,
-  },
-  input: {
-    minHeight: 52,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    color: colors.text,
-    backgroundColor: colors.background,
-    fontSize: 16,
   },
   actionStack: {
     gap: spacing.sm,
