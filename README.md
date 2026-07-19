@@ -58,14 +58,18 @@ npx wrangler secret put WORKOUTX_API_KEY
 npm run deploy
 ```
 
-Antes de gerar o APK, coloque a URL publica do Worker em `.env.local`:
+O app ja vem configurado para usar:
 
 ```text
-EXPO_PUBLIC_WORKOUTX_PROXY_URL=https://repforge-workoutx-proxy.YOUR.workers.dev
+https://repforge-workoutx-proxy.repforge-rafael.workers.dev
 ```
 
 Esse valor pode ir no APK porque e apenas a URL do proxy. A chave real fica no
-Cloudflare.
+Cloudflare. Se quiser trocar o proxy em build local, use `.env.local`:
+
+```text
+EXPO_PUBLIC_WORKOUTX_PROXY_URL=https://outro-proxy.workers.dev
+```
 
 O proxy limita gasto de API por cache miss:
 

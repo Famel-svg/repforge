@@ -38,11 +38,12 @@ npx wrangler secret put WORKOUTX_API_KEY
 npm run deploy
 ```
 
-Copy the deployed URL, then add this to the app `.env.local` before building
-the APK:
+The app already defaults to:
 
 ```text
-EXPO_PUBLIC_WORKOUTX_PROXY_URL=https://repforge-workoutx-proxy.YOUR.workers.dev
+https://repforge-workoutx-proxy.repforge-rafael.workers.dev
 ```
 
 This URL is public and safe to embed. The WorkoutX key stays in Cloudflare.
+Override it with `EXPO_PUBLIC_WORKOUTX_PROXY_URL` only if you deploy another
+proxy.
