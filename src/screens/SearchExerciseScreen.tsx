@@ -15,7 +15,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { ExerciseImage } from '@/components/ExerciseImage';
 import { SelectField } from '@/components/SelectField';
 import { addExercise } from '@/db/exercises';
-import { getWorkoutXKey } from '@/db/settings';
+import { getInstallId, getWorkoutXKey } from '@/db/settings';
 import type { RootStackParamList } from '@/navigation/types';
 import {
   BODY_PARTS,
@@ -42,10 +42,11 @@ export function SearchExerciseScreen({ navigation, route }: Props) {
     try {
       const nextResults = await searchExercises({
         apiKey: await getWorkoutXKey(db),
+        installId: await getInstallId(db),
         name,
         bodyPart,
         equipment,
-        limit: 20,
+        limit: 10,
       });
       setResults(nextResults);
       setSearched(true);
@@ -59,7 +60,13 @@ export function SearchExerciseScreen({ navigation, route }: Props) {
   async function handleAdd(exercise: WorkoutXExercise) {
     setAddingId(exercise.id);
     try {
-      await addExercise(db, route.params.sheetId, exercise, await getWorkoutXKey(db));
+      await addExercise(
+        db,
+        route.params.sheetId,
+        exercise,
+        await getWorkoutXKey(db),
+        await getInstallId(db),
+      );
       navigation.goBack();
     } catch (error) {
       Alert.alert('Exercício não adicionado', error instanceof Error ? error.message : 'Tente novamente.');

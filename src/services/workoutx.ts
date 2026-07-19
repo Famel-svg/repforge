@@ -1,5 +1,6 @@
 import axios, { isAxiosError } from 'axios';
 
+import { workoutXApiUrl, workoutXProxyOrigin } from '@/config';
 import type { WorkoutXExercise } from '@/types';
 import {
   translateBodyPart,
@@ -8,8 +9,6 @@ import {
   translateMuscle,
   translateSearchTerm,
 } from '@/utils/translations';
-
-const API_URL = 'https://api.workoutxapp.com/v1';
 
 export const BODY_PARTS = [
   'Costas',
@@ -124,7 +123,8 @@ export function normalizeWorkoutXResponse(input: unknown): WorkoutXExercise[] {
 
 async function hydrateGifUrls(
   exercises: WorkoutXExercise[],
-  apiKey: string,
+  apiKey: string | null,
+  installId: string | null,
 ): Promise<WorkoutXExercise[]> {
   const { downloadGif } = await import('@/utils/downloadGif');
   const hydrated: WorkoutXExercise[] = [];
@@ -135,7 +135,11 @@ async function hydrateGifUrls(
       ...(await Promise.all(
         chunk.map(async (exercise) => {
           if (!exercise.gifUrl) return exercise;
-          const localGifUrl = await downloadGif(exercise.gifUrl, apiKey);
+          const localGifUrl = await downloadGif(
+            exercise.gifUrl,
+            apiKey,
+            installId,
+          );
           return localGifUrl ? { ...exercise, gifUrl: localGifUrl } : exercise;
         }),
       )),
@@ -146,6 +150,7 @@ async function hydrateGifUrls(
 }
 export type SearchExerciseParams = {
   apiKey?: string | null;
+  installId?: string | null;
   bodyPart?: string;
   equipment?: string;
   name?: string;
@@ -154,11 +159,14 @@ export type SearchExerciseParams = {
 
 async function fetchFromEndpoint(
   endpoint: string,
-  apiKey: string,
+  apiKey: string | null,
+  installId: string | null,
   limit: number,
 ): Promise<WorkoutXExercise[]> {
-  const response = await axios.get(`${API_URL}${endpoint}`, {
-    headers: { 'X-WorkoutX-Key': apiKey },
+  const response = await axios.get(`${workoutXApiUrl}${endpoint}`, {
+    headers: workoutXProxyOrigin
+      ? { 'X-RepForge-Install': installId ?? 'unknown' }
+      : { 'X-WorkoutX-Key': apiKey ?? '' },
     params: { limit },
     timeout: 12_000,
   });
@@ -167,13 +175,15 @@ async function fetchFromEndpoint(
 
 export async function searchExercises({
   apiKey,
+  installId,
   bodyPart,
   equipment,
   name,
   limit = 20,
 }: SearchExerciseParams): Promise<WorkoutXExercise[]> {
   const key = apiKey?.trim();
-  if (!key) {
+  const deviceId = installId?.trim() ?? null;
+  if (!workoutXProxyOrigin && !key) {
     throw new Error(
       'Chave WorkoutX ausente. Configure sua chave em Config.',
     );
@@ -187,28 +197,31 @@ export async function searchExercises({
     if (trimmedName) {
       results = await fetchFromEndpoint(
         `/exercises/name/${encodeURIComponent(apiName)}`,
-        key,
+        key ?? null,
+        deviceId,
         limit,
       );
     } else if (bodyPart) {
       const apiBodyPart = BODY_PARTS_MAP[bodyPart] ?? bodyPart;
       results = await fetchFromEndpoint(
         `/exercises/bodyPart/${encodeURIComponent(apiBodyPart)}`,
-        key,
+        key ?? null,
+        deviceId,
         limit,
       );
     } else if (equipment) {
       const apiEquipment = EQUIPMENT_MAP[equipment] ?? equipment;
       results = await fetchFromEndpoint(
         `/exercises/equipment/${encodeURIComponent(apiEquipment)}`,
-        key,
+        key ?? null,
+        deviceId,
         limit,
       );
     } else {
-      results = await fetchFromEndpoint('/exercises', key, limit);
+      results = await fetchFromEndpoint('/exercises', key ?? null, deviceId, limit);
     }
 
-    return hydrateGifUrls(results.slice(0, limit), key);
+    return hydrateGifUrls(results.slice(0, limit), key ?? null, deviceId);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Chave WorkoutX')) {
       throw error;
@@ -217,7 +230,7 @@ export async function searchExercises({
       throw new Error('Chave WorkoutX inválida.');
     }
     if (isAxiosError(error) && error.response?.status === 429) {
-      throw new Error('Limite mensal da WorkoutX atingido.');
+      throw new Error('Limite de buscas atingido. Tente novamente amanhã.');
     }
     if (isAxiosError(error) && !error.response) {
       throw new Error('Sem conexão — verifique sua internet.');

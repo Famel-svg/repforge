@@ -77,12 +77,13 @@ export async function addExercise(
   sheetId: number,
   exercise: Pick<WorkoutXExercise, 'name' | 'gifUrl'>,
   apiKey?: string | null,
+  installId?: string | null,
 ): Promise<number> {
   let insertedId = 0;
 
   const localGif = exercise.gifUrl
     ? await import('@/utils/downloadGif').then(({ downloadGif }) =>
-        downloadGif(exercise.gifUrl ?? '', apiKey),
+        downloadGif(exercise.gifUrl ?? '', apiKey, installId),
       )
     : null;
   const gifToSave = localGif ?? exercise.gifUrl;

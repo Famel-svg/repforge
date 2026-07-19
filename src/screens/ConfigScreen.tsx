@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
+import { workoutXProxyOrigin } from '@/config';
 import {
   clearWorkoutXKey,
   getWorkoutXKey,
@@ -37,6 +38,11 @@ export function ConfigScreen(_props: Props) {
   const [hasWorkoutXKey, setHasWorkoutXKey] = useState(false);
   const [savingKey, setSavingKey] = useState(false);
   const backupBusy = backupAction !== null;
+  const workoutXStatus = workoutXProxyOrigin
+    ? 'Proxy Cloudflare ativo neste build'
+    : hasWorkoutXKey
+      ? 'Chave configurada neste aparelho'
+      : 'Cole sua chave wx_ para buscar exercícios';
 
   const load = useCallback(async () => {
     try {
@@ -144,19 +150,16 @@ export function ConfigScreen(_props: Props) {
           <View style={styles.cardHeader}>
             <View>
               <Text style={styles.cardTitle}>WorkoutX API</Text>
-              <Text style={styles.cardText}>
-                {hasWorkoutXKey
-                  ? 'Chave configurada neste aparelho'
-                  : 'Cole sua chave wx_ para buscar exercícios'}
-              </Text>
+              <Text style={styles.cardText}>{workoutXStatus}</Text>
             </View>
           </View>
 
           <TextInput
             autoCapitalize="none"
             autoCorrect={false}
+            editable={!workoutXProxyOrigin}
             onChangeText={setWorkoutXKeyInput}
-            placeholder="wx_sua_chave"
+            placeholder={workoutXProxyOrigin ? 'Proxy ativo' : 'wx_sua_chave'}
             placeholderTextColor={colors.textMuted}
             secureTextEntry
             style={styles.input}
@@ -165,14 +168,16 @@ export function ConfigScreen(_props: Props) {
 
           <View style={styles.actionStack}>
             <AppButton
-              disabled={!workoutXKey.trim() || savingKey}
+              disabled={
+                !!workoutXProxyOrigin || !workoutXKey.trim() || savingKey
+              }
               label="Salvar chave"
               loading={savingKey}
               onPress={() => void handleSaveWorkoutXKey()}
             />
             {hasWorkoutXKey ? (
               <AppButton
-                disabled={savingKey}
+                disabled={!!workoutXProxyOrigin || savingKey}
                 label="Remover chave"
                 onPress={() => void handleClearWorkoutXKey()}
                 variant="secondary"

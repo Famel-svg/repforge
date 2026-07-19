@@ -52,3 +52,7 @@ yarn-error.*
 # generated knowledge graph
 graphify-out/
 
+# Cloudflare local output
+.wrangler/
+worker-dist/
+

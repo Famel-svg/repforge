@@ -39,6 +39,43 @@ Opcoes seguras:
 
 O build publico atual usa a primeira opcao.
 
+### Proxy Cloudflare gratuito
+
+Para distribuir o APK usando sua chave sem mostra-la no app, use o Worker em
+`proxy/`.
+
+```bash
+cd proxy
+npm install
+npx wrangler login
+npx wrangler kv namespace create USAGE
+```
+
+Copie o `id` retornado para `proxy/wrangler.jsonc`, depois configure a chave:
+
+```bash
+npx wrangler secret put WORKOUTX_API_KEY
+npm run deploy
+```
+
+Antes de gerar o APK, coloque a URL publica do Worker em `.env.local`:
+
+```text
+EXPO_PUBLIC_WORKOUTX_PROXY_URL=https://repforge-workoutx-proxy.YOUR.workers.dev
+```
+
+Esse valor pode ir no APK porque e apenas a URL do proxy. A chave real fica no
+Cloudflare.
+
+O proxy limita gasto de API por cache miss:
+
+- `PER_INSTALL_DAILY_LIMIT=60`
+- `GLOBAL_DAILY_LIMIT=450`
+- burst: `10` requisicoes/minuto por instalacao
+
+Se sua chave WorkoutX for free com 500 requisicoes/mes, use
+`GLOBAL_DAILY_LIMIT=15`.
+
 ## Instalar para desenvolvimento
 
 Requisitos:

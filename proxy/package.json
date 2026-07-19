@@ -1,0 +1,13 @@
+{
+  "name": "repforge-workoutx-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260719.1",
+    "wrangler": "^4.36.0"
+  }
+}

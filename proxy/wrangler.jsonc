@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "repforge-workoutx-proxy",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-19",
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "GLOBAL_DAILY_LIMIT": "450",
+    "PER_INSTALL_DAILY_LIMIT": "60"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "USAGE",
+      "id": "a2b3b3816598455486a91736169f9fd0"
+    }
+  ],
+  "ratelimits": [
+    {
+      "name": "BURST_LIMITER",
+      "namespace_id": "2026071901",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ]
+}
