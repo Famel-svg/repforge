@@ -59,7 +59,7 @@ export function SearchExerciseScreen({ navigation, route }: Props) {
   async function handleAdd(exercise: WorkoutXExercise) {
     setAddingId(exercise.id);
     try {
-      await addExercise(db, route.params.sheetId, exercise);
+      await addExercise(db, route.params.sheetId, exercise, await getWorkoutXKey(db));
       navigation.goBack();
     } catch (error) {
       Alert.alert('Exercício não adicionado', error instanceof Error ? error.message : 'Tente novamente.');

@@ -1,87 +1,52 @@
 # RepForge
 
-Aplicativo Android local-first para organizar fichas de treino, registrar cargas
-e acompanhar histórico de séries e repetições.
+![RepForge icon](assets/icon.png)
 
-Construído com Expo, React Native, TypeScript e SQLite. Dados permanecem no
-dispositivo e podem ser exportados ou importados em JSON.
+RepForge e um app Android local-first para montar fichas de treino, buscar
+exercicios, registrar cargas e acompanhar evolucao sem depender de conta ou
+nuvem.
 
-## Recursos
+O app usa Expo, React Native, TypeScript e SQLite. Seus dados ficam no aparelho
+e podem ser exportados/importados em JSON pela tela `Config`.
 
-- Criação, exclusão e duplicação de fichas de treino
-- Busca de exercícios pela API WorkoutX
-- Chave WorkoutX configurada dentro do app, sem segredo embutido no APK
-- Filtros por nome, parte do corpo e equipamento
-- GIF, nome traduzido e dados do exercício salvos localmente
-- Registro rápido de múltiplas séries, repetições e carga em quilogramas
-- Histórico ordenado com último registro, volume, PR de carga e 1RM estimado
-- Exibição automática da carga atual na ficha
-- Dashboard com volume semanal, totais e barras dos últimos 7 dias
-- Timer de descanso ajustável que inicia após salvar registro
-- Banco SQLite com exclusão em cascata
-- Exportação e importação de backup JSON
-- Importação transacional com rollback em caso de erro
-- Interface escura em português
-- Perfil EAS configurado para gerar APK
+## O que ele faz
 
-## Tecnologias
+- Cria, duplica e remove fichas de treino.
+- Busca exercicios na WorkoutX com filtros de nome, parte do corpo e equipamento.
+- Salva nome, GIF e dados do exercicio no banco local.
+- Registra series, repeticoes e carga em kg.
+- Mostra historico, ultimo registro, volume, PR de carga e 1RM estimado.
+- Mostra dashboard com volume semanal, totais e barras dos ultimos 7 dias.
+- Inclui timer de descanso ajustavel.
+- Exporta e importa backup JSON.
+- Usa interface escura em portugues, pensada para celular.
 
-| Tecnologia | Uso |
-|---|---|
-| Expo SDK 56 | Plataforma e build Android |
-| React Native | Interface mobile |
-| TypeScript | Tipagem estática |
-| Expo SQLite | Persistência local |
-| React Navigation | Navegação entre telas |
-| Axios | Integração HTTP |
-| WorkoutX API | Catálogo de exercícios |
-| Vitest | Testes unitários |
-| ESLint | Qualidade de código |
+## WorkoutX API
 
-## Fluxo do aplicativo
+RepForge nao embute chave WorkoutX no APK.
 
-```text
-Fichas
-  └── Exercícios da ficha
-        ├── Histórico e novo registro
-        └── Busca de exercícios na WorkoutX
-```
+Motivo: APK e codigo cliente. Qualquer chave colocada em JavaScript, `.env`,
+`EXPO_PUBLIC_*`, `app.json`, asset ou recurso nativo pode ser extraida por
+alguem que descompile o APK ou inspecione as requisicoes.
 
-1. Usuário cria uma ficha.
-2. Busca um exercício na WorkoutX.
-3. Nome e URL do GIF são persistidos no SQLite.
-4. Registros de carga ficam vinculados ao exercício.
-5. Backup pode ser compartilhado ou restaurado posteriormente.
+Opcoes seguras:
 
-## Estrutura
+- **Uso pessoal ou beta:** abra `Config` no app e cole sua propria chave
+  WorkoutX (`wx_...`). Ela fica salva apenas no SQLite local do aparelho.
+- **Distribuicao publica usando sua chave:** crie um backend proxy. O app chama
+  seu servidor, e o servidor chama a WorkoutX com `X-WorkoutX-Key`. Assim o APK
+  recebe apenas a URL publica do proxy, nunca a chave.
 
-```text
-repforge/
-├── App.tsx                    navegação e inicialização do SQLite
-├── app.json                   configuração Expo e Android
-├── eas.json                   perfis de build EAS
-├── src/
-│   ├── components/            componentes visuais
-│   ├── db/                    schema e repositórios SQLite
-│   ├── navigation/            tipos das rotas
-│   ├── screens/               telas do aplicativo
-│   ├── services/              cliente WorkoutX
-│   ├── types/                 contratos do domínio
-│   └── utils/                 backup, importação, timer, cálculos e formatação
-└── tests/                     testes de banco, backup e API
-```
+O build publico atual usa a primeira opcao.
 
-## Requisitos
+## Instalar para desenvolvimento
+
+Requisitos:
 
 - Node.js 22.13 ou superior
 - npm
-- Expo Go ou dispositivo/emulador Android
-- Chave da [WorkoutX](https://workoutxapp.com/) para configurar em `Config`
-- Conta Expo somente para builds EAS
-
-Node 22 LTS é recomendado.
-
-## Instalação
+- Expo Go, emulador Android ou aparelho Android
+- Conta Expo apenas para gerar APK via EAS
 
 ```bash
 git clone https://github.com/Famel-svg/repforge.git
@@ -89,53 +54,91 @@ cd repforge
 npm install
 ```
 
-Ao abrir o app, entre em `Config` e cole sua chave WorkoutX (`wx_...`). A chave
-fica salva somente no SQLite local do aparelho.
+## Rodar no computador
 
-## Execução
+No VS Code, use `Terminal > Run Task`:
+
+- `Preview: Web`
+- `Preview: Expo Go`
+
+Ou rode direto:
 
 ```bash
+npm run web
 npm start
 ```
 
-Outros comandos:
+O foco do projeto e Android. Web existe para preview rapido.
+
+## Rodar no Android
 
 ```bash
 npm run android
-npm run ios
-npm run web
 ```
 
-O foco atual é Android. iOS e web não fazem parte da validação do MVP.
+Depois abra `Config`, cole sua chave WorkoutX e salve.
 
-## Banco local
+## Gerar APK
 
-Arquivo: `repforge.db`
+```bash
+npm run lint
+npm run typecheck
+npm test
+npx eas-cli build --platform android --profile preview
+```
 
-Tabelas:
-
-- `sheets`: fichas de treino
-- `exercises`: exercícios vinculados à ficha
-- `entries`: histórico de séries, repetições e carga
-- `app_settings`: configurações locais, incluindo a chave WorkoutX do usuário
-
-O schema usa `PRAGMA foreign_keys = ON`, exclusão em cascata e
-`PRAGMA user_version = 2`.
+O perfil `preview` gera APK instalavel. O perfil `production` fica reservado
+para AAB/loja.
 
 ## Backup
 
-Exportação gera:
+Exportacao gera arquivo no formato:
 
 ```text
 repforge-backup-YYYY-MM-DD.json
 ```
 
-Importação segue estratégia append:
+Importacao:
 
-- dados existentes são preservados;
-- arquivo completo é validado antes da escrita;
-- todas as inserções executam em uma transação exclusiva;
-- qualquer falha causa rollback completo.
+- valida o arquivo antes de escrever;
+- adiciona dados sem apagar banco atual;
+- roda em transacao exclusiva;
+- faz rollback completo se algo falhar.
+
+Backup contem dados de treino em texto legivel. Compartilhe com cuidado.
+
+## Banco local
+
+Banco: `repforge.db`
+
+Tabelas:
+
+- `sheets`: fichas de treino
+- `exercises`: exercicios da ficha
+- `entries`: historico de carga
+- `app_settings`: configuracoes locais, incluindo chave WorkoutX do usuario
+
+O schema ativa `PRAGMA foreign_keys = ON`, usa exclusao em cascata e
+`PRAGMA user_version = 2`.
+
+## Estrutura
+
+```text
+repforge/
+├── App.tsx
+├── app.json
+├── eas.json
+├── assets/
+├── src/
+│   ├── components/
+│   ├── db/
+│   ├── navigation/
+│   ├── screens/
+│   ├── services/
+│   ├── types/
+│   └── utils/
+└── tests/
+```
 
 ## Qualidade
 
@@ -143,49 +146,19 @@ Importação segue estratégia append:
 npm run lint
 npm run typecheck
 npm test
-npx expo-doctor
 ```
 
-Cobertura funcional atual:
+Testes cobrem schema SQLite, backup/importacao, rollback, WorkoutX,
+normalizacao de dados, dashboard, timer e calculos de treino.
 
-- schema e exclusão em cascata;
-- ordenação de exercícios;
-- seleção da entrada mais recente;
-- validação e serialização do backup;
-- importação válida e inválida;
-- rollback transacional;
-- normalização da resposta WorkoutX;
-- erro de chave ausente;
-- cálculos de volume, PR e 1RM;
-- agregação do dashboard;
-- timer de descanso.
+## Release
 
-## Gerar APK
+1. Atualize `package.json`, `package-lock.json`, `app.json` e `versionCode`.
+2. Rode lint, typecheck e testes.
+3. Gere APK com EAS preview.
+4. Baixe o APK.
+5. Crie tag e release no GitHub.
 
-Instale e autentique o EAS CLI:
+## Licenca
 
-```bash
-npm install --global eas-cli
-eas login
-```
-
-```bash
-eas build --platform android --profile preview
-```
-
-O perfil `preview` produz APK instalável. `production` fica reservado para
-distribuição futura em AAB.
-
-## Segurança
-
-- `.env`, APKs, logs Expo e dependências estão ignorados pelo Git.
-- Backup contém dados de treino em texto legível; compartilhe com cuidado.
-- Aplicativo não possui autenticação ou sincronização em nuvem.
-- Chave WorkoutX não deve ser adicionada ao código nem ao build. Use a tela
-  `Config` ou um backend proxy se quiser distribuir uma chave própria.
-
-## Licença
-
-Distribuído sob licença MIT. Consulte [LICENSE](LICENSE).
-
-
+MIT. Veja [LICENSE](LICENSE).

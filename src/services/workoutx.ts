@@ -124,6 +124,7 @@ export function normalizeWorkoutXResponse(input: unknown): WorkoutXExercise[] {
 
 async function hydrateGifUrls(
   exercises: WorkoutXExercise[],
+  apiKey: string,
 ): Promise<WorkoutXExercise[]> {
   const { downloadGif } = await import('@/utils/downloadGif');
   const hydrated: WorkoutXExercise[] = [];
@@ -134,7 +135,7 @@ async function hydrateGifUrls(
       ...(await Promise.all(
         chunk.map(async (exercise) => {
           if (!exercise.gifUrl) return exercise;
-          const localGifUrl = await downloadGif(exercise.gifUrl);
+          const localGifUrl = await downloadGif(exercise.gifUrl, apiKey);
           return localGifUrl ? { ...exercise, gifUrl: localGifUrl } : exercise;
         }),
       )),
@@ -207,7 +208,7 @@ export async function searchExercises({
       results = await fetchFromEndpoint('/exercises', key, limit);
     }
 
-    return hydrateGifUrls(results.slice(0, limit));
+    return hydrateGifUrls(results.slice(0, limit), key);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Chave WorkoutX')) {
       throw error;

@@ -1,9 +1,11 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
-const API_KEY = process.env.EXPO_PUBLIC_WORKOUTX_KEY ?? '';
-
-export async function downloadGif(url: string): Promise<string | null> {
-  if (!url || !API_KEY) return null;
+export async function downloadGif(
+  url: string,
+  apiKey?: string | null,
+): Promise<string | null> {
+  const key = apiKey?.trim();
+  if (!url || !key) return null;
 
   const rawName = url.split('/').pop() ?? `img_${Date.now()}`;
   const filename = rawName.endsWith('.gif') ? rawName : `${rawName}.gif`;
@@ -20,7 +22,7 @@ export async function downloadGif(url: string): Promise<string | null> {
     }
 
     const response = await fetch(url, {
-      headers: { 'X-WorkoutX-Key': API_KEY },
+      headers: { 'X-WorkoutX-Key': key },
     });
 
     if (!response.ok) return null;

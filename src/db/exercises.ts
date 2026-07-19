@@ -76,12 +76,13 @@ export async function addExercise(
   db: SQLiteDatabase,
   sheetId: number,
   exercise: Pick<WorkoutXExercise, 'name' | 'gifUrl'>,
+  apiKey?: string | null,
 ): Promise<number> {
   let insertedId = 0;
 
   const localGif = exercise.gifUrl
     ? await import('@/utils/downloadGif').then(({ downloadGif }) =>
-        downloadGif(exercise.gifUrl ?? ''),
+        downloadGif(exercise.gifUrl ?? '', apiKey),
       )
     : null;
   const gifToSave = localGif ?? exercise.gifUrl;
