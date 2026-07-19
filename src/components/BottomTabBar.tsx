@@ -1,60 +1,91 @@
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { RootTabRoute } from '@/navigation/types';
-import { colors, radius, spacing } from '@/theme';
+import type { MainTabParamList } from '@/navigation/types';
+import { colors, radius, spacing, touch } from '@/theme';
 
-type TabKey = 'home' | 'sheets' | 'track';
-
-type TabItem = {
-  icon: string;
-  key: TabKey;
+type TabVisual = {
+  icon: keyof typeof Ionicons.glyphMap;
+  iconFocused: keyof typeof Ionicons.glyphMap;
   label: string;
-  routeName: RootTabRoute;
 };
 
-const TABS: TabItem[] = [
-  { icon: 'H', key: 'home', label: 'Home', routeName: 'Home' },
-  { icon: 'P', key: 'sheets', label: 'Planilhas', routeName: 'Sheets' },
-  { icon: 'T', key: 'track', label: 'Track', routeName: 'Track' },
-];
-
-type Props = {
-  active: TabKey;
-  onNavigate: (routeName: RootTabRoute) => void;
+const TAB_VISUALS: Record<keyof MainTabParamList, TabVisual> = {
+  Home: {
+    icon: 'home-outline',
+    iconFocused: 'home',
+    label: 'Home',
+  },
+  Sheets: {
+    icon: 'list-outline',
+    iconFocused: 'list',
+    label: 'Planilhas',
+  },
+  Track: {
+    icon: 'flame-outline',
+    iconFocused: 'flame',
+    label: 'Track',
+  },
+  Config: {
+    icon: 'settings-outline',
+    iconFocused: 'settings',
+    label: 'Config',
+  },
 };
 
-export function BottomTabBar({ active, onNavigate }: Props) {
+export function BottomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.shell, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
       <View style={styles.bar}>
-        {TABS.map((tab) => {
-          const isActive = tab.key === active;
+        {state.routes.map((route, index) => {
+          const focused = state.index === index;
+          const { options } = descriptors[route.key];
+          const tabKey = route.name as keyof MainTabParamList;
+          const visual = TAB_VISUALS[tabKey];
+          const label =
+            typeof options.tabBarLabel === 'string'
+              ? options.tabBarLabel
+              : (visual?.label ?? route.name);
+          const iconName = focused
+            ? (visual?.iconFocused ?? 'ellipse')
+            : (visual?.icon ?? 'ellipse-outline');
 
           return (
             <Pressable
-              accessibilityLabel={`Abrir ${tab.label}`}
+              accessibilityLabel={options.tabBarAccessibilityLabel ?? `Abrir ${label}`}
               accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
+              accessibilityState={{ selected: focused }}
               hitSlop={8}
-              key={tab.routeName}
-              onPress={() => { if (!isActive) onNavigate(tab.routeName); }}
+              key={route.key}
+              onPress={() => {
+                const event = navigation.emit({
+                  type: 'tabPress',
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+
+                if (!focused && !event.defaultPrevented) {
+                  navigation.navigate(route.name, route.params);
+                }
+              }}
               style={({ pressed }) => [
                 styles.item,
-                isActive && styles.itemActive,
+                focused && styles.itemActive,
                 pressed && styles.itemPressed,
               ]}
             >
-              <View style={[styles.iconBubble, isActive && styles.iconBubbleActive]}>
-                <Text style={[styles.iconText, isActive && styles.iconTextActive]}>
-                  {tab.icon}
-                </Text>
+              <View style={[styles.iconBubble, focused && styles.iconBubbleActive]}>
+                <Ionicons
+                  color={focused ? '#FFFFFF' : colors.textMuted}
+                  name={iconName}
+                  size={18}
+                />
               </View>
-              <Text style={[styles.label, isActive && styles.labelActive]}>
-                {tab.label}
-              </Text>
+              <Text style={[styles.label, focused && styles.labelActive]}>{label}</Text>
             </Pressable>
           );
         })}
@@ -84,7 +115,7 @@ const styles = StyleSheet.create({
   },
   item: {
     flex: 1,
-    minHeight: 54,
+    minHeight: touch.min,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
@@ -97,25 +128,17 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   iconBubble: {
-    width: 26,
-    height: 26,
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 13,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
   },
   iconBubbleActive: {
     borderColor: colors.primary,
     backgroundColor: colors.primary,
-  },
-  iconText: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  iconTextActive: {
-    color: '#FFFFFF',
   },
   label: {
     color: colors.textMuted,
@@ -126,4 +149,3 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
 });
-

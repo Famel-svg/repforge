@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export const DATABASE_VERSION = 1;
+export const DATABASE_VERSION = 2;
 
 export const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS sheets (
@@ -30,6 +30,11 @@ export const SCHEMA_SQL = `
     ON exercises(sheet_id, position);
   CREATE INDEX IF NOT EXISTS idx_entries_exercise_recorded
     ON entries(exercise_id, recorded_at DESC, id DESC);
+
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 `;
 
 export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
@@ -46,6 +51,17 @@ export async function migrateDatabase(db: SQLiteDatabase): Promise<void> {
 
   if (currentVersion === 0) {
     await db.execAsync(SCHEMA_SQL);
+    await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
+    return;
+  }
+
+  if (currentVersion < 2) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+    `);
     await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
   }
 }

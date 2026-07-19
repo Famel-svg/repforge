@@ -1,4 +1,6 @@
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
+import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useMemo, useState } from 'react';
@@ -8,10 +10,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
-import { BottomTabBar } from '@/components/BottomTabBar';
 import { EmptyState } from '@/components/EmptyState';
 import { StatCard } from '@/components/StatCard';
 import {
@@ -19,12 +21,20 @@ import {
   type TrainingDay,
   type TrainingTrackStats,
 } from '@/db/stats';
-import type { RootStackParamList } from '@/navigation/types';
-import { colors, radius, spacing } from '@/theme';
+import type { MainTabParamList, RootStackParamList } from '@/navigation/types';
+import { colors, radius, spacing, touch } from '@/theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Track'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, 'Track'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
 const RECENT_TRAINING_DAYS_LIMIT = 6;
+const GRID_COLUMNS = 7;
+const GRID_GAP = spacing.xs;
+const GRID_HORIZONTAL_CHROME = spacing.md * 4 + 2;
+const TRAINED_DAY_ORANGE = '#F97316';
+const TRAINED_DAY_ORANGE_SOFT = '#F9731624';
 
 function formatDayCount(value: number): string {
   return `${value} ${value === 1 ? 'dia' : 'dias'}`;
@@ -46,16 +56,37 @@ function getStreakHint(value: number): string {
   return value === 1 ? '1 dia seguido' : `${value} dias seguidos`;
 }
 
-function DayCell({ day }: { day: TrainingDay }) {
+function DayCell({ day, width }: { day: TrainingDay; width: number }) {
   return (
-    <View style={[styles.dayCell, day.trained && styles.trainedDayCell]}>
-      <Text style={[styles.dayWeekday, day.trained && styles.trainedDayText]}>
+    <View
+      style={[
+        styles.dayCell,
+        { width },
+        day.trained && styles.trainedDayCell,
+      ]}
+    >
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+        numberOfLines={1}
+        style={[styles.dayWeekday, day.trained && styles.trainedDayText]}
+      >
         {day.weekday}
       </Text>
-      <Text style={[styles.dayLabel, day.trained && styles.trainedDayText]}>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+        numberOfLines={1}
+        style={[styles.dayLabel, day.trained && styles.trainedDayText]}
+      >
         {day.label}
       </Text>
-      <Text style={[styles.dayStatus, day.trained && styles.trainedDayStatus]}>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+        numberOfLines={1}
+        style={[styles.dayStatus, day.trained && styles.trainedDayStatus]}
+      >
         {day.trained ? 'Treino' : 'Livre'}
       </Text>
     </View>
@@ -79,8 +110,9 @@ function RecentTrainingDay({ day }: { day: TrainingDay }) {
   );
 }
 
-export function TrainingTrackScreen({ navigation }: Props) {
+export function TrainingTrackScreen(_props: Props) {
   const db = useSQLiteContext();
+  const { width: windowWidth } = useWindowDimensions();
   const [stats, setStats] = useState<TrainingTrackStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,6 +182,13 @@ export function TrainingTrackScreen({ navigation }: Props) {
   );
 
   const hasTraining = (stats?.totalTrainingDays ?? 0) > 0;
+  const dayCellWidth = Math.floor(
+    Math.max(
+      30,
+      (windowWidth - GRID_HORIZONTAL_CHROME - GRID_GAP * (GRID_COLUMNS - 1)) /
+        GRID_COLUMNS,
+    ),
+  );
 
   return (
     <View style={styles.screen}>
@@ -233,7 +272,7 @@ export function TrainingTrackScreen({ navigation }: Props) {
 
             <View style={styles.daysGrid}>
               {stats.last28Days.map((day) => (
-                <DayCell day={day} key={day.date} />
+                <DayCell day={day} key={day.date} width={dayCellWidth} />
               ))}
             </View>
           </View>
@@ -266,11 +305,6 @@ export function TrainingTrackScreen({ navigation }: Props) {
         </>
       ) : null}
       </ScrollView>
-
-      <BottomTabBar
-        active="track"
-        onNavigate={(routeName) => navigation.replace(routeName)}
-      />
     </View>
   );
 }
@@ -286,8 +320,8 @@ const styles = StyleSheet.create({
   },
   hero: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
   },
   eyebrow: {
     color: colors.primary,
@@ -297,7 +331,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: colors.text,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '900',
     marginTop: spacing.xs,
   },
@@ -329,7 +363,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    minHeight: 48,
+    minHeight: touch.min,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
@@ -394,7 +428,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: TRAINED_DAY_ORANGE,
   },
   legendText: {
     color: colors.textMuted,
@@ -404,11 +438,10 @@ const styles = StyleSheet.create({
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: GRID_GAP,
   },
   dayCell: {
-    width: '13.1%',
-    minHeight: 72,
+    minHeight: 64,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -420,29 +453,32 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   trainedDayCell: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '20',
+    borderColor: TRAINED_DAY_ORANGE,
+    backgroundColor: TRAINED_DAY_ORANGE_SOFT,
   },
   dayWeekday: {
     color: colors.textMuted,
     fontSize: 10,
     fontWeight: '800',
+    textAlign: 'center',
   },
   dayLabel: {
     color: colors.text,
     fontSize: 11,
     fontWeight: '900',
+    textAlign: 'center',
   },
   dayStatus: {
     color: colors.textMuted,
     fontSize: 9,
     fontWeight: '800',
+    textAlign: 'center',
   },
   trainedDayText: {
     color: colors.text,
   },
   trainedDayStatus: {
-    color: colors.primary,
+    color: TRAINED_DAY_ORANGE,
   },
   recentList: {
     gap: spacing.sm,
@@ -508,7 +544,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
-
-
 
 

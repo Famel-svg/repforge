@@ -59,16 +59,9 @@ describe('WorkoutX', () => {
   });
 
   it('explica quando chave não foi configurada', async () => {
-    const previous = process.env.EXPO_PUBLIC_WORKOUTX_KEY;
-    delete process.env.EXPO_PUBLIC_WORKOUTX_KEY;
-
     await expect(searchExercises({ name: 'supino' })).rejects.toThrow(
       'Chave WorkoutX ausente',
     );
-
-    if (previous) {
-      process.env.EXPO_PUBLIC_WORKOUTX_KEY = previous;
-    }
   });
 });
 

@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Preview: Web",
+      "type": "npm",
+      "script": "web",
+      "args": ["--", "--port", "8082", "--clear"],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Preview: Expo Go",
+      "type": "npm",
+      "script": "start",
+      "args": ["--", "--port", "8081"],
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

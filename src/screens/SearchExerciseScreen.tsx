@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { ExerciseImage } from '@/components/ExerciseImage';
 import { SelectField } from '@/components/SelectField';
 import { addExercise } from '@/db/exercises';
+import { getWorkoutXKey } from '@/db/settings';
 import type { RootStackParamList } from '@/navigation/types';
 import {
   BODY_PARTS,
@@ -40,6 +41,7 @@ export function SearchExerciseScreen({ navigation, route }: Props) {
     setLoading(true);
     try {
       const nextResults = await searchExercises({
+        apiKey: await getWorkoutXKey(db),
         name,
         bodyPart,
         equipment,
@@ -68,6 +70,10 @@ export function SearchExerciseScreen({ navigation, route }: Props) {
   return (
     <View style={styles.screen}>
       <View style={styles.filters}>
+        <View>
+          <Text style={styles.eyebrow}>BUSCA</Text>
+          <Text style={styles.title}>Adicionar movimento</Text>
+        </View>
         <TextInput
           autoCapitalize="none"
           onChangeText={setName}
@@ -118,22 +124,26 @@ export function SearchExerciseScreen({ navigation, route }: Props) {
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <ExerciseImage uri={item.gifUrl} />
+            <ExerciseImage size={76} uri={item.gifUrl} />
             <View style={styles.cardBody}>
               <Text numberOfLines={2} style={styles.name}>
                 {item.name}
               </Text>
-              <Text style={styles.meta}>
-                {[item.target, item.equipment].filter(Boolean).join(' · ')}
+              <Text numberOfLines={1} style={styles.meta}>
+                Alvo: {item.target || 'N/A'}
               </Text>
-              <AppButton
-                compact
-                disabled={addingId !== null}
-                label="Adicionar"
-                loading={addingId === item.id}
-                onPress={() => void handleAdd(item)}
-              />
+              <Text numberOfLines={1} style={styles.meta}>
+                Equipamento: {item.equipment || 'N/A'}
+              </Text>
             </View>
+            <AppButton
+              compact
+              disabled={addingId !== null}
+              label="Adicionar"
+              loading={addingId === item.id}
+              onPress={() => void handleAdd(item)}
+              style={styles.addButton}
+            />
           </View>
         )}
       />
@@ -147,10 +157,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   filters: {
-    gap: spacing.sm,
+    gap: spacing.md,
     padding: spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  title: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: spacing.xs,
   },
   searchInput: {
     minHeight: 52,
@@ -169,13 +191,16 @@ const styles = StyleSheet.create({
   list: {
     padding: spacing.md,
     gap: spacing.sm,
+    paddingBottom: spacing.xl,
   },
   emptyList: {
     flexGrow: 1,
     justifyContent: 'center',
+    padding: spacing.md,
   },
   card: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -187,6 +212,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     gap: spacing.sm,
+  },
+  addButton: {
+    alignSelf: 'center',
   },
   name: {
     color: colors.text,

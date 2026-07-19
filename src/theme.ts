@@ -25,3 +25,19 @@ export const radius = {
   md: 14,
   lg: 20,
 };
+
+/** Touch targets — iOS 44 / Android 48; gym actions use larger hits. */
+export const touch = {
+  min: 48,
+  gym: 56,
+};
+
+export const typography = {
+  display: 48,
+  title: 28,
+  heading: 20,
+  body: 16,
+  caption: 13,
+  label: 12,
+  monoLg: 40,
+};

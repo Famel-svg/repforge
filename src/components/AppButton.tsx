@@ -6,7 +6,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, touch } from '@/theme';
 
 type Props = {
   label: string;
@@ -15,6 +15,7 @@ type Props = {
   loading?: boolean;
   disabled?: boolean;
   compact?: boolean;
+  gym?: boolean;
   style?: ViewStyle;
 };
 
@@ -25,6 +26,7 @@ export function AppButton({
   loading = false,
   disabled = false,
   compact = false,
+  gym = false,
   style,
 }: Props) {
   const inactive = disabled || loading;
@@ -37,6 +39,7 @@ export function AppButton({
       style={({ pressed }) => [
         styles.base,
         compact && styles.compact,
+        gym && styles.gym,
         styles[variant],
         pressed && !inactive && styles.pressed,
         inactive && styles.disabled,
@@ -52,6 +55,7 @@ export function AppButton({
         <Text
           style={[
             styles.label,
+            gym && styles.gymLabel,
             variant === 'secondary' && styles.secondaryLabel,
           ]}
         >
@@ -64,15 +68,18 @@ export function AppButton({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 48,
+    minHeight: touch.min,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
   },
   compact: {
-    minHeight: 36,
+    minHeight: touch.min,
     paddingHorizontal: 12,
+  },
+  gym: {
+    minHeight: touch.gym,
   },
   primary: {
     backgroundColor: colors.primary,
@@ -95,6 +102,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  gymLabel: {
+    fontSize: 17,
+    fontWeight: '900',
+    letterSpacing: 0.3,
   },
   secondaryLabel: {
     color: colors.text,

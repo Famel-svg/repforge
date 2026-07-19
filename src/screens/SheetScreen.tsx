@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { EmptyState } from '@/components/EmptyState';
@@ -17,7 +18,7 @@ import { ExerciseImage } from '@/components/ExerciseImage';
 import { deleteExercise, listExercises } from '@/db/exercises';
 import { getSheet } from '@/db/sheets';
 import type { RootStackParamList } from '@/navigation/types';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, spacing, touch } from '@/theme';
 import type { Exercise, Sheet } from '@/types';
 import { formatDateTime } from '@/utils/format';
 
@@ -66,13 +67,20 @@ export function SheetScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.screen}>
-      {sheet ? (
-        <Text style={styles.updated}>
-          Última alteração: {formatDateTime(sheet.updatedAt)}
+      <View style={styles.summary}>
+        <Text style={styles.eyebrow}>FICHA</Text>
+        <Text style={styles.summaryTitle}>
+          {exercises.length} {exercises.length === 1 ? 'exercício' : 'exercícios'}
         </Text>
-      ) : null}
+        {sheet ? (
+          <Text style={styles.updated}>
+            Última alteração: {formatDateTime(sheet.updatedAt)}
+          </Text>
+        ) : null}
+      </View>
 
       <FlatList
+        style={styles.listFrame}
         contentContainerStyle={
           exercises.length === 0 ? styles.emptyList : styles.list
         }
@@ -85,47 +93,51 @@ export function SheetScreen({ navigation, route }: Props) {
           />
         }
         renderItem={({ item }) => (
-          <Pressable
-            onPress={() =>
-              navigation.navigate('Exercise', {
-                exerciseId: item.id,
-                exerciseName: item.name,
-                gifUrl: item.gifUrl,
-              })
-            }
-            style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-          >
-            <ExerciseImage uri={item.gifUrl} />
-            <View style={styles.cardBody}>
-              <Text numberOfLines={2} style={styles.name}>
-                {item.name}
-              </Text>
-              {item.latestEntry ? (
-                <Text style={styles.latest}>
-                  {item.latestEntry.sets} x {item.latestEntry.reps} ·{' '}
-                  {item.latestEntry.weightKg} kg
-                </Text>
-              ) : (
-                <Text style={styles.noEntry}>Sem carga registrada</Text>
-              )}
-            </View>
+          <View style={styles.card}>
             <Pressable
-              hitSlop={10}
-              onPress={() => confirmDelete(item)}
-              style={styles.remove}
+              accessibilityRole="button"
+              onPress={() =>
+                navigation.navigate('Exercise', {
+                  exerciseId: item.id,
+                  exerciseName: item.name,
+                  gifUrl: item.gifUrl,
+                })
+              }
+              style={({ pressed }) => [styles.cardOpen, pressed && styles.pressed]}
             >
-              <Text style={styles.removeText}>Remover</Text>
+              <ExerciseImage size={56} uri={item.gifUrl} />
+              <View style={styles.cardBody}>
+                <Text numberOfLines={1} style={styles.name}>
+                  {item.name}
+                </Text>
+                {item.latestEntry ? (
+                  <Text style={styles.latest}>
+                    {item.latestEntry.sets} x {item.latestEntry.reps} ·{' '}
+                    {item.latestEntry.weightKg} kg
+                  </Text>
+                ) : (
+                  <Text style={styles.noEntry}>Sem carga registrada</Text>
+                )}
+              </View>
             </Pressable>
-          </Pressable>
+            <Pressable
+              accessibilityLabel={`Remover ${item.name}`}
+              accessibilityRole="button"
+              onPress={() => confirmDelete(item)}
+              style={({ pressed }) => [styles.remove, pressed && styles.removePressed]}
+            >
+              <Text style={styles.removeText}>×</Text>
+            </Pressable>
+          </View>
         )}
       />
 
-      <View style={styles.footer}>
+      <SafeAreaView edges={['bottom']} style={styles.footer}>
         <AppButton
           label="+ Adicionar exercício"
           onPress={() => navigation.navigate('SearchExercise', { sheetId })}
         />
-      </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -135,28 +147,58 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  updated: {
-    color: colors.textMuted,
+  summary: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  eyebrow: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+  },
+  summaryTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  updated: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  listFrame: {
+    flex: 1,
   },
   list: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
     gap: spacing.sm,
   },
   emptyList: {
     flexGrow: 1,
     justifyContent: 'center',
+    padding: spacing.md,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    padding: spacing.sm,
     backgroundColor: colors.surface,
+    overflow: 'hidden',
+  },
+  cardOpen: {
+    flex: 1,
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.sm,
   },
   pressed: {
     opacity: 0.76,
@@ -167,12 +209,13 @@ const styles = StyleSheet.create({
   },
   name: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     textTransform: 'capitalize',
   },
   latest: {
     color: colors.success,
+    fontSize: 13,
     fontWeight: '700',
   },
   noEntry: {
@@ -180,13 +223,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   remove: {
-    alignSelf: 'flex-start',
-    padding: spacing.sm,
+    minHeight: touch.min,
+    minWidth: touch.min,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removePressed: {
+    backgroundColor: colors.danger + '14',
   },
   removeText: {
     color: colors.danger,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 24,
+    lineHeight: 26,
+    fontWeight: '500',
   },
   footer: {
     padding: spacing.md,

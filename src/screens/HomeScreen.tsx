@@ -1,24 +1,34 @@
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
+import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/AppButton';
-import { BottomTabBar } from '@/components/BottomTabBar';
 import { StatCard } from '@/components/StatCard';
 import { getDashboardStats, type DashboardStats } from '@/db/stats';
-import type { RootStackParamList } from '@/navigation/types';
+import type { MainTabParamList, RootStackParamList } from '@/navigation/types';
 import { colors, radius, spacing } from '@/theme';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, 'Home'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
+
+const EMPTY_DAILY_VOLUMES = Array.from({ length: 7 }, (_, index) => ({
+  date: `empty-${index}`,
+  label: 'Dia',
+  volume: 0,
+}));
 
 function formatCount(value: number | undefined): string {
-  return value === undefined ? '...' : String(value);
+  return value === undefined ? '0' : String(value);
 }
 
 function formatVolume(value: number | undefined): string {
-  if (value === undefined) return '...';
+  if (value === undefined) return '0 kg';
   return `${Math.round(value).toLocaleString('pt-BR')} kg`;
 }
 
@@ -33,7 +43,8 @@ export function HomeScreen({ navigation }: Props) {
   const db = useSQLiteContext();
   const [stats, setStats] = useState<DashboardStats | null>(null);
 
-  const dailyVolumes = stats?.last7Days ?? [];
+  const dailyVolumes = stats?.last7Days ?? EMPTY_DAILY_VOLUMES;
+  const hasStats = stats !== null;
   const maxDailyVolume = Math.max(1, ...dailyVolumes.map((day) => day.volume));
 
   const loadStats = useCallback(async () => {
@@ -53,12 +64,9 @@ export function HomeScreen({ navigation }: Props) {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
+        <View style={styles.header}>
           <Text style={styles.eyebrow}>HOME</Text>
-          <Text style={styles.heroTitle}>Forje consistência, não só carga.</Text>
-          <Text style={styles.heroText}>
-            Veja o pulso do treino, entre nas planilhas e acompanhe os dias treinados.
-          </Text>
+          <Text style={styles.title}>Painel</Text>
         </View>
 
         <View style={styles.statsGrid}>
@@ -75,6 +83,20 @@ export function HomeScreen({ navigation }: Props) {
           />
         </View>
 
+        <View style={styles.quickGrid}>
+          <AppButton
+            label="Abrir planilhas"
+            onPress={() => navigation.navigate('Sheets')}
+            style={styles.quickButton}
+          />
+          <AppButton
+            label="Ver dias treinados"
+            onPress={() => navigation.navigate('Track')}
+            style={styles.quickButton}
+            variant="secondary"
+          />
+        </View>
+
         <View style={styles.chartCard}>
           <View style={styles.chartHeader}>
             <View>
@@ -84,7 +106,7 @@ export function HomeScreen({ navigation }: Props) {
             <AppButton
               compact
               label="Track"
-              onPress={() => navigation.replace('Track')}
+              onPress={() => navigation.navigate('Track')}
               variant="secondary"
             />
           </View>
@@ -94,7 +116,9 @@ export function HomeScreen({ navigation }: Props) {
 
               return (
                 <View key={day.date} style={styles.barColumn}>
-                  <Text style={styles.barValue}>{formatCompactVolume(day.volume)}</Text>
+                  <Text style={styles.barValue}>
+                    {hasStats ? formatCompactVolume(day.volume) : '0'}
+                  </Text>
                   <View style={styles.barTrack}>
                     <View style={[styles.barFill, { height: barHeight }]} />
                   </View>
@@ -104,14 +128,7 @@ export function HomeScreen({ navigation }: Props) {
             })}
           </View>
         </View>
-
-        <View style={styles.quickGrid}>
-          <AppButton label="Abrir planilhas" onPress={() => navigation.replace('Sheets')} />
-          <AppButton label="Ver dias treinados" onPress={() => navigation.replace('Track')} variant="secondary" />
-        </View>
       </ScrollView>
-
-      <BottomTabBar active="home" onNavigate={(routeName) => navigation.replace(routeName)} />
     </View>
   );
 }
@@ -123,15 +140,11 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    gap: spacing.md,
-  },
-  hero: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    backgroundColor: colors.surface,
     gap: spacing.sm,
+  },
+  header: {
+    gap: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   eyebrow: {
     color: colors.primary,
@@ -139,18 +152,21 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1.4,
   },
-  heroTitle: {
+  title: {
     color: colors.text,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '900',
-  },
-  heroText: {
-    color: colors.textMuted,
-    lineHeight: 21,
   },
   statsGrid: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  quickGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  quickButton: {
+    flex: 1,
   },
   chartCard: {
     borderWidth: 1,
@@ -180,6 +196,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: spacing.xs,
+    minHeight: 128,
   },
   barColumn: {
     flex: 1,
@@ -211,8 +228,4 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  quickGrid: {
-    gap: spacing.sm,
-  },
 });
-

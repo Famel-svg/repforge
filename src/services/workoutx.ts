@@ -144,6 +144,7 @@ async function hydrateGifUrls(
   return hydrated;
 }
 export type SearchExerciseParams = {
+  apiKey?: string | null;
   bodyPart?: string;
   equipment?: string;
   name?: string;
@@ -164,15 +165,16 @@ async function fetchFromEndpoint(
 }
 
 export async function searchExercises({
+  apiKey,
   bodyPart,
   equipment,
   name,
   limit = 20,
 }: SearchExerciseParams): Promise<WorkoutXExercise[]> {
-  const apiKey = process.env.EXPO_PUBLIC_WORKOUTX_KEY;
-  if (!apiKey) {
+  const key = apiKey?.trim();
+  if (!key) {
     throw new Error(
-      'Chave WorkoutX ausente. Configure EXPO_PUBLIC_WORKOUTX_KEY no arquivo .env.',
+      'Chave WorkoutX ausente. Configure sua chave em Config.',
     );
   }
 
@@ -184,25 +186,25 @@ export async function searchExercises({
     if (trimmedName) {
       results = await fetchFromEndpoint(
         `/exercises/name/${encodeURIComponent(apiName)}`,
-        apiKey,
+        key,
         limit,
       );
     } else if (bodyPart) {
       const apiBodyPart = BODY_PARTS_MAP[bodyPart] ?? bodyPart;
       results = await fetchFromEndpoint(
         `/exercises/bodyPart/${encodeURIComponent(apiBodyPart)}`,
-        apiKey,
+        key,
         limit,
       );
     } else if (equipment) {
       const apiEquipment = EQUIPMENT_MAP[equipment] ?? equipment;
       results = await fetchFromEndpoint(
         `/exercises/equipment/${encodeURIComponent(apiEquipment)}`,
-        apiKey,
+        key,
         limit,
       );
     } else {
-      results = await fetchFromEndpoint('/exercises', apiKey, limit);
+      results = await fetchFromEndpoint('/exercises', key, limit);
     }
 
     return hydrateGifUrls(results.slice(0, limit));

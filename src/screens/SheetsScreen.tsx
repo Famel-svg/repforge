@@ -1,4 +1,6 @@
+import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useFocusEffect } from '@react-navigation/native';
+import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
@@ -15,7 +17,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
-import { BottomTabBar } from '@/components/BottomTabBar';
 import { EmptyState } from '@/components/EmptyState';
 import {
   createSheet,
@@ -23,13 +24,15 @@ import {
   duplicateSheet,
   listSheets,
 } from '@/db/sheets';
-import type { RootStackParamList } from '@/navigation/types';
-import { colors, radius, spacing } from '@/theme';
+import type { MainTabParamList, RootStackParamList } from '@/navigation/types';
+import { colors, radius, spacing, touch } from '@/theme';
 import type { Sheet } from '@/types';
-import { exportBackupFile, pickAndImportBackup } from '@/utils/backupFile';
 import { formatDateTime } from '@/utils/format';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Sheets'>;
+type Props = CompositeScreenProps<
+  BottomTabScreenProps<MainTabParamList, 'Sheets'>,
+  NativeStackScreenProps<RootStackParamList>
+>;
 
 export function SheetsScreen({ navigation }: Props) {
   const db = useSQLiteContext();
@@ -38,7 +41,6 @@ export function SheetsScreen({ navigation }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [duplicatingSheetId, setDuplicatingSheetId] = useState<number | null>(null);
-  const [backupBusy, setBackupBusy] = useState(false);
 
   const loadSheets = useCallback(async () => {
     try {
@@ -55,9 +57,14 @@ export function SheetsScreen({ navigation }: Props) {
   );
 
   async function handleCreate() {
+    const sheetName = name.trim();
+    if (!sheetName || saving) {
+      return;
+    }
+
     setSaving(true);
     try {
-      await createSheet(db, name);
+      await createSheet(db, sheetName);
       setName('');
       setModalVisible(false);
       await loadSheets();
@@ -128,62 +135,18 @@ export function SheetsScreen({ navigation }: Props) {
     );
   }
 
-  async function handleExport() {
-    setBackupBusy(true);
-    try {
-      await exportBackupFile(db);
-    } catch (error) {
-      Alert.alert('Exportação falhou', error instanceof Error ? error.message : 'Tente novamente.');
-    } finally {
-      setBackupBusy(false);
-    }
-  }
-
-  async function handleImport() {
-    setBackupBusy(true);
-    try {
-      const count = await pickAndImportBackup(db);
-      if (count !== null) {
-        await loadSheets();
-        Alert.alert('Backup importado', `${count} planilha(s) adicionada(s).`);
-      }
-    } catch (error) {
-      Alert.alert('Importação falhou', error instanceof Error ? error.message : 'Banco não alterado.');
-    } finally {
-      setBackupBusy(false);
-    }
-  }
-
   return (
     <View style={styles.screen}>
       <View style={styles.hero}>
         <Text style={styles.eyebrow}>PLANILHAS</Text>
         <Text style={styles.heroTitle}>Treinos prontos para abrir.</Text>
         <Text style={styles.heroText}>
-          Crie ciclos, duplique estruturas boas e mantenha backup local em JSON.
+          Crie ciclos e duplique estruturas boas. Backup agora fica em Config.
         </Text>
       </View>
 
-      <View style={styles.actions}>
-        <AppButton
-          compact
-          disabled={backupBusy}
-          label="Importar"
-          onPress={() => void handleImport()}
-          style={styles.actionButton}
-          variant="secondary"
-        />
-        <AppButton
-          compact
-          disabled={backupBusy}
-          label="Exportar"
-          onPress={() => void handleExport()}
-          style={styles.actionButton}
-          variant="secondary"
-        />
-      </View>
-
       <FlatList
+        style={styles.listShell}
         contentContainerStyle={sheets.length === 0 ? styles.emptyList : styles.list}
         data={sheets}
         keyExtractor={(item) => String(item.id)}
@@ -238,9 +201,9 @@ export function SheetsScreen({ navigation }: Props) {
         )}
       />
 
-      <View style={styles.footer}>
+      <SafeAreaView edges={['bottom']} style={styles.footer}>
         <AppButton label="+ Nova planilha" onPress={() => setModalVisible(true)} />
-      </View>
+      </SafeAreaView>
 
       <Modal
         animationType="fade"
@@ -255,7 +218,11 @@ export function SheetsScreen({ navigation }: Props) {
               autoFocus
               maxLength={60}
               onChangeText={setName}
-              onSubmitEditing={() => void handleCreate()}
+              onSubmitEditing={() => {
+                if (name.trim()) {
+                  void handleCreate();
+                }
+              }}
               placeholder="Ex.: Peito e tríceps"
               placeholderTextColor={colors.textMuted}
               returnKeyType="done"
@@ -270,7 +237,7 @@ export function SheetsScreen({ navigation }: Props) {
                 variant="secondary"
               />
               <AppButton
-                disabled={!name.trim()}
+                disabled={!name.trim() || saving}
                 label="Criar"
                 loading={saving}
                 onPress={() => void handleCreate()}
@@ -280,8 +247,6 @@ export function SheetsScreen({ navigation }: Props) {
           </View>
         </SafeAreaView>
       </Modal>
-
-      <BottomTabBar active="sheets" onNavigate={(routeName) => navigation.replace(routeName)} />
     </View>
   );
 }
@@ -313,22 +278,18 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: spacing.sm,
   },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  actionButton: {
+  listShell: {
     flex: 1,
   },
   list: {
     padding: spacing.md,
     gap: spacing.sm,
+    paddingBottom: spacing.lg,
   },
   emptyList: {
     flexGrow: 1,
     justifyContent: 'center',
+    padding: spacing.md,
   },
   card: {
     flexDirection: 'row',
@@ -360,7 +321,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   cardAction: {
-    minHeight: 32,
+    minHeight: touch.min,
     justifyContent: 'center',
     paddingHorizontal: spacing.xs,
   },

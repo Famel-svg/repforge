@@ -169,4 +169,17 @@ describe('schema SQLite', () => {
     expect(rows.map((row) => row.name)).toEqual(['Agachamento', 'Rosca']);
     expect(rows[1]).toMatchObject({ sets: 4, reps: 8, weight_kg: 25 });
   });
+
+  it('persiste configurações locais do app', () => {
+    db.prepare('INSERT INTO app_settings (key, value) VALUES (?, ?)').run(
+      'workoutx_api_key',
+      'wx_teste',
+    );
+
+    expect(
+      db.prepare('SELECT value FROM app_settings WHERE key = ?').get(
+        'workoutx_api_key',
+      ),
+    ).toEqual({ value: 'wx_teste' });
+  });
 });

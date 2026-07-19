@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import {
   DarkTheme,
   NavigationContainer,
@@ -11,8 +13,10 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { enableScreens } from 'react-native-screens';
 
+import { BottomTabBar } from '@/components/BottomTabBar';
 import { migrateDatabase } from '@/db/schema';
-import type { RootStackParamList } from '@/navigation/types';
+import type { MainTabParamList, RootStackParamList } from '@/navigation/types';
+import { ConfigScreen } from '@/screens/ConfigScreen';
 import { ExerciseScreen } from '@/screens/ExerciseScreen';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { SearchExerciseScreen } from '@/screens/SearchExerciseScreen';
@@ -24,6 +28,7 @@ import { colors } from '@/theme';
 enableScreens();
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const navigationTheme: Theme = {
   ...DarkTheme,
@@ -47,11 +52,68 @@ function LoadingScreen() {
   );
 }
 
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.text,
+        headerShadowVisible: false,
+        sceneStyle: { backgroundColor: colors.background },
+      }}
+      tabBar={(props) => <BottomTabBar {...props} />}
+    >
+      <Tab.Screen
+        component={HomeScreen}
+        name="Home"
+        options={{
+          title: 'RepForge',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons color={color} name="home" size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        component={SheetsScreen}
+        name="Sheets"
+        options={{
+          title: 'Planilhas',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons color={color} name="list" size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        component={TrainingTrackScreen}
+        name="Track"
+        options={{
+          title: 'Track de treino',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons color={color} name="flame" size={size} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        component={ConfigScreen}
+        name="Config"
+        options={{
+          title: 'Config',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons color={color} name="settings" size={size} />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
+
 function AppNavigator() {
   return (
     <NavigationContainer theme={navigationTheme}>
       <Stack.Navigator
         screenOptions={{
+          headerShown: false,
           headerStyle: { backgroundColor: colors.surface },
           headerTintColor: colors.text,
           headerShadowVisible: false,
@@ -59,33 +121,22 @@ function AppNavigator() {
         }}
       >
         <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{ title: 'RepForge' }}
+          component={MainTabs}
+          name="Main"
         />
         <Stack.Screen
-          name="Sheets"
-          component={SheetsScreen}
-          options={{ title: 'Planilhas' }}
-        />
-        <Stack.Screen
-          name="Track"
-          component={TrainingTrackScreen}
-          options={{ title: 'Track de treino' }}
-        />
-        <Stack.Screen
-          name="Sheet"
           component={SheetScreen}
+          name="Sheet"
           options={({ route }) => ({ title: route.params.sheetName })}
         />
         <Stack.Screen
-          name="Exercise"
           component={ExerciseScreen}
+          name="Exercise"
           options={({ route }) => ({ title: route.params.exerciseName })}
         />
         <Stack.Screen
-          name="SearchExercise"
           component={SearchExerciseScreen}
+          name="SearchExercise"
           options={{ title: 'Adicionar exercício' }}
         />
       </Stack.Navigator>

@@ -10,6 +10,7 @@ dispositivo e podem ser exportados ou importados em JSON.
 
 - Criação, exclusão e duplicação de fichas de treino
 - Busca de exercícios pela API WorkoutX
+- Chave WorkoutX configurada dentro do app, sem segredo embutido no APK
 - Filtros por nome, parte do corpo e equipamento
 - GIF, nome traduzido e dados do exercício salvos localmente
 - Registro rápido de múltiplas séries, repetições e carga em quilogramas
@@ -17,7 +18,6 @@ dispositivo e podem ser exportados ou importados em JSON.
 - Exibição automática da carga atual na ficha
 - Dashboard com volume semanal, totais e barras dos últimos 7 dias
 - Timer de descanso ajustável que inicia após salvar registro
-- Botão para copiar o último registro do exercício
 - Banco SQLite com exclusão em cascata
 - Exportação e importação de backup JSON
 - Importação transacional com rollback em caso de erro
@@ -76,7 +76,7 @@ repforge/
 - Node.js 22.13 ou superior
 - npm
 - Expo Go ou dispositivo/emulador Android
-- Chave da [WorkoutX](https://workoutxapp.com/)
+- Chave da [WorkoutX](https://workoutxapp.com/) para configurar em `Config`
 - Conta Expo somente para builds EAS
 
 Node 22 LTS é recomendado.
@@ -89,28 +89,8 @@ cd repforge
 npm install
 ```
 
-Crie `.env` a partir do modelo:
-
-### Windows PowerShell
-
-```powershell
-Copy-Item .env.example .env
-```
-
-### Linux/macOS
-
-```bash
-cp .env.example .env
-```
-
-Configure a chave:
-
-```dotenv
-EXPO_PUBLIC_WORKOUTX_KEY=wx_sua_chave_real
-```
-
-`EXPO_PUBLIC_*` é incorporada ao aplicativo compilado. Não trate essa variável
-como segredo de servidor. Restrinja uso e cota no provedor quando disponível.
+Ao abrir o app, entre em `Config` e cole sua chave WorkoutX (`wx_...`). A chave
+fica salva somente no SQLite local do aparelho.
 
 ## Execução
 
@@ -137,9 +117,10 @@ Tabelas:
 - `sheets`: fichas de treino
 - `exercises`: exercícios vinculados à ficha
 - `entries`: histórico de séries, repetições e carga
+- `app_settings`: configurações locais, incluindo a chave WorkoutX do usuário
 
 O schema usa `PRAGMA foreign_keys = ON`, exclusão em cascata e
-`PRAGMA user_version = 1`.
+`PRAGMA user_version = 2`.
 
 ## Backup
 
@@ -188,8 +169,6 @@ npm install --global eas-cli
 eas login
 ```
 
-Configure `EXPO_PUBLIC_WORKOUTX_KEY` no ambiente `preview` do EAS e execute:
-
 ```bash
 eas build --platform android --profile preview
 ```
@@ -202,7 +181,8 @@ distribuição futura em AAB.
 - `.env`, APKs, logs Expo e dependências estão ignorados pelo Git.
 - Backup contém dados de treino em texto legível; compartilhe com cuidado.
 - Aplicativo não possui autenticação ou sincronização em nuvem.
-- Chave WorkoutX não deve ser adicionada diretamente ao código.
+- Chave WorkoutX não deve ser adicionada ao código nem ao build. Use a tela
+  `Config` ou um backend proxy se quiser distribuir uma chave própria.
 
 ## Licença
 
