@@ -10,7 +10,7 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { Suspense } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { enableScreens } from 'react-native-screens';
 
 import { BottomTabBar } from '@/components/BottomTabBar';
@@ -148,20 +148,26 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <Suspense fallback={<LoadingScreen />}>
-        <SQLiteProvider
-          databaseName="repforge.db"
-          onInit={migrateDatabase}
-          useSuspense
-        >
-          <AppNavigator />
-        </SQLiteProvider>
-      </Suspense>
+      <SafeAreaView edges={['top']} style={styles.appSafeArea}>
+        <Suspense fallback={<LoadingScreen />}>
+          <SQLiteProvider
+            databaseName="repforge.db"
+            onInit={migrateDatabase}
+            useSuspense
+          >
+            <AppNavigator />
+          </SQLiteProvider>
+        </Suspense>
+      </SafeAreaView>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  appSafeArea: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   loading: {
     flex: 1,
     alignItems: 'center',

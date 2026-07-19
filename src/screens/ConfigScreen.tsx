@@ -11,7 +11,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { listSheets } from '@/db/sheets';
@@ -26,7 +25,6 @@ type Props = CompositeScreenProps<
 
 export function ConfigScreen(_props: Props) {
   const db = useSQLiteContext();
-  const insets = useSafeAreaInsets();
   const [sheetCount, setSheetCount] = useState(0);
   const [backupAction, setBackupAction] = useState<'import' | 'export' | null>(null);
   const backupBusy = backupAction !== null;
@@ -80,12 +78,7 @@ export function ConfigScreen(_props: Props) {
 
   return (
     <View style={styles.screen}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingTop: insets.top + spacing.lg },
-        ]}
-      >
+      <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>CONFIG</Text>
           <Text style={styles.title}>Dados e backup.</Text>

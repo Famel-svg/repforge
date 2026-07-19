@@ -9,6 +9,18 @@ nuvem.
 O app usa Expo, React Native, TypeScript e SQLite. Seus dados ficam no aparelho
 e podem ser exportados/importados em JSON pela tela `Config`.
 
+## Screenshots
+
+Preview mobile web em viewport `390x844`.
+
+| Home | Planilhas | Ficha |
+| --- | --- | --- |
+| <img src="docs/screenshots/repforge-home-mobile.png" width="220" alt="Home mobile"> | <img src="docs/screenshots/repforge-sheets-mobile.png" width="220" alt="Planilhas mobile"> | <img src="docs/screenshots/repforge-sheet-detail-mobile.png" width="220" alt="Ficha mobile"> |
+
+| Busca | Track | Config |
+| --- | --- | --- |
+| <img src="docs/screenshots/repforge-search-exercise-mobile.png" width="220" alt="Busca mobile"> | <img src="docs/screenshots/repforge-track-mobile.png" width="220" alt="Track mobile"> | <img src="docs/screenshots/repforge-config-mobile.png" width="220" alt="Config mobile"> |
+
 ## O que ele faz
 
 - Cria, duplica e remove fichas de treino.
@@ -31,13 +43,12 @@ alguem que descompile o APK ou inspecione as requisicoes.
 
 Opcoes seguras:
 
-- **Uso pessoal ou beta:** abra `Config` no app e cole sua propria chave
-  WorkoutX (`wx_...`). Ela fica salva apenas no SQLite local do aparelho.
 - **Distribuicao publica usando sua chave:** crie um backend proxy. O app chama
   seu servidor, e o servidor chama a WorkoutX com `X-WorkoutX-Key`. Assim o APK
   recebe apenas a URL publica do proxy, nunca a chave.
 
-O build publico atual usa a primeira opcao.
+O build publico atual usa proxy Cloudflare. A tela `Config` fica dedicada a
+backup/importacao e nao pede chave WorkoutX do usuario.
 
 ### Proxy Cloudflare gratuito
 
@@ -117,7 +128,8 @@ O foco do projeto e Android. Web existe para preview rapido.
 npm run android
 ```
 
-Depois abra `Config`, cole sua chave WorkoutX e salve.
+O build usa o proxy WorkoutX configurado em `src/config.ts` ou
+`EXPO_PUBLIC_WORKOUTX_PROXY_URL`.
 
 ## Gerar APK
 

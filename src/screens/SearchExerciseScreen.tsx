@@ -124,7 +124,7 @@ export function SearchExerciseScreen({ navigation, route }: Props) {
             description={
               searched
                 ? 'Ajuste os filtros e tente outra busca.'
-                : 'Use nome ou filtros para encontrar até 20 movimentos.'
+                : 'Use nome ou filtros para encontrar até 10 movimentos.'
             }
             title={searched ? 'Nenhum resultado' : 'Busque um exercício'}
           />
