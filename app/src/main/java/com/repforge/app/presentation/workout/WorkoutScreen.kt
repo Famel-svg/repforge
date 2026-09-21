@@ -94,10 +94,10 @@ private fun ExerciseCard(exercise: Exercise, entries: List<SetEntry>, onAddEntry
             entries.take(3).forEach { entry ->
                 Text("${entry.sets} séries × ${entry.reps} reps · ${entry.weightKg} kg", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(sets, { sets = it }, Modifier.weight(1f), label = { Text("Séries") }, singleLine = true)
-                OutlinedTextField(reps, { reps = it }, Modifier.weight(1f), label = { Text("Reps") }, singleLine = true)
-                OutlinedTextField(weight, { weight = it }, Modifier.weight(1f), label = { Text("Kg") }, singleLine = true)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(sets, { sets = it }, Modifier.fillMaxWidth(), label = { Text("Séries") }, singleLine = true)
+                OutlinedTextField(reps, { reps = it }, Modifier.fillMaxWidth(), label = { Text("Repetições") }, singleLine = true)
+                OutlinedTextField(weight, { weight = it }, Modifier.fillMaxWidth(), label = { Text("Carga (kg)") }, singleLine = true)
             }
             Button(
                 onClick = {
