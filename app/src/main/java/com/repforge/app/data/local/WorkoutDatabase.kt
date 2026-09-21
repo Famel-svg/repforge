@@ -42,6 +42,10 @@ data class SheetWithCount(
     val updatedAt: Long
 )
 
+data class ExerciseRow(val id: Long, val sheetId: Long, val name: String, val target: String, val position: Int)
+
+data class EntryRow(val id: Long, val exerciseId: Long, val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long)
+
 @Dao
 interface WorkoutDao {
     @Query("SELECT s.id, s.name, COUNT(e.id) AS exerciseCount, s.updatedAt FROM sheets s LEFT JOIN exercises e ON e.sheetId = s.id GROUP BY s.id ORDER BY s.updatedAt DESC")
@@ -58,6 +62,21 @@ interface WorkoutDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertSheet(sheet: SheetEntity): Long
+
+    @Query("SELECT id, sheetId, name, target, position FROM exercises WHERE sheetId = :sheetId ORDER BY position, id")
+    fun observeExercises(sheetId: Long): Flow<List<ExerciseRow>>
+
+    @Query("SELECT id, exerciseId, sets, reps, weightKg, recordedAt FROM entries WHERE exerciseId = :exerciseId ORDER BY recordedAt DESC, id DESC")
+    fun observeEntries(exerciseId: Long): Flow<List<EntryRow>>
+
+    @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM exercises WHERE sheetId = :sheetId")
+    suspend fun nextExercisePosition(sheetId: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertExercise(exercise: ExerciseEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertEntry(entry: EntryEntity): Long
 }
 
 @Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class], version = 1, exportSchema = false)

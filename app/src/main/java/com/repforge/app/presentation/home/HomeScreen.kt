@@ -38,6 +38,7 @@ import com.repforge.app.domain.model.TrainingSheet
 fun HomeScreen(
     state: HomeUiState,
     onCreateSheet: (String) -> Unit,
+    onStartSheet: (TrainingSheet) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showCreate by remember { mutableStateOf(false) }
@@ -69,7 +70,7 @@ fun HomeScreen(
             if (state.sheets.isEmpty()) {
                 item { EmptySheetsCard(onCreate = { showCreate = true }) }
             } else {
-                items(state.sheets, key = { it.id }) { SheetCard(it) }
+                items(state.sheets, key = { it.id }) { SheetCard(it, onStart = { onStartSheet(it) }) }
             }
             item { Spacer(Modifier.height(80.dp)) }
         }
@@ -98,14 +99,14 @@ private fun SummaryCard(state: HomeUiState) {
 }
 
 @Composable
-private fun SheetCard(sheet: TrainingSheet) {
+private fun SheetCard(sheet: TrainingSheet, onStart: () -> Unit = {}) {
     Card {
         Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text(sheet.name, style = MaterialTheme.typography.titleMedium)
                 Text("${sheet.exerciseCount} exercícios", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Button(onClick = {}) { Icon(Icons.Rounded.PlayArrow, contentDescription = "Iniciar") }
+            Button(onClick = onStart) { Icon(Icons.Rounded.PlayArrow, contentDescription = "Iniciar") }
         }
     }
 }

@@ -26,6 +26,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.repforge.app.RepForgeApplication
 import com.repforge.app.presentation.home.HomeScreen
 import com.repforge.app.presentation.home.HomeViewModel
+import com.repforge.app.presentation.workout.WorkoutScreen
+import com.repforge.app.presentation.workout.WorkoutViewModel
 import androidx.lifecycle.ViewModelProvider
 
 private enum class Destination(val label: String, val icon: ImageVector) {
@@ -37,6 +39,7 @@ private enum class Destination(val label: String, val icon: ImageVector) {
 @Composable
 fun RepForgeApp() {
     var selected by remember { mutableStateOf(Destination.Home) }
+    var activeSheet by remember { mutableStateOf<com.repforge.app.domain.model.TrainingSheet?>(null) }
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -51,7 +54,16 @@ fun RepForgeApp() {
             }
         }
     ) { padding ->
-        if (selected == Destination.Home) {
+        if (activeSheet != null) {
+            val application = LocalContext.current.applicationContext as RepForgeApplication
+            val workoutViewModel: WorkoutViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                    WorkoutViewModel(application.repository) as T
+            })
+            val sheet = activeSheet!!
+            WorkoutScreen(sheet.id, sheet.name, workoutViewModel) { activeSheet = null }
+        } else if (selected == Destination.Home) {
             val application = LocalContext.current.applicationContext as RepForgeApplication
             val homeViewModel: HomeViewModel = viewModel(factory = object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -62,6 +74,7 @@ fun RepForgeApp() {
             HomeScreen(
                 state = state,
                 onCreateSheet = homeViewModel::createSheet,
+                onStartSheet = { activeSheet = it },
                 modifier = Modifier.padding(padding)
             )
         } else {
