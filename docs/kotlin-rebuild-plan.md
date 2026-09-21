@@ -12,15 +12,19 @@ RepForge vira app Android nativo, offline-first e focado em registrar treino com
 - Room como fonte local reativa; UI observa `Flow` e continua útil sem internet.
 - Domínio separado da persistência para facilitar testes e evolução.
 - Base pronta para adaptação a tablets com Material 3 Adaptive.
+- Confirmação visual de série registrada com Snackbar.
+- Remoção de exercício com confirmação e cascata do histórico no Room.
+- Ações e campos reorganizados para escala de fonte ampliada.
+- Backup JSON com validação, transação e seletores de arquivo Android.
+- APK debug instalado e validado em emulador Android real.
 
-## Próximos incrementos
+## Melhorias futuras, fora do núcleo atual
 
-1. Detalhe da ficha: adicionar, ordenar e remover exercícios.
-2. Modo treino: registrar séries rapidamente, timer de descanso e edição inline.
-3. Evolução: volume, carga máxima, PRs e gráficos por exercício.
-4. Busca WorkoutX via proxy, com cache local e estados offline explícitos.
-5. Exportação/importação JSON com validação, transação e backup compartilhável.
-6. Testes unitários de domínio, Room e testes Compose de acessibilidade.
+1. Reordenar exercícios por arrastar e soltar.
+2. Editar nome/alvo de exercícios existentes.
+3. Cache local de resultados WorkoutX e estado offline explícito na busca.
+4. Gráficos históricos por exercício.
+5. Testes Compose de acessibilidade e testes instrumentados de Room.
 
 ## Referências de design
 
