@@ -117,14 +117,18 @@ private fun SummaryCard(state: HomeUiState) {
 @Composable
 private fun SheetCard(sheet: TrainingSheet, onStart: () -> Unit = {}, onDelete: () -> Unit = {}) {
     Card {
-        Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Column {
                 Text(sheet.name, style = MaterialTheme.typography.titleMedium)
                 Text("${sheet.exerciseCount} exercícios", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onStart) { Icon(Icons.Rounded.PlayArrow, contentDescription = "Iniciar") }
-                OutlinedButton(onClick = onDelete) { Text("Excluir") }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onStart, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = "Iniciar")
+                }
+                OutlinedButton(onClick = onDelete, modifier = Modifier.weight(1f)) {
+                    Text("Excluir")
+                }
             }
         }
     }
