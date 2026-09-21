@@ -1,0 +1,120 @@
+package com.repforge.app.presentation.home
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AutoGraph
+import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.repforge.app.domain.model.TrainingSheet
+
+@Composable
+fun HomeScreen(state: HomeUiState, onCreateSheet: (String) -> Unit) {
+    var showCreate by remember { mutableStateOf(false) }
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("RepForge") }) },
+        floatingActionButton = {
+            FloatingActionButton(onClick = { showCreate = true }) {
+                Icon(Icons.Rounded.Add, contentDescription = "Criar ficha")
+            }
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Spacer(Modifier.height(8.dp))
+                Text("Bom treino.", style = MaterialTheme.typography.headlineMedium)
+                Text("Seu progresso começa no próximo set.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            item { SummaryCard(state) }
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Suas fichas", style = MaterialTheme.typography.titleLarge)
+                    OutlinedButton(onClick = { showCreate = true }) { Text("Nova ficha") }
+                }
+            }
+            if (state.sheets.isEmpty()) {
+                item { EmptySheetsCard(onCreate = { showCreate = true }) }
+            } else {
+                items(state.sheets, key = { it.id }) { SheetCard(it) }
+            }
+            item { Spacer(Modifier.height(80.dp)) }
+        }
+    }
+    if (showCreate) CreateSheetDialog(
+        onDismiss = { showCreate = false },
+        onCreate = { name -> onCreateSheet(name); showCreate = false }
+    )
+}
+
+@Composable
+private fun SummaryCard(state: HomeUiState) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+        Column(Modifier.padding(20.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column {
+                    Text("Volume últimos 7 dias", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text("%.1f kg".format(state.summary.weeklyVolumeKg), style = MaterialTheme.typography.headlineLarge)
+                }
+                Icon(Icons.Rounded.AutoGraph, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            }
+            Spacer(Modifier.height(16.dp))
+            Text("${state.summary.completedSets} séries · ${state.summary.activeSheets} fichas ativas")
+        }
+    }
+}
+
+@Composable
+private fun SheetCard(sheet: TrainingSheet) {
+    Card {
+        Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text(sheet.name, style = MaterialTheme.typography.titleMedium)
+                Text("${sheet.exerciseCount} exercícios", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Button(onClick = {}) { Icon(Icons.Rounded.PlayArrow, contentDescription = "Iniciar") }
+        }
+    }
+}
+
+@Composable
+private fun EmptySheetsCard(onCreate: () -> Unit) {
+    Card {
+        Column(Modifier.fillMaxWidth().padding(24.dp)) {
+            Icon(Icons.Rounded.FitnessCenter, contentDescription = null)
+            Spacer(Modifier.height(12.dp))
+            Text("Nenhuma ficha ainda", style = MaterialTheme.typography.titleMedium)
+            Text("Monte sua primeira rotina e registre evolução sem depender de internet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = onCreate) { Text("Criar primeira ficha") }
+        }
+    }
+}

@@ -18,6 +18,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.repforge.app.RepForgeApplication
+import com.repforge.app.presentation.home.HomeScreen
+import com.repforge.app.presentation.home.HomeViewModel
+import androidx.lifecycle.ViewModelProvider
 
 private enum class Destination(val label: String, val icon: ImageVector) {
     Home("Treino", Icons.Rounded.FitnessCenter),
@@ -42,8 +49,19 @@ fun RepForgeApp() {
             }
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("RepForge · ${selected.label}")
+        if (selected == Destination.Home) {
+            val application = LocalContext.current.applicationContext as RepForgeApplication
+            val homeViewModel: HomeViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                    HomeViewModel(application.repository) as T
+            })
+            val state by homeViewModel.state.collectAsStateWithLifecycle()
+            HomeScreen(state = state, onCreateSheet = homeViewModel::createSheet)
+        } else {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("RepForge · ${selected.label}")
+            }
         }
     }
 }
