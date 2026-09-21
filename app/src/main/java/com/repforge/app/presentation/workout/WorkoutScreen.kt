@@ -75,7 +75,7 @@ fun WorkoutScreen(
             if (exercises.isEmpty()) item { Text("Adicione exercícios para iniciar seu treino.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             items(exercises, key = { it.id }) { exercise ->
                 val entries by viewModel.entries(exercise.id).collectAsStateWithLifecycle(emptyList())
-                ExerciseCard(exercise, entries, onDelete = { viewModel.deleteExercise(exercise.id) }) { sets, reps, weight ->
+                ExerciseCard(exercise, entries, onEdit = { name, target -> viewModel.updateExercise(exercise.id, name, target) }, onDelete = { viewModel.deleteExercise(exercise.id) }) { sets, reps, weight ->
                     viewModel.addEntry(exercise.id, sets, reps, weight)
                     scope.launch { snackbarHostState.showSnackbar("Série registrada") }
                 }
@@ -93,6 +93,7 @@ fun WorkoutScreen(
 private fun ExerciseCard(
     exercise: Exercise,
     entries: List<SetEntry>,
+    onEdit: (String, String) -> Unit,
     onDelete: () -> Unit,
     onAddEntry: (Int, Int, Double) -> Unit
 ) {
@@ -101,6 +102,7 @@ private fun ExerciseCard(
     var weight by remember { mutableStateOf("0") }
     var invalidInput by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showEdit by remember { mutableStateOf(false) }
     Card {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(exercise.name, style = MaterialTheme.typography.titleMedium)
@@ -130,6 +132,9 @@ private fun ExerciseCard(
             OutlinedButton(onClick = { showDeleteConfirmation = true }, modifier = Modifier.fillMaxWidth()) {
                 Text("Remover exercício")
             }
+            OutlinedButton(onClick = { showEdit = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("Editar exercício")
+            }
             if (invalidInput) Text("Use valores válidos: séries e reps > 0; carga ≥ 0.", color = MaterialTheme.colorScheme.error)
         }
     }
@@ -144,6 +149,16 @@ private fun ExerciseCard(
             dismissButton = {
                 OutlinedButton(onClick = { showDeleteConfirmation = false }) { Text("Cancelar") }
             }
+        )
+    }
+    if (showEdit) {
+        AddExerciseDialog(
+            initialName = exercise.name,
+            initialTarget = exercise.target,
+            title = "Editar exercício",
+            actionLabel = "Salvar",
+            onDismiss = { showEdit = false },
+            onAdd = { name, target -> showEdit = false; onEdit(name, target) }
         )
     }
 }
@@ -173,17 +188,24 @@ private fun RestTimerCard(defaultSeconds: Int) {
 }
 
 @Composable
-private fun AddExerciseDialog(onDismiss: () -> Unit, onAdd: (String, String) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var target by remember { mutableStateOf("") }
+private fun AddExerciseDialog(
+    initialName: String = "",
+    initialTarget: String = "",
+    title: String = "Adicionar exercício",
+    actionLabel: String = "Adicionar",
+    onDismiss: () -> Unit,
+    onAdd: (String, String) -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var target by remember { mutableStateOf(initialTarget) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Adicionar exercício") },
+        title = { Text(title) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(name, { name = it }, label = { Text("Nome") }, singleLine = true)
             OutlinedTextField(target, { target = it }, label = { Text("Grupo muscular") }, singleLine = true)
         } },
-        confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onAdd(name, target) }) { Text("Adicionar") } },
+        confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onAdd(name, target) }) { Text(actionLabel) } },
         dismissButton = { Button(onClick = onDismiss) { Text("Cancelar") } }
     )
 }

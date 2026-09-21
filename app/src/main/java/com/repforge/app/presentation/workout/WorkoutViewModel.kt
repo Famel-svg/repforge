@@ -20,6 +20,10 @@ class WorkoutViewModel(private val repository: WorkoutRepository) : ViewModel() 
         repository.deleteExercise(exerciseId)
     }
 
+    fun updateExercise(exerciseId: Long, name: String, target: String) = viewModelScope.launch {
+        repository.updateExercise(exerciseId, name, target)
+    }
+
     fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double) = viewModelScope.launch {
         repository.addEntry(exerciseId, sets, reps, weightKg)
     }

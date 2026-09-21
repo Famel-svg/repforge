@@ -15,6 +15,7 @@ interface WorkoutRepository {
     fun observeExercises(sheetId: Long): Flow<List<Exercise>>
     fun observeEntries(exerciseId: Long): Flow<List<SetEntry>>
     suspend fun addExercise(sheetId: Long, name: String, target: String)
+    suspend fun updateExercise(exerciseId: Long, name: String, target: String)
     suspend fun deleteExercise(exerciseId: Long)
     suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double)
     fun observeDailyVolume(since: Long): Flow<List<DailyVolume>>

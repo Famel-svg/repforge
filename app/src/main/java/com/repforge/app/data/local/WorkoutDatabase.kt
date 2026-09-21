@@ -91,6 +91,9 @@ interface WorkoutDao {
     @Query("DELETE FROM exercises WHERE id = :exerciseId")
     suspend fun deleteExercise(exerciseId: Long)
 
+    @Query("UPDATE exercises SET name = :name, target = :target WHERE id = :exerciseId")
+    suspend fun updateExercise(exerciseId: Long, name: String, target: String)
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertEntry(entry: EntryEntity): Long
 
