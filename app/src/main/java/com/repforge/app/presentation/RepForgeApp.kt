@@ -39,6 +39,8 @@ import com.repforge.app.presentation.progress.ProgressViewModel
 import com.repforge.app.presentation.settings.SettingsScreen
 import com.repforge.app.presentation.settings.SettingsViewModel
 import com.repforge.app.data.AppPreferences
+import com.repforge.app.presentation.search.ExerciseSearchScreen
+import com.repforge.app.presentation.search.ExerciseSearchViewModel
 import androidx.lifecycle.ViewModelProvider
 
 private enum class Destination(val label: String, val icon: ImageVector) {
@@ -51,6 +53,8 @@ private enum class Destination(val label: String, val icon: ImageVector) {
 fun RepForgeApp() {
     var selected by remember { mutableStateOf(Destination.Home) }
     var activeSheet by remember { mutableStateOf<com.repforge.app.domain.model.TrainingSheet?>(null) }
+    var searchingSheetId by remember { mutableStateOf<Long?>(null) }
+    val appScope = rememberCoroutineScope()
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -65,7 +69,26 @@ fun RepForgeApp() {
             }
         }
     ) { padding ->
-        if (activeSheet != null) {
+        if (searchingSheetId != null) {
+            val application = LocalContext.current.applicationContext as RepForgeApplication
+            val searchViewModel: ExerciseSearchViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                    ExerciseSearchViewModel(application.workoutX) as T
+            })
+            ExerciseSearchScreen(
+                searchViewModel,
+                onBack = { searchingSheetId = null },
+                onAdd = { name, target ->
+                    searchingSheetId?.let { sheetId ->
+                        appScope.launch {
+                            application.repository.addExercise(sheetId, name, target)
+                            searchingSheetId = null
+                        }
+                    }
+                }
+            )
+        } else if (activeSheet != null) {
             val application = LocalContext.current.applicationContext as RepForgeApplication
             val workoutViewModel: WorkoutViewModel = viewModel(factory = object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
@@ -74,7 +97,11 @@ fun RepForgeApp() {
             })
             val sheet = activeSheet!!
             val preferences by application.settings.preferences.collectAsStateWithLifecycle(AppPreferences())
-            WorkoutScreen(sheet.id, sheet.name, workoutViewModel, preferences.restSeconds) { activeSheet = null }
+            WorkoutScreen(
+                sheet.id, sheet.name, workoutViewModel, preferences.restSeconds,
+                onSearch = { searchingSheetId = sheet.id },
+                onBack = { activeSheet = null }
+            )
         } else if (selected == Destination.Home) {
             val application = LocalContext.current.applicationContext as RepForgeApplication
             val homeViewModel: HomeViewModel = viewModel(factory = object : ViewModelProvider.Factory {

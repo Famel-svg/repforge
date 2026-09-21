@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.repforge.app.data.WorkoutRepositoryImpl
 import com.repforge.app.data.SettingsStore
 import com.repforge.app.data.BackupManager
+import com.repforge.app.data.WorkoutXClient
 import com.repforge.app.data.local.WorkoutDatabase
 
 class RepForgeApplication : Application() {
@@ -12,4 +13,5 @@ class RepForgeApplication : Application() {
     val repository by lazy { WorkoutRepositoryImpl(database.workoutDao()) }
     val settings by lazy { SettingsStore(this) }
     val backup by lazy { BackupManager(database) }
+    val workoutX by lazy { WorkoutXClient(this) }
 }
