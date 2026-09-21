@@ -30,6 +30,8 @@ import com.repforge.app.presentation.workout.WorkoutScreen
 import com.repforge.app.presentation.workout.WorkoutViewModel
 import com.repforge.app.presentation.progress.ProgressScreen
 import com.repforge.app.presentation.progress.ProgressViewModel
+import com.repforge.app.presentation.settings.SettingsScreen
+import com.repforge.app.presentation.settings.SettingsViewModel
 import androidx.lifecycle.ViewModelProvider
 
 private enum class Destination(val label: String, val icon: ImageVector) {
@@ -88,9 +90,13 @@ fun RepForgeApp() {
             })
             ProgressScreen(progressViewModel)
         } else {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("RepForge · ${selected.label}")
-            }
+            val application = LocalContext.current.applicationContext as RepForgeApplication
+            val settingsViewModel: SettingsViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                    SettingsViewModel(application.settings) as T
+            })
+            SettingsScreen(settingsViewModel)
         }
     }
 }
