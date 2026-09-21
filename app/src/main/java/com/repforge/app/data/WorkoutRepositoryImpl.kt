@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.util.concurrent.TimeUnit
+import com.repforge.app.domain.validation.validateSetInput
 
 class WorkoutRepositoryImpl(private val dao: WorkoutDao) : WorkoutRepository {
     private val weekStart: Long
@@ -48,7 +49,7 @@ class WorkoutRepositoryImpl(private val dao: WorkoutDao) : WorkoutRepository {
     }
 
     override suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double) {
-        require(sets > 0 && reps > 0 && weightKg >= 0) { "Valores de série inválidos." }
+        require(validateSetInput(sets, reps, weightKg) == null) { validateSetInput(sets, reps, weightKg)?.message ?: "Valores de série inválidos." }
         dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg))
     }
 

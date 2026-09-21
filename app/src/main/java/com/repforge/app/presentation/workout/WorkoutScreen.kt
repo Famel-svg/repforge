@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.SetEntry
+import com.repforge.app.domain.validation.validateSetInput
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,15 +94,15 @@ private fun ExerciseCard(exercise: Exercise, entries: List<SetEntry>, onAddEntry
                     val parsedSets = sets.toIntOrNull()
                     val parsedReps = reps.toIntOrNull()
                     val parsedWeight = weight.toDoubleOrNull()
-                    val validInput = parsedSets != null && parsedReps != null && parsedWeight != null && parsedSets > 0 && parsedReps > 0 && parsedWeight >= 0
-                    invalidInput = !validInput
-                    if (validInput) {
+                    val validationError = validateSetInput(parsedSets, parsedReps, parsedWeight)
+                    invalidInput = validationError != null
+                    if (validationError == null) {
                         onAddEntry(parsedSets!!, parsedReps!!, parsedWeight!!)
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Registrar série") }
-            if (invalidInput) Text("Use séries/reps maiores que zero e carga não negativa.", color = MaterialTheme.colorScheme.error)
+            if (invalidInput) Text("Use valores válidos: séries e reps > 0; carga ≥ 0.", color = MaterialTheme.colorScheme.error)
         }
     }
 }
