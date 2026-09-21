@@ -22,6 +22,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.LinearProgressIndicator
@@ -30,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -39,6 +42,7 @@ import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.validation.validateSetInput
 import com.repforge.app.domain.metrics.bestEstimatedOneRepMax
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,8 +56,11 @@ fun WorkoutScreen(
 ) {
     val exercises by viewModel.exercises(sheetId).collectAsStateWithLifecycle(emptyList())
     var showAdd by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     Scaffold(
         topBar = { TopAppBar(title = { Text(sheetName) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Voltar") } }, actions = { IconButton(onSearch) { Icon(Icons.Rounded.Search, "Buscar exercício") } }) },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             // Outer app navigation occupies the bottom edge; keep the action above it.
             Box(Modifier.padding(bottom = 72.dp)) {
@@ -69,6 +76,7 @@ fun WorkoutScreen(
                 val entries by viewModel.entries(exercise.id).collectAsStateWithLifecycle(emptyList())
                 ExerciseCard(exercise, entries) { sets, reps, weight ->
                     viewModel.addEntry(exercise.id, sets, reps, weight)
+                    scope.launch { snackbarHostState.showSnackbar("Série registrada") }
                 }
             }
             item { RestTimerCard(restSeconds) }
