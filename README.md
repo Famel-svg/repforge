@@ -2,12 +2,12 @@
 
 ![RepForge icon](assets/icon.png)
 
-RepForge e um app Android local-first para montar fichas de treino, buscar
-exercicios, registrar cargas e acompanhar evolucao sem depender de conta ou
-nuvem.
+RepForge é um app Android nativo, offline-first, para montar fichas de treino,
+registrar cargas e acompanhar evolução sem depender de conta ou nuvem.
 
-O app usa Expo, React Native, TypeScript e SQLite. Seus dados ficam no aparelho
-e podem ser exportados/importados em JSON pela tela `Config`.
+O produto atual usa Kotlin, Jetpack Compose, Material 3, ViewModel, Coroutines
+e Room. O diretório `app/` é a fonte do APK; o código Expo/TypeScript legado
+permanece apenas como referência de migração e não participa do build Kotlin.
 
 ## Screenshots
 
@@ -91,24 +91,30 @@ O proxy limita gasto de API por cache miss:
 Se sua chave WorkoutX for free com 500 requisicoes/mes, use
 `GLOBAL_DAILY_LIMIT=15`.
 
-## Instalar para desenvolvimento
+## Build Kotlin para desenvolvimento
 
-Requisitos:
+Requisitos: JDK 21 e Android SDK com API 35+.
 
-- Node.js 22.13 ou superior
-- npm
-- Expo Go, emulador Android ou aparelho Android
-- Conta Expo apenas para gerar APK via EAS
-
-```bash
-git clone https://github.com/Famel-svg/repforge.git
-cd repforge
-npm install
+```powershell
+./gradlew.bat :app:testDebugUnitTest
+./gradlew.bat :app:assembleDebug
 ```
 
-## Rodar no computador
+APK: `app/build/outputs/apk/debug/app-debug.apk`.
 
-No VS Code, use `Terminal > Run Task`:
+Instalar em dispositivo/emulador:
+
+```powershell
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell monkey -p com.repforge.app 1
+```
+
+## Legado Expo
+
+O código Expo/TypeScript original permanece versionado para referência durante
+a migração. Não é necessário para compilar, instalar ou testar o app Kotlin.
+
+Para consultar o preview legado, use `Terminal > Run Task`:
 
 - `Preview: Web`
 - `Preview: Expo Go`
@@ -122,14 +128,12 @@ npm start
 
 O foco do projeto e Android. Web existe para preview rapido.
 
-## Rodar no Android
+## Proxy WorkoutX
 
-```bash
-npm run android
-```
-
-O build usa o proxy WorkoutX configurado em `src/config.ts` ou
-`EXPO_PUBLIC_WORKOUTX_PROXY_URL`.
+O APK não contém chave secreta. `WorkoutXClient` chama o proxy configurado em
+`app/src/main/java/com/repforge/app/data/WorkoutXClient.kt`; a chave real deve
+existir somente no ambiente do proxy Cloudflare em `proxy/`. Criação manual e
+registro de treino continuam funcionando offline.
 
 ## Gerar APK
 
@@ -174,35 +178,24 @@ Tabelas:
 O schema ativa `PRAGMA foreign_keys = ON`, usa exclusao em cascata e
 `PRAGMA user_version = 2`.
 
-## Estrutura
+## Estrutura Kotlin
 
 ```text
-repforge/
-├── App.tsx
-├── app.json
-├── eas.json
-├── assets/
-├── src/
-│   ├── components/
-│   ├── db/
-│   ├── navigation/
-│   ├── screens/
-│   ├── services/
-│   ├── types/
-│   └── utils/
-└── tests/
+app/src/main/java/com/repforge/app/
+├── data/          # Room, backup, settings e WorkoutX
+├── domain/        # modelos, contratos, validações e métricas
+└── presentation/  # Compose, ViewModels e tema
 ```
 
 ## Qualidade
 
-```bash
-npm run lint
-npm run typecheck
-npm test
+```powershell
+./gradlew.bat :app:testDebugUnitTest
+./gradlew.bat :app:assembleDebug
 ```
 
-Testes cobrem schema SQLite, backup/importacao, rollback, WorkoutX,
-normalizacao de dados, dashboard, timer e calculos de treino.
+Testes atuais cobrem validação de séries e cálculo de 1RM; o fluxo principal
+também foi validado no emulador Android com persistência Room.
 
 ## Release
 
