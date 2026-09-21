@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.validation.validateSetInput
+import com.repforge.app.domain.metrics.bestEstimatedOneRepMax
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,6 +82,7 @@ private fun ExerciseCard(exercise: Exercise, entries: List<SetEntry>, onAddEntry
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(exercise.name, style = MaterialTheme.typography.titleMedium)
             Text(exercise.target.ifBlank { "Alvo não definido" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (entries.isNotEmpty()) Text("1RM estimado: %.1f kg".format(bestEstimatedOneRepMax(entries)), color = MaterialTheme.colorScheme.primary)
             entries.take(3).forEach { entry ->
                 Text("${entry.sets} séries × ${entry.reps} reps · ${entry.weightKg} kg", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
