@@ -22,7 +22,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,6 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.repforge.app.domain.model.Exercise
+import com.repforge.app.domain.model.SetEntry
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,10 +53,12 @@ fun WorkoutScreen(
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (exercises.isEmpty()) item { Text("Adicione exercícios para iniciar seu treino.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             items(exercises, key = { it.id }) { exercise ->
-                ExerciseCard(exercise) { sets, reps, weight ->
+                val entries by viewModel.entries(exercise.id).collectAsStateWithLifecycle(emptyList())
+                ExerciseCard(exercise, entries) { sets, reps, weight ->
                     viewModel.addEntry(exercise.id, sets, reps, weight)
                 }
             }
+            item { RestTimerCard() }
         }
     }
     if (showAdd) AddExerciseDialog(
@@ -62,7 +68,7 @@ fun WorkoutScreen(
 }
 
 @Composable
-private fun ExerciseCard(exercise: Exercise, onAddEntry: (Int, Int, Double) -> Unit) {
+private fun ExerciseCard(exercise: Exercise, entries: List<SetEntry>, onAddEntry: (Int, Int, Double) -> Unit) {
     var sets by remember { mutableStateOf("3") }
     var reps by remember { mutableStateOf("10") }
     var weight by remember { mutableStateOf("0") }
@@ -70,6 +76,9 @@ private fun ExerciseCard(exercise: Exercise, onAddEntry: (Int, Int, Double) -> U
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(exercise.name, style = MaterialTheme.typography.titleMedium)
             Text(exercise.target.ifBlank { "Alvo não definido" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            entries.take(3).forEach { entry ->
+                Text("${entry.sets} séries × ${entry.reps} reps · ${entry.weightKg} kg", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(sets, { sets = it }, Modifier.weight(1f), label = { Text("Séries") }, singleLine = true)
                 OutlinedTextField(reps, { reps = it }, Modifier.weight(1f), label = { Text("Reps") }, singleLine = true)
@@ -86,6 +95,30 @@ private fun ExerciseCard(exercise: Exercise, onAddEntry: (Int, Int, Double) -> U
                 },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Registrar série") }
+        }
+    }
+}
+
+@Composable
+private fun RestTimerCard() {
+    var remaining by remember { mutableStateOf(90) }
+    var running by remember { mutableStateOf(false) }
+    LaunchedEffect(running) {
+        while (running && remaining > 0) {
+            delay(1_000)
+            remaining -= 1
+        }
+        if (remaining == 0) running = false
+    }
+    Card {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Timer de descanso", style = MaterialTheme.typography.titleMedium)
+            Text("%02d:%02d".format(remaining / 60, remaining % 60), style = MaterialTheme.typography.headlineMedium)
+            LinearProgressIndicator(progress = { remaining / 90f }, modifier = Modifier.fillMaxWidth())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { running = !running }) { Text(if (running) "Pausar" else "Iniciar") }
+                Button(onClick = { running = false; remaining = 90 }) { Text("Resetar") }
+            }
         }
     }
 }
