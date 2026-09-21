@@ -67,9 +67,9 @@ fun HomeScreen(
             }
             item { SummaryCard(state) }
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Suas fichas", style = MaterialTheme.typography.titleLarge)
-                    OutlinedButton(onClick = { showCreate = true }) { Text("Nova ficha") }
+                    OutlinedButton(onClick = { showCreate = true }, modifier = Modifier.fillMaxWidth()) { Text("Nova ficha") }
                 }
             }
             if (state.sheets.isEmpty()) {
