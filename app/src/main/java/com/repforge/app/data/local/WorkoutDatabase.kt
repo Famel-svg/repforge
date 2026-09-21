@@ -80,6 +80,24 @@ interface WorkoutDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertEntry(entry: EntryEntity): Long
 
+    @Query("SELECT * FROM sheets ORDER BY id")
+    suspend fun allSheets(): List<SheetEntity>
+
+    @Query("SELECT * FROM exercises ORDER BY sheetId, position, id")
+    suspend fun allExercises(): List<ExerciseEntity>
+
+    @Query("SELECT * FROM entries ORDER BY exerciseId, recordedAt, id")
+    suspend fun allEntries(): List<EntryEntity>
+
+    @Query("DELETE FROM entries")
+    suspend fun clearEntries()
+
+    @Query("DELETE FROM exercises")
+    suspend fun clearExercises()
+
+    @Query("DELETE FROM sheets")
+    suspend fun clearSheets()
+
     @Query("SELECT strftime('%Y-%m-%d', recordedAt / 1000, 'unixepoch', 'localtime') AS day, COALESCE(SUM(sets * reps * weightKg), 0.0) AS volumeKg FROM entries WHERE recordedAt >= :since GROUP BY day ORDER BY day")
     fun observeDailyVolume(since: Long): Flow<List<DailyVolumeRow>>
 }

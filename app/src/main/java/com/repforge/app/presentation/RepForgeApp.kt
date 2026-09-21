@@ -21,6 +21,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.launch
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.repforge.app.RepForgeApplication
@@ -98,7 +104,27 @@ fun RepForgeApp() {
                 override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
                     SettingsViewModel(application.settings) as T
             })
-            SettingsScreen(settingsViewModel)
+            val context = LocalContext.current
+            val scope = rememberCoroutineScope()
+            val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+                if (uri != null) scope.launch {
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        OutputStreamWriter(output).use { it.write(application.backup.exportJson()) }
+                    }
+                }
+            }
+            val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) scope.launch {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        InputStreamReader(input).use { application.backup.importJson(it.readText()) }
+                    }
+                }
+            }
+            SettingsScreen(
+                settingsViewModel,
+                onExport = { exportLauncher.launch("repforge-backup.json") },
+                onImport = { importLauncher.launch(arrayOf("application/json", "text/plain")) }
+            )
         }
     }
 }

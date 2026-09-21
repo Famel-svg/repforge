@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel) {
+fun SettingsScreen(viewModel: SettingsViewModel, onExport: () -> Unit, onImport: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     Scaffold(topBar = { TopAppBar(title = { Text("Ajustes") }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -46,6 +46,10 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             }
             Text("RepForge 0.1.0", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
             Text("Seus treinos ficam no aparelho e funcionam sem conta.", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onExport) { Text("Exportar backup") }
+                OutlinedButton(onClick = onImport) { Text("Importar backup") }
+            }
         }
     }
 }
