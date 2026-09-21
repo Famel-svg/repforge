@@ -35,9 +35,14 @@ import androidx.compose.ui.unit.dp
 import com.repforge.app.domain.model.TrainingSheet
 
 @Composable
-fun HomeScreen(state: HomeUiState, onCreateSheet: (String) -> Unit) {
+fun HomeScreen(
+    state: HomeUiState,
+    onCreateSheet: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     var showCreate by remember { mutableStateOf(false) }
     Scaffold(
+        modifier = modifier,
         topBar = { TopAppBar(title = { Text("RepForge") }) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreate = true }) {

@@ -17,6 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -57,7 +59,11 @@ fun RepForgeApp() {
                     HomeViewModel(application.repository) as T
             })
             val state by homeViewModel.state.collectAsStateWithLifecycle()
-            HomeScreen(state = state, onCreateSheet = homeViewModel::createSheet)
+            HomeScreen(
+                state = state,
+                onCreateSheet = homeViewModel::createSheet,
+                modifier = Modifier.padding(padding)
+            )
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("RepForge · ${selected.label}")
