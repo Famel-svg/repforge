@@ -49,7 +49,10 @@ fun ProgressScreen(viewModel: ProgressViewModel) {
                                 Text(day.day)
                                 Text("%.1f kg".format(day.volumeKg))
                             }
-                            LinearProgressIndicator({ (day.volumeKg / maxVolume).toFloat() }, Modifier.fillMaxWidth().height(8.dp))
+                            LinearProgressIndicator(
+                                progress = { (day.volumeKg / maxVolume).toFloat() },
+                                modifier = Modifier.fillMaxWidth().height(8.dp)
+                            )
                         }
                     }
                 }
