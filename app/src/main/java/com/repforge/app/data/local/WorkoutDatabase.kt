@@ -16,7 +16,11 @@ data class SheetEntity(
     val updatedAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "exercises")
+@Entity(
+    tableName = "exercises",
+    foreignKeys = [androidx.room.ForeignKey(entity = SheetEntity::class, parentColumns = ["id"], childColumns = ["sheetId"], onDelete = androidx.room.ForeignKey.CASCADE)],
+    indices = [androidx.room.Index("sheetId")]
+)
 data class ExerciseEntity(
     @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
     val sheetId: Long,
@@ -25,7 +29,11 @@ data class ExerciseEntity(
     val position: Int
 )
 
-@Entity(tableName = "entries")
+@Entity(
+    tableName = "entries",
+    foreignKeys = [androidx.room.ForeignKey(entity = ExerciseEntity::class, parentColumns = ["id"], childColumns = ["exerciseId"], onDelete = androidx.room.ForeignKey.CASCADE)],
+    indices = [androidx.room.Index("exerciseId")]
+)
 data class EntryEntity(
     @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
     val exerciseId: Long,
@@ -64,6 +72,9 @@ interface WorkoutDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertSheet(sheet: SheetEntity): Long
+
+    @Query("DELETE FROM sheets WHERE id = :sheetId")
+    suspend fun deleteSheet(sheetId: Long)
 
     @Query("SELECT id, sheetId, name, target, position FROM exercises WHERE sheetId = :sheetId ORDER BY position, id")
     fun observeExercises(sheetId: Long): Flow<List<ExerciseRow>>

@@ -35,6 +35,10 @@ class WorkoutRepositoryImpl(private val dao: WorkoutDao) : WorkoutRepository {
         dao.insertSheet(SheetEntity(name = name.trim()))
     }
 
+    override suspend fun deleteSheet(sheetId: Long) {
+        dao.deleteSheet(sheetId)
+    }
+
     override fun observeExercises(sheetId: Long): Flow<List<Exercise>> = dao.observeExercises(sheetId).map { rows ->
         rows.map { Exercise(it.id, it.sheetId, it.name, it.target, it.position) }
     }

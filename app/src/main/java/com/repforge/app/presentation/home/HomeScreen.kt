@@ -19,6 +19,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,9 +42,11 @@ fun HomeScreen(
     state: HomeUiState,
     onCreateSheet: (String) -> Unit,
     onStartSheet: (TrainingSheet) -> Unit,
+    onDeleteSheet: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showCreate by remember { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<TrainingSheet?>(null) }
     Scaffold(
         modifier = modifier,
         topBar = { TopAppBar(title = { Text("RepForge") }) },
@@ -72,7 +75,9 @@ fun HomeScreen(
             if (state.sheets.isEmpty()) {
                 item { EmptySheetsCard(onCreate = { showCreate = true }) }
             } else {
-                items(state.sheets, key = { it.id }) { SheetCard(it, onStart = { onStartSheet(it) }) }
+                items(state.sheets, key = { it.id }) { sheet ->
+                    SheetCard(sheet, onStart = { onStartSheet(sheet) }, onDelete = { deleteTarget = sheet })
+                }
             }
             item { Spacer(Modifier.height(80.dp)) }
         }
@@ -81,6 +86,15 @@ fun HomeScreen(
         onDismiss = { showCreate = false },
         onCreate = { name -> onCreateSheet(name); showCreate = false }
     )
+    deleteTarget?.let { sheet ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Excluir ficha?") },
+            text = { Text("${sheet.name} e todo seu histórico serão removidos deste aparelho.") },
+            confirmButton = { Button(onClick = { onDeleteSheet(sheet.id); deleteTarget = null }) { Text("Excluir") } },
+            dismissButton = { Button(onClick = { deleteTarget = null }) { Text("Cancelar") } }
+        )
+    }
 }
 
 @Composable
@@ -101,14 +115,17 @@ private fun SummaryCard(state: HomeUiState) {
 }
 
 @Composable
-private fun SheetCard(sheet: TrainingSheet, onStart: () -> Unit = {}) {
+private fun SheetCard(sheet: TrainingSheet, onStart: () -> Unit = {}, onDelete: () -> Unit = {}) {
     Card {
         Row(Modifier.fillMaxWidth().padding(18.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text(sheet.name, style = MaterialTheme.typography.titleMedium)
                 Text("${sheet.exerciseCount} exercícios", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Button(onClick = onStart) { Icon(Icons.Rounded.PlayArrow, contentDescription = "Iniciar") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onStart) { Icon(Icons.Rounded.PlayArrow, contentDescription = "Iniciar") }
+                OutlinedButton(onClick = onDelete) { Text("Excluir") }
+            }
         }
     }
 }

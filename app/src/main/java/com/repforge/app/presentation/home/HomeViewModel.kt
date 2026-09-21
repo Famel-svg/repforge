@@ -30,4 +30,8 @@ class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
                 .onFailure { /* UI observes unchanged local state; dialog owns validation feedback */ }
         }
     }
+
+    fun deleteSheet(sheetId: Long) {
+        viewModelScope.launch { repository.deleteSheet(sheetId) }
+    }
 }

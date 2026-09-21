@@ -114,6 +114,7 @@ fun RepForgeApp() {
                 state = state,
                 onCreateSheet = homeViewModel::createSheet,
                 onStartSheet = { activeSheet = it },
+                onDeleteSheet = homeViewModel::deleteSheet,
                 modifier = Modifier.padding(padding)
             )
         } else if (selected == Destination.Progress) {
