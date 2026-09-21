@@ -1,6 +1,7 @@
 package com.repforge.app.presentation.workout
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,7 +54,14 @@ fun WorkoutScreen(
     var showAdd by remember { mutableStateOf(false) }
     Scaffold(
         topBar = { TopAppBar(title = { Text(sheetName) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Voltar") } }, actions = { IconButton(onSearch) { Icon(Icons.Rounded.Search, "Buscar exercício") } }) },
-        floatingActionButton = { FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, "Adicionar exercício") } }
+        floatingActionButton = {
+            // Outer app navigation occupies the bottom edge; keep the action above it.
+            Box(Modifier.padding(bottom = 72.dp)) {
+                FloatingActionButton(onClick = { showAdd = true }) {
+                    Icon(Icons.Rounded.Add, "Adicionar exercício")
+                }
+            }
+        }
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (exercises.isEmpty()) item { Text("Adicione exercícios para iniciar seu treino.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
