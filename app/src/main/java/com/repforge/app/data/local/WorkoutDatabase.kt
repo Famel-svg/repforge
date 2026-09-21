@@ -88,6 +88,9 @@ interface WorkoutDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertExercise(exercise: ExerciseEntity): Long
 
+    @Query("DELETE FROM exercises WHERE id = :exerciseId")
+    suspend fun deleteExercise(exerciseId: Long)
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertEntry(entry: EntryEntity): Long
 

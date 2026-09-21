@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -74,7 +75,7 @@ fun WorkoutScreen(
             if (exercises.isEmpty()) item { Text("Adicione exercícios para iniciar seu treino.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             items(exercises, key = { it.id }) { exercise ->
                 val entries by viewModel.entries(exercise.id).collectAsStateWithLifecycle(emptyList())
-                ExerciseCard(exercise, entries) { sets, reps, weight ->
+                ExerciseCard(exercise, entries, onDelete = { viewModel.deleteExercise(exercise.id) }) { sets, reps, weight ->
                     viewModel.addEntry(exercise.id, sets, reps, weight)
                     scope.launch { snackbarHostState.showSnackbar("Série registrada") }
                 }
@@ -89,11 +90,17 @@ fun WorkoutScreen(
 }
 
 @Composable
-private fun ExerciseCard(exercise: Exercise, entries: List<SetEntry>, onAddEntry: (Int, Int, Double) -> Unit) {
+private fun ExerciseCard(
+    exercise: Exercise,
+    entries: List<SetEntry>,
+    onDelete: () -> Unit,
+    onAddEntry: (Int, Int, Double) -> Unit
+) {
     var sets by remember { mutableStateOf("3") }
     var reps by remember { mutableStateOf("10") }
     var weight by remember { mutableStateOf("0") }
     var invalidInput by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
     Card {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(exercise.name, style = MaterialTheme.typography.titleMedium)
@@ -120,8 +127,24 @@ private fun ExerciseCard(exercise: Exercise, entries: List<SetEntry>, onAddEntry
                 },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Registrar série") }
+            OutlinedButton(onClick = { showDeleteConfirmation = true }, modifier = Modifier.fillMaxWidth()) {
+                Text("Remover exercício")
+            }
             if (invalidInput) Text("Use valores válidos: séries e reps > 0; carga ≥ 0.", color = MaterialTheme.colorScheme.error)
         }
+    }
+    if (showDeleteConfirmation) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Remover exercício?") },
+            text = { Text("O histórico deste exercício também será removido.") },
+            confirmButton = {
+                Button(onClick = { showDeleteConfirmation = false; onDelete() }) { Text("Remover") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteConfirmation = false }) { Text("Cancelar") }
+            }
+        )
     }
 }
 

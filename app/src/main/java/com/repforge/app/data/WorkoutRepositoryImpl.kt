@@ -52,6 +52,10 @@ class WorkoutRepositoryImpl(private val dao: WorkoutDao) : WorkoutRepository {
         dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = name.trim(), target = target.trim(), position = dao.nextExercisePosition(sheetId)))
     }
 
+    override suspend fun deleteExercise(exerciseId: Long) {
+        dao.deleteExercise(exerciseId)
+    }
+
     override suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double) {
         require(validateSetInput(sets, reps, weightKg) == null) { validateSetInput(sets, reps, weightKg)?.message ?: "Valores de série inválidos." }
         dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg))
