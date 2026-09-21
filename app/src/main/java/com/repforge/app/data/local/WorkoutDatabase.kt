@@ -46,6 +46,8 @@ data class ExerciseRow(val id: Long, val sheetId: Long, val name: String, val ta
 
 data class EntryRow(val id: Long, val exerciseId: Long, val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long)
 
+data class DailyVolumeRow(val day: String, val volumeKg: Double)
+
 @Dao
 interface WorkoutDao {
     @Query("SELECT s.id, s.name, COUNT(e.id) AS exerciseCount, s.updatedAt FROM sheets s LEFT JOIN exercises e ON e.sheetId = s.id GROUP BY s.id ORDER BY s.updatedAt DESC")
@@ -77,6 +79,9 @@ interface WorkoutDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertEntry(entry: EntryEntity): Long
+
+    @Query("SELECT strftime('%Y-%m-%d', recordedAt / 1000, 'unixepoch', 'localtime') AS day, COALESCE(SUM(sets * reps * weightKg), 0.0) AS volumeKg FROM entries WHERE recordedAt >= :since GROUP BY day ORDER BY day")
+    fun observeDailyVolume(since: Long): Flow<List<DailyVolumeRow>>
 }
 
 @Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class], version = 1, exportSchema = false)

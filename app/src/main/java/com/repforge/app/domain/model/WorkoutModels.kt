@@ -30,3 +30,5 @@ data class DashboardSummary(
     val activeSheets: Int = 0,
     val currentStreak: Int = 0
 )
+
+data class DailyVolume(val day: String, val volumeKg: Double)

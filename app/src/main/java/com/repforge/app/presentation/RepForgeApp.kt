@@ -28,6 +28,8 @@ import com.repforge.app.presentation.home.HomeScreen
 import com.repforge.app.presentation.home.HomeViewModel
 import com.repforge.app.presentation.workout.WorkoutScreen
 import com.repforge.app.presentation.workout.WorkoutViewModel
+import com.repforge.app.presentation.progress.ProgressScreen
+import com.repforge.app.presentation.progress.ProgressViewModel
 import androidx.lifecycle.ViewModelProvider
 
 private enum class Destination(val label: String, val icon: ImageVector) {
@@ -77,6 +79,14 @@ fun RepForgeApp() {
                 onStartSheet = { activeSheet = it },
                 modifier = Modifier.padding(padding)
             )
+        } else if (selected == Destination.Progress) {
+            val application = LocalContext.current.applicationContext as RepForgeApplication
+            val progressViewModel: ProgressViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+                    ProgressViewModel(application.repository) as T
+            })
+            ProgressScreen(progressViewModel)
         } else {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("RepForge · ${selected.label}")

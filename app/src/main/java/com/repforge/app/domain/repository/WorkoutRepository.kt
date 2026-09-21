@@ -4,6 +4,7 @@ import com.repforge.app.domain.model.DashboardSummary
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.SetEntry
+import com.repforge.app.domain.model.DailyVolume
 import kotlinx.coroutines.flow.Flow
 
 interface WorkoutRepository {
@@ -14,4 +15,5 @@ interface WorkoutRepository {
     fun observeEntries(exerciseId: Long): Flow<List<SetEntry>>
     suspend fun addExercise(sheetId: Long, name: String, target: String)
     suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double)
+    fun observeDailyVolume(since: Long): Flow<List<DailyVolume>>
 }

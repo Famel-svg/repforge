@@ -8,6 +8,7 @@ import com.repforge.app.domain.model.DashboardSummary
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.SetEntry
+import com.repforge.app.domain.model.DailyVolume
 import com.repforge.app.domain.repository.WorkoutRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -49,5 +50,9 @@ class WorkoutRepositoryImpl(private val dao: WorkoutDao) : WorkoutRepository {
     override suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double) {
         require(sets > 0 && reps > 0 && weightKg >= 0) { "Valores de série inválidos." }
         dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg))
+    }
+
+    override fun observeDailyVolume(since: Long): Flow<List<DailyVolume>> = dao.observeDailyVolume(since).map {
+        it.map { row -> DailyVolume(row.day, row.volumeKg) }
     }
 }
