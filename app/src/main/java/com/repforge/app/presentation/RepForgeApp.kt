@@ -32,6 +32,7 @@ import com.repforge.app.presentation.progress.ProgressScreen
 import com.repforge.app.presentation.progress.ProgressViewModel
 import com.repforge.app.presentation.settings.SettingsScreen
 import com.repforge.app.presentation.settings.SettingsViewModel
+import com.repforge.app.data.AppPreferences
 import androidx.lifecycle.ViewModelProvider
 
 private enum class Destination(val label: String, val icon: ImageVector) {
@@ -66,7 +67,8 @@ fun RepForgeApp() {
                     WorkoutViewModel(application.repository) as T
             })
             val sheet = activeSheet!!
-            WorkoutScreen(sheet.id, sheet.name, workoutViewModel) { activeSheet = null }
+            val preferences by application.settings.preferences.collectAsStateWithLifecycle(AppPreferences())
+            WorkoutScreen(sheet.id, sheet.name, workoutViewModel, preferences.restSeconds) { activeSheet = null }
         } else if (selected == Destination.Home) {
             val application = LocalContext.current.applicationContext as RepForgeApplication
             val homeViewModel: HomeViewModel = viewModel(factory = object : ViewModelProvider.Factory {

@@ -42,6 +42,7 @@ fun WorkoutScreen(
     sheetId: Long,
     sheetName: String,
     viewModel: WorkoutViewModel,
+    restSeconds: Int = 90,
     onBack: () -> Unit
 ) {
     val exercises by viewModel.exercises(sheetId).collectAsStateWithLifecycle(emptyList())
@@ -58,7 +59,7 @@ fun WorkoutScreen(
                     viewModel.addEntry(exercise.id, sets, reps, weight)
                 }
             }
-            item { RestTimerCard() }
+            item { RestTimerCard(restSeconds) }
         }
     }
     if (showAdd) AddExerciseDialog(
@@ -72,6 +73,7 @@ private fun ExerciseCard(exercise: Exercise, entries: List<SetEntry>, onAddEntry
     var sets by remember { mutableStateOf("3") }
     var reps by remember { mutableStateOf("10") }
     var weight by remember { mutableStateOf("0") }
+    var invalidInput by remember { mutableStateOf(false) }
     Card {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(exercise.name, style = MaterialTheme.typography.titleMedium)
@@ -89,21 +91,24 @@ private fun ExerciseCard(exercise: Exercise, entries: List<SetEntry>, onAddEntry
                     val parsedSets = sets.toIntOrNull()
                     val parsedReps = reps.toIntOrNull()
                     val parsedWeight = weight.toDoubleOrNull()
-                    if (parsedSets != null && parsedReps != null && parsedWeight != null) {
-                        onAddEntry(parsedSets, parsedReps, parsedWeight)
+                    val validInput = parsedSets != null && parsedReps != null && parsedWeight != null && parsedSets > 0 && parsedReps > 0 && parsedWeight >= 0
+                    invalidInput = !validInput
+                    if (validInput) {
+                        onAddEntry(parsedSets!!, parsedReps!!, parsedWeight!!)
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Registrar série") }
+            if (invalidInput) Text("Use séries/reps maiores que zero e carga não negativa.", color = MaterialTheme.colorScheme.error)
         }
     }
 }
 
 @Composable
-private fun RestTimerCard() {
-    var remaining by remember { mutableStateOf(90) }
+private fun RestTimerCard(defaultSeconds: Int) {
+    var remaining by remember(defaultSeconds) { mutableStateOf(defaultSeconds) }
     var running by remember { mutableStateOf(false) }
-    LaunchedEffect(running) {
+    LaunchedEffect(running, defaultSeconds) {
         while (running && remaining > 0) {
             delay(1_000)
             remaining -= 1
@@ -114,10 +119,10 @@ private fun RestTimerCard() {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Timer de descanso", style = MaterialTheme.typography.titleMedium)
             Text("%02d:%02d".format(remaining / 60, remaining % 60), style = MaterialTheme.typography.headlineMedium)
-            LinearProgressIndicator(progress = { remaining / 90f }, modifier = Modifier.fillMaxWidth())
+            LinearProgressIndicator(progress = { remaining / defaultSeconds.toFloat() }, modifier = Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { running = !running }) { Text(if (running) "Pausar" else "Iniciar") }
-                Button(onClick = { running = false; remaining = 90 }) { Text("Resetar") }
+                Button(onClick = { running = false; remaining = defaultSeconds }) { Text("Resetar") }
             }
         }
     }
