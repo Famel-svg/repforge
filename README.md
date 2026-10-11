@@ -1,99 +1,92 @@
-# RepForge
+# RepForge — Kotlin / Android nativo
 
 ![RepForge icon](assets/icon.png)
 
 RepForge é um app Android nativo, offline-first, para montar fichas de treino,
 registrar cargas e acompanhar evolução sem depender de conta ou nuvem.
 
-O produto atual usa Kotlin, Jetpack Compose, Material 3, ViewModel, Coroutines
-e Room. O diretório `app/` é a fonte do APK; o código Expo/TypeScript legado
-permanece apenas como referência de migração e não participa do build Kotlin.
+Esta branch (`codex/repforge-kotlin-rebuild`) contém a reescrita nativa. `app/`
+é a fonte do APK. O código Expo/TypeScript na raiz (`src/`, `App.tsx`,
+`tests/`) é legado, não participa do build Kotlin e continua publicado na
+branch [`main`](https://github.com/Famel-svg/repforge/tree/main).
 
 ## Screenshots
 
-Preview mobile web em viewport `390x844`.
+Emulador Android, capturas anteriores à 2.0.0 (a navegação e o timer mudaram
+desde então).
 
-| Home | Planilhas | Ficha |
+| Home | Treino | Evolução |
 | --- | --- | --- |
-| <img src="docs/screenshots/repforge-home-mobile.png" width="220" alt="Home mobile"> | <img src="docs/screenshots/repforge-sheets-mobile.png" width="220" alt="Planilhas mobile"> | <img src="docs/screenshots/repforge-sheet-detail-mobile.png" width="220" alt="Ficha mobile"> |
+| <img src="docs/screenshots/repforge-kotlin-home.png" width="220" alt="Home"> | <img src="docs/screenshots/repforge-kotlin-set-logged.png" width="220" alt="Série registrada"> | <img src="docs/screenshots/repforge-kotlin-progress-real.png" width="220" alt="Evolução"> |
 
-| Busca | Track | Config |
-| --- | --- | --- |
-| <img src="docs/screenshots/repforge-search-exercise-mobile.png" width="220" alt="Busca mobile"> | <img src="docs/screenshots/repforge-track-mobile.png" width="220" alt="Track mobile"> | <img src="docs/screenshots/repforge-config-mobile.png" width="220" alt="Config mobile"> |
-
-## O que ele faz
+## O que o app Kotlin faz
 
 - Cria, duplica e remove fichas de treino.
-- Busca exercicios na WorkoutX com filtros de nome, parte do corpo e equipamento.
-- Salva nome, GIF e dados do exercicio no banco local.
-- Registra series, repeticoes e carga em kg.
-- Mostra historico, ultimo registro, volume, PR de carga e 1RM estimado.
-- Mostra dashboard com volume semanal, totais e barras dos ultimos 7 dias.
-- Inclui timer de descanso ajustavel.
+- Adiciona exercícios manualmente ou pela busca WorkoutX (nome em inglês,
+  parte do corpo ou equipamento).
+- Edita nome e grupo muscular sem perder histórico; remove com confirmação.
+- Registra séries, repetições e carga em kg (aceita `80,5` e `80.5`; carga
+  vazia repete a anterior).
+- Mostra PR de carga, 1RM estimado (Epley) e histórico datado por exercício.
+- Timer de descanso fixo no rodapé da ficha, iniciado ao registrar uma série.
+- Resumo e volume por dia dos últimos 7 dias.
 - Exporta e importa backup JSON.
-- Usa interface escura em portugues, pensada para celular.
+- Material 3 com cores dinâmicas, tema claro/escuro do sistema, em português.
 
-## WorkoutX API
+### Ainda não portado do app Expo
 
-RepForge nao embute chave WorkoutX no APK.
+- GIFs dos exercícios.
+- Tradução de nomes e termos de busca para português.
+- Reordenação de exercícios.
 
-Motivo: APK e codigo cliente. Qualquer chave colocada em JavaScript, `.env`,
-`EXPO_PUBLIC_*`, `app.json`, asset ou recurso nativo pode ser extraida por
-alguem que descompile o APK ou inspecione as requisicoes.
+## Dados e conexão
 
-Opcoes seguras:
+Fichas, exercícios e séries ficam em Room (`repforge.db`); preferências em
+DataStore. Criar fichas e registrar treinos funciona offline. Apenas a busca
+de exercícios usa rede, sempre através do proxy.
 
-- **Distribuicao publica usando sua chave:** crie um backend proxy. O app chama
-  seu servidor, e o servidor chama a WorkoutX com `X-WorkoutX-Key`. Assim o APK
-  recebe apenas a URL publica do proxy, nunca a chave.
+Tabelas: `sheets`, `exercises`, `entries`, com chaves estrangeiras em cascata.
+O schema é exportado em `app/schemas/`. Qualquer mudança de schema exige subir
+a versão do banco e registrar uma `Migration` em `RepForgeApplication`.
 
-O build publico atual usa proxy Cloudflare. A tela `Config` fica dedicada a
-backup/importacao e nao pede chave WorkoutX do usuario.
+## Backup
 
-### Proxy Cloudflare gratuito
+Exportação gera `repforge-backup-YYYY-MM-DD.json` em texto legível — guarde
+com cuidado.
 
-Para distribuir o APK usando sua chave sem mostra-la no app, use o Worker em
-`proxy/`.
+Importação:
 
-```bash
-cd proxy
-npm install
-npx wrangler login
-npx wrangler kv namespace create USAGE
-```
+- valida o arquivo inteiro antes de escrever;
+- **adiciona** as fichas às existentes, sem apagar nada;
+- roda em uma transação: falha no meio desfaz tudo;
+- aceita também o backup do app Expo 1.0.x (o grupo muscular e os GIFs não
+  existem nesse formato e ficam vazios).
 
-Copie o `id` retornado para `proxy/wrangler.jsonc`, depois configure a chave:
+### Migrando do app Expo 1.0.x
 
-```bash
-npx wrangler secret put WORKOUTX_API_KEY
-npm run deploy
-```
+A versão Kotlin usa o mesmo `applicationId` (`com.repforge.app`) e
+`versionCode` maior, mas só atualiza por cima se o APK for assinado com a
+mesma chave do build EAS. Sem essa chave: exporte o backup no app antigo,
+desinstale, instale o novo e importe o arquivo.
 
-O app ja vem configurado para usar:
+## Proxy WorkoutX
+
+O APK não contém chave WorkoutX: qualquer segredo embutido em um APK pode ser
+extraído. O app chama um Cloudflare Worker (`proxy/`), que guarda a chave e
+repassa apenas `/v1/exercises` e `/v1/gifs`.
+
+URL padrão, definida em
+`app/src/main/java/com/repforge/app/data/WorkoutXClient.kt`:
 
 ```text
 https://repforge-workoutx-proxy.repforge-rafael.workers.dev
 ```
 
-Esse valor pode ir no APK porque e apenas a URL do proxy. A chave real fica no
-Cloudflare. Se quiser trocar o proxy em build local, use `.env.local`:
+Implantação e limites em [`proxy/README.md`](proxy/README.md).
 
-```text
-EXPO_PUBLIC_WORKOUTX_PROXY_URL=https://outro-proxy.workers.dev
-```
+## Build
 
-O proxy limita gasto de API por cache miss:
-
-- `PER_INSTALL_DAILY_LIMIT=60`
-- `GLOBAL_DAILY_LIMIT=450`
-- burst: `10` requisicoes/minuto por instalacao
-
-Se sua chave WorkoutX for free com 500 requisicoes/mes, use
-`GLOBAL_DAILY_LIMIT=15`.
-
-## Build Kotlin para desenvolvimento
-
-Requisitos: JDK 21 e Android SDK com API 35+.
+Requisitos: JDK 21 (`JAVA_HOME` apontando para ele) e Android SDK com API 36.
 
 ```powershell
 ./gradlew.bat :app:testDebugUnitTest
@@ -102,109 +95,57 @@ Requisitos: JDK 21 e Android SDK com API 35+.
 
 APK: `app/build/outputs/apk/debug/app-debug.apk`.
 
-Instalar em dispositivo/emulador:
-
 ```powershell
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell monkey -p com.repforge.app 1
 ```
 
-## Legado Expo
+### Release
 
-O código Expo/TypeScript original permanece versionado para referência durante
-a migração. Não é necessário para compilar, instalar ou testar o app Kotlin.
-
-Para consultar o preview legado, use `Terminal > Run Task`:
-
-- `Preview: Web`
-- `Preview: Expo Go`
-
-Ou rode direto:
-
-```bash
-npm run web
-npm start
+```powershell
+./gradlew.bat :app:assembleRelease
 ```
 
-O foco do projeto e Android. Web existe para preview rapido.
+O build release usa R8. Para assinar, crie `keystore.properties` na raiz
+(ignorado pelo git):
 
-## Proxy WorkoutX
-
-O APK não contém chave secreta. `WorkoutXClient` chama o proxy configurado em
-`app/src/main/java/com/repforge/app/data/WorkoutXClient.kt`; a chave real deve
-existir somente no ambiente do proxy Cloudflare em `proxy/`. Criação manual e
-registro de treino continuam funcionando offline.
-
-## Gerar APK
-
-```bash
-npm run lint
-npm run typecheck
-npm test
-npx eas-cli build --platform android --profile preview
+```properties
+storeFile=caminho/para/release.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
 ```
 
-O perfil `preview` gera APK instalavel. O perfil `production` fica reservado
-para AAB/loja.
+Sem esse arquivo o resultado é `app-release-unsigned.apk`.
 
-## Backup
-
-Exportacao gera arquivo no formato:
-
-```text
-repforge-backup-YYYY-MM-DD.json
-```
-
-Importacao:
-
-- valida o arquivo antes de escrever;
-- adiciona dados sem apagar banco atual;
-- roda em transacao exclusiva;
-- faz rollback completo se algo falhar.
-
-Backup contem dados de treino em texto legivel. Compartilhe com cuidado.
-
-## Banco local
-
-Banco: `repforge.db`
-
-Tabelas:
-
-- `sheets`: fichas de treino
-- `exercises`: exercicios da ficha
-- `entries`: historico de carga
-- `app_settings`: configuracoes locais, incluindo chave WorkoutX do usuario
-
-O schema ativa `PRAGMA foreign_keys = ON`, usa exclusao em cascata e
-`PRAGMA user_version = 2`.
-
-## Estrutura Kotlin
+## Estrutura
 
 ```text
 app/src/main/java/com/repforge/app/
-├── data/          # Room, backup, settings e WorkoutX
-├── domain/        # modelos, contratos, validações e métricas
-└── presentation/  # Compose, ViewModels e tema
+├── data/          # Room, backup, DataStore e cliente WorkoutX
+├── domain/        # modelos, contrato do repositório, validações e métricas
+└── presentation/  # Compose, Navigation, ViewModels e tema
+proxy/             # Cloudflare Worker
 ```
 
 ## Qualidade
 
-```powershell
-./gradlew.bat :app:testDebugUnitTest
-./gradlew.bat :app:assembleDebug
+Testes unitários cobrem validação e parsing de carga, métricas (1RM, PR,
+janela de 7 dias), codec de backup (formato nativo e legado Expo) e parsing da
+resposta WorkoutX. Não há testes instrumentados; o fluxo principal é validado
+manualmente em emulador.
+
+## Código Expo legado
+
+Mantido como referência durante a migração. Para consultá-lo:
+
+```bash
+npm install
+npm run web
 ```
 
-Testes atuais cobrem validação de séries e cálculo de 1RM; o fluxo principal
-também foi validado no emulador Android com persistência Room.
+`npm test`, `npm run lint` e `npm run typecheck` valem apenas para o legado.
 
-## Release
-
-1. Atualize `package.json`, `package-lock.json`, `app.json` e `versionCode`.
-2. Rode lint, typecheck e testes.
-3. Gere APK com EAS preview.
-4. Baixe o APK.
-5. Crie tag e release no GitHub.
-
-## Licenca
+## Licença
 
 MIT. Veja [LICENSE](LICENSE).
