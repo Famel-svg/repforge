@@ -7,7 +7,7 @@
     "enabled": true
   },
   "vars": {
-    "GLOBAL_DAILY_LIMIT": "450",
+    "GLOBAL_DAILY_LIMIT": "15",
     "PER_INSTALL_DAILY_LIMIT": "60"
   },
   "kv_namespaces": [
