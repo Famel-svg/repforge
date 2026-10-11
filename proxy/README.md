@@ -55,5 +55,4 @@ https://repforge-workoutx-proxy.repforge-rafael.workers.dev
 ```
 
 This URL is public and safe to embed. The WorkoutX key stays in Cloudflare.
-The Kotlin app reads it from `WorkoutXClient.DEFAULT_PROXY`; the legacy Expo
-app can override it with `EXPO_PUBLIC_WORKOUTX_PROXY_URL`.
+The app reads it from `WorkoutXClient.DEFAULT_PROXY`.

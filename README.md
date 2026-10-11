@@ -5,10 +5,10 @@
 RepForge é um app Android nativo, offline-first, para montar fichas de treino,
 registrar cargas e acompanhar evolução sem depender de conta ou nuvem.
 
-Esta branch (`codex/repforge-kotlin-rebuild`) contém a reescrita nativa. `app/`
-é a fonte do APK. O código Expo/TypeScript na raiz (`src/`, `App.tsx`,
-`tests/`) é legado, não participa do build Kotlin e continua publicado na
-branch [`main`](https://github.com/Famel-svg/repforge/tree/main).
+Esta branch (`codex/repforge-kotlin-rebuild`) contém a reescrita nativa: `app/`
+é a fonte do APK e `proxy/` o Worker da busca. O app Expo/TypeScript original
+(1.0.x) foi removido daqui e continua na branch
+[`main`](https://github.com/Famel-svg/repforge/tree/main).
 
 ## Screenshots
 
@@ -133,18 +133,8 @@ proxy/             # Cloudflare Worker
 Testes unitários cobrem validação e parsing de carga, métricas (1RM, PR,
 janela de 7 dias), codec de backup (formato nativo e legado Expo) e parsing da
 resposta WorkoutX. Não há testes instrumentados; o fluxo principal é validado
-manualmente em emulador.
+manualmente em emulador. O proxy tem `npm run typecheck` em `proxy/`.
 
-## Código Expo legado
-
-Mantido como referência durante a migração. Para consultá-lo:
-
-```bash
-npm install
-npm run web
-```
-
-`npm test`, `npm run lint` e `npm run typecheck` valem apenas para o legado.
 
 ## Licença
 

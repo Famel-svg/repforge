@@ -1,8 +1,3 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
-node_modules/
-
 # local AI/editor instructions
 .claude/
 .agents/
@@ -10,59 +5,32 @@ node_modules/
 AGENTS.md
 CLAUDE.md
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-.kotlin/
-*.apk
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
 # Android/Gradle generated output
 .gradle/
+.kotlin/
 build/
 app/build/
 local.properties
 *.iml
 .idea/
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-# generated native folders from Expo
-/ios
-/android
-
-# generated knowledge graph
-graphify-out/
-
-# Cloudflare local output
-.wrangler/
-worker-dist/
+*.apk
 
 # release signing
 keystore.properties
+*.jks
+*.p12
+*.key
+*.pem
+
+# proxy (Cloudflare Worker)
+node_modules/
+.wrangler/
+worker-dist/
+.env
+.env*.local
+
+# macOS
+.DS_Store
+
+# generated knowledge graph
+graphify-out/
