@@ -42,6 +42,7 @@ fun HomeScreen(
     state: HomeUiState,
     onCreateSheet: (String) -> Unit,
     onStartSheet: (TrainingSheet) -> Unit,
+    onDuplicateSheet: (Long) -> Unit,
     onDeleteSheet: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -76,7 +77,7 @@ fun HomeScreen(
                 item { EmptySheetsCard(onCreate = { showCreate = true }) }
             } else {
                 items(state.sheets, key = { it.id }) { sheet ->
-                    SheetCard(sheet, onStart = { onStartSheet(sheet) }, onDelete = { deleteTarget = sheet })
+                    SheetCard(sheet, onStart = { onStartSheet(sheet) }, onDuplicate = { onDuplicateSheet(sheet.id) }, onDelete = { deleteTarget = sheet })
                 }
             }
             item { Spacer(Modifier.height(80.dp)) }
@@ -92,7 +93,7 @@ fun HomeScreen(
             title = { Text("Excluir ficha?") },
             text = { Text("${sheet.name} e todo seu histórico serão removidos deste aparelho.") },
             confirmButton = { Button(onClick = { onDeleteSheet(sheet.id); deleteTarget = null }) { Text("Excluir") } },
-            dismissButton = { Button(onClick = { deleteTarget = null }) { Text("Cancelar") } }
+            dismissButton = { OutlinedButton(onClick = { deleteTarget = null }) { Text("Cancelar") } }
         )
     }
 }
@@ -115,20 +116,20 @@ private fun SummaryCard(state: HomeUiState) {
 }
 
 @Composable
-private fun SheetCard(sheet: TrainingSheet, onStart: () -> Unit = {}, onDelete: () -> Unit = {}) {
+private fun SheetCard(sheet: TrainingSheet, onStart: () -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit) {
     Card {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Column {
                 Text(sheet.name, style = MaterialTheme.typography.titleMedium)
                 Text("${sheet.exerciseCount} exercícios", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                Text("Iniciar treino")
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onStart, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Rounded.PlayArrow, contentDescription = "Iniciar")
-                }
-                OutlinedButton(onClick = onDelete, modifier = Modifier.weight(1f)) {
-                    Text("Excluir")
-                }
+                OutlinedButton(onClick = onDuplicate, modifier = Modifier.weight(1f)) { Text("Duplicar") }
+                OutlinedButton(onClick = onDelete, modifier = Modifier.weight(1f)) { Text("Excluir") }
             }
         }
     }

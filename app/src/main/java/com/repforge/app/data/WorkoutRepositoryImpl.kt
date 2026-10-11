@@ -1,38 +1,51 @@
 package com.repforge.app.data
 
-import com.repforge.app.data.local.SheetEntity
+import androidx.room.withTransaction
 import com.repforge.app.data.local.EntryEntity
 import com.repforge.app.data.local.ExerciseEntity
-import com.repforge.app.data.local.WorkoutDao
+import com.repforge.app.data.local.SheetEntity
+import com.repforge.app.data.local.SheetWithCount
+import com.repforge.app.data.local.WorkoutDatabase
+import com.repforge.app.domain.metrics.recentWindowStart
+import com.repforge.app.domain.model.DailyVolume
 import com.repforge.app.domain.model.DashboardSummary
-import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.SetEntry
-import com.repforge.app.domain.model.DailyVolume
+import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.repository.WorkoutRepository
+import com.repforge.app.domain.validation.validateSetInput
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
-import java.util.concurrent.TimeUnit
-import com.repforge.app.domain.validation.validateSetInput
 
-class WorkoutRepositoryImpl(private val dao: WorkoutDao) : WorkoutRepository {
-    private val weekStart: Long
-        get() = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)
+class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepository {
+    private val dao = database.workoutDao()
 
-    override fun observeSheets(): Flow<List<TrainingSheet>> = dao.observeSheets().map { sheets ->
-        sheets.map { TrainingSheet(it.id, it.name, it.exerciseCount, it.updatedAt) }
+    override fun observeSheets(): Flow<List<TrainingSheet>> = dao.observeSheets().map { sheets -> sheets.map { it.toDomain() } }
+
+    override fun observeSheet(sheetId: Long): Flow<TrainingSheet?> = dao.observeSheet(sheetId).map { it?.toDomain() }
+
+    // The window start is resolved on each collection so a long-lived process does not keep a stale week.
+    override fun observeSummary(): Flow<DashboardSummary> = flow {
+        val since = recentWindowStart()
+        emitAll(combine(dao.observeWeeklyVolume(since), dao.observeWeeklySets(since), dao.observeSheetCount()) { volume, sets, sheetCount ->
+            DashboardSummary(volume, sets, sheetCount)
+        })
     }
-
-    override fun observeSummary(): Flow<DashboardSummary> = combine(
-        dao.observeWeeklyVolume(weekStart),
-        dao.observeWeeklySets(weekStart),
-        dao.observeSheetCount()
-    ) { volume, sets, sheetCount -> DashboardSummary(volume, sets, sheetCount) }
 
     override suspend fun createSheet(name: String) {
         require(name.isNotBlank()) { "Nome da ficha não pode ficar vazio." }
         dao.insertSheet(SheetEntity(name = name.trim()))
+    }
+
+    override suspend fun duplicateSheet(sheetId: Long) {
+        database.withTransaction {
+            val source = dao.findSheet(sheetId) ?: return@withTransaction
+            val copyId = dao.insertSheet(SheetEntity(name = "${source.name} (cópia)"))
+            dao.exercisesOf(sheetId).forEach { dao.insertExercise(it.copy(id = 0, sheetId = copyId)) }
+        }
     }
 
     override suspend fun deleteSheet(sheetId: Long) {
@@ -49,24 +62,38 @@ class WorkoutRepositoryImpl(private val dao: WorkoutDao) : WorkoutRepository {
 
     override suspend fun addExercise(sheetId: Long, name: String, target: String) {
         require(name.isNotBlank()) { "Nome do exercício não pode ficar vazio." }
-        dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = name.trim(), target = target.trim(), position = dao.nextExercisePosition(sheetId)))
+        database.withTransaction {
+            dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = name.trim(), target = target.trim(), position = dao.nextExercisePosition(sheetId)))
+            dao.touchSheet(sheetId, System.currentTimeMillis())
+        }
     }
 
     override suspend fun deleteExercise(exerciseId: Long) {
-        dao.deleteExercise(exerciseId)
+        database.withTransaction {
+            dao.touchSheetOfExercise(exerciseId, System.currentTimeMillis())
+            dao.deleteExercise(exerciseId)
+        }
     }
 
     override suspend fun updateExercise(exerciseId: Long, name: String, target: String) {
         require(name.isNotBlank()) { "Nome do exercício não pode ficar vazio." }
-        dao.updateExercise(exerciseId, name.trim(), target.trim())
+        database.withTransaction {
+            dao.updateExercise(exerciseId, name.trim(), target.trim())
+            dao.touchSheetOfExercise(exerciseId, System.currentTimeMillis())
+        }
     }
 
     override suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double) {
-        require(validateSetInput(sets, reps, weightKg) == null) { validateSetInput(sets, reps, weightKg)?.message ?: "Valores de série inválidos." }
-        dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg))
+        validateSetInput(sets, reps, weightKg)?.let { throw IllegalArgumentException(it.message) }
+        database.withTransaction {
+            dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg))
+            dao.touchSheetOfExercise(exerciseId, System.currentTimeMillis())
+        }
     }
 
-    override fun observeDailyVolume(since: Long): Flow<List<DailyVolume>> = dao.observeDailyVolume(since).map {
-        it.map { row -> DailyVolume(row.day, row.volumeKg) }
+    override fun observeDailyVolume(): Flow<List<DailyVolume>> = flow {
+        emitAll(dao.observeDailyVolume(recentWindowStart()).map { rows -> rows.map { DailyVolume(it.day, it.volumeKg) } })
     }
+
+    private fun SheetWithCount.toDomain() = TrainingSheet(id, name, exerciseCount, updatedAt)
 }

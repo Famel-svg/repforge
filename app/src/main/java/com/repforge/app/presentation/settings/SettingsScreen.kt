@@ -1,57 +1,99 @@
 package com.repforge.app.presentation.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.io.IOException
+import java.time.LocalDate
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
-fun SettingsScreen(viewModel: SettingsViewModel, onExport: () -> Unit, onImport: () -> Unit) {
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+fun SettingsScreen(viewModel: SettingsViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Scaffold(topBar = { TopAppBar(title = { Text("Ajustes") }) }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Treino", style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
+    val context = LocalContext.current
+    val resolver = context.contentResolver
+    val versionName = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() }
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) { viewModel.messages.collect { snackbarHostState.showSnackbar(it) } }
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) viewModel.exportBackup { json ->
+            (resolver.openOutputStream(uri) ?: throw IOException("destino indisponível")).use { it.write(json.toByteArray()) }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importBackup {
+            (resolver.openInputStream(uri) ?: throw IOException("arquivo indisponível")).use { it.readBytes().decodeToString() }
+        }
+    }
+
+    Scaffold(topBar = { TopAppBar(title = { Text("Ajustes") }) }, snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+        Column(
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Treino", style = MaterialTheme.typography.headlineSmall)
             Card {
                 Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Descanso padrão", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                    Text("Descanso padrão", style = MaterialTheme.typography.titleMedium)
                     Text("${state.restSeconds} segundos entre séries")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(60, 90, 120, 180).forEach { seconds ->
-                            OutlinedButton(onClick = { viewModel.setRestSeconds(seconds) }) { Text("${seconds}s") }
+                            if (seconds == state.restSeconds) Button(onClick = {}) { Text("${seconds}s") }
+                            else OutlinedButton(onClick = { viewModel.setRestSeconds(seconds) }) { Text("${seconds}s") }
                         }
                     }
                     HorizontalDivider()
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column(Modifier.weight(1f)) {
-                            Text("Feedback háptico", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
-                            Text("Vibrar ao registrar uma série", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Feedback háptico", style = MaterialTheme.typography.titleMedium)
+                            Text("Vibrar ao registrar uma série", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Switch(checked = state.hapticsEnabled, onCheckedChange = viewModel::setHapticsEnabled)
+                        Switch(checked = state.hapticsEnabled, onCheckedChange = { viewModel.setHapticsEnabled(it) })
                     }
                 }
             }
-            Text("RepForge 0.1.0", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Seus treinos ficam no aparelho e funcionam sem conta.", color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onExport) { Text("Exportar backup") }
-                OutlinedButton(onClick = onImport) { Text("Importar backup") }
+            Text("Backup", style = MaterialTheme.typography.headlineSmall)
+            Card {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Importar adiciona as fichas do arquivo às atuais; nada é apagado. Backups do RepForge 1.0 (Expo) também são aceitos.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { exportLauncher.launch("repforge-backup-${LocalDate.now()}.json") }) { Text("Exportar backup") }
+                        OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text("Importar backup") }
+                    }
+                }
             }
+            Text("RepForge $versionName", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Seus treinos ficam no aparelho e funcionam sem conta.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

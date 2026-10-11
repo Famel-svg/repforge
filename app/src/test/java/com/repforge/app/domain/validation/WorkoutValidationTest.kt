@@ -20,4 +20,15 @@ class WorkoutValidationTest {
     @Test fun rejectsNegativeWeight() {
         assertEquals("Carga não pode ser negativa.", validateSetInput(3, 10, -1.0)?.message)
     }
+
+    @Test fun parsesDecimalCommaAndPoint() {
+        assertEquals(80.5, parseWeightKg(" 80,5 ")!!, 0.001)
+        assertEquals(80.5, parseWeightKg("80.5")!!, 0.001)
+    }
+
+    @Test fun rejectsNonNumericWeight() {
+        assertNull(parseWeightKg("abc"))
+        assertNull(parseWeightKg(""))
+        assertNull(parseWeightKg("NaN"))
+    }
 }

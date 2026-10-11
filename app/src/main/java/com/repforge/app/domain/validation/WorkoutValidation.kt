@@ -9,3 +9,6 @@ fun validateSetInput(sets: Int?, reps: Int?, weightKg: Double?): SetInputError? 
     if (weightKg < 0) return SetInputError("Carga não pode ser negativa.")
     return null
 }
+
+/** Accepts both "80.5" and the pt-BR "80,5". */
+fun parseWeightKg(text: String): Double? = text.trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }

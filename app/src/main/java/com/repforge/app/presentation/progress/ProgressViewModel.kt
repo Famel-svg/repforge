@@ -9,14 +9,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import java.util.concurrent.TimeUnit
 
 data class ProgressUiState(val summary: DashboardSummary = DashboardSummary(), val days: List<DailyVolume> = emptyList())
 
 class ProgressViewModel(repository: WorkoutRepository) : ViewModel() {
-    private val since = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7)
     val state: StateFlow<ProgressUiState> = combine(
-        repository.observeSummary(), repository.observeDailyVolume(since)
+        repository.observeSummary(), repository.observeDailyVolume()
     ) { summary, days -> ProgressUiState(summary, days) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUiState())
 }

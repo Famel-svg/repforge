@@ -9,8 +9,10 @@ import kotlinx.coroutines.flow.Flow
 
 interface WorkoutRepository {
     fun observeSheets(): Flow<List<TrainingSheet>>
+    fun observeSheet(sheetId: Long): Flow<TrainingSheet?>
     fun observeSummary(): Flow<DashboardSummary>
     suspend fun createSheet(name: String)
+    suspend fun duplicateSheet(sheetId: Long)
     suspend fun deleteSheet(sheetId: Long)
     fun observeExercises(sheetId: Long): Flow<List<Exercise>>
     fun observeEntries(exerciseId: Long): Flow<List<SetEntry>>
@@ -18,5 +20,5 @@ interface WorkoutRepository {
     suspend fun updateExercise(exerciseId: Long, name: String, target: String)
     suspend fun deleteExercise(exerciseId: Long)
     suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double)
-    fun observeDailyVolume(since: Long): Flow<List<DailyVolume>>
+    fun observeDailyVolume(): Flow<List<DailyVolume>>
 }

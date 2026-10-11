@@ -13,9 +13,7 @@ import kotlinx.coroutines.launch
 
 data class HomeUiState(
     val sheets: List<TrainingSheet> = emptyList(),
-    val summary: DashboardSummary = DashboardSummary(),
-    val isCreating: Boolean = false,
-    val error: String? = null
+    val summary: DashboardSummary = DashboardSummary()
 )
 
 class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
@@ -25,10 +23,12 @@ class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     fun createSheet(name: String) {
-        viewModelScope.launch {
-            runCatching { repository.createSheet(name) }
-                .onFailure { /* UI observes unchanged local state; dialog owns validation feedback */ }
-        }
+        // The dialog only enables confirmation for a non-blank name, the single rule the repository enforces.
+        viewModelScope.launch { runCatching { repository.createSheet(name) } }
+    }
+
+    fun duplicateSheet(sheetId: Long) {
+        viewModelScope.launch { repository.duplicateSheet(sheetId) }
     }
 
     fun deleteSheet(sheetId: Long) {

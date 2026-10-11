@@ -6,13 +6,21 @@ import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.repository.WorkoutRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class WorkoutViewModel(private val repository: WorkoutRepository) : ViewModel() {
-    fun exercises(sheetId: Long): Flow<List<Exercise>> = repository.observeExercises(sheetId)
+class WorkoutViewModel(private val repository: WorkoutRepository, private val sheetId: Long) : ViewModel() {
+    val sheetName: StateFlow<String> = repository.observeSheet(sheetId).map { it?.name.orEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+    val exercises: StateFlow<List<Exercise>> = repository.observeExercises(sheetId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     fun entries(exerciseId: Long): Flow<List<SetEntry>> = repository.observeEntries(exerciseId)
 
-    fun addExercise(sheetId: Long, name: String, target: String) = viewModelScope.launch {
+    fun addExercise(name: String, target: String) = viewModelScope.launch {
         repository.addExercise(sheetId, name, target)
     }
 

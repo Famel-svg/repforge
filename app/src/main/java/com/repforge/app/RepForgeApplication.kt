@@ -9,9 +9,10 @@ import com.repforge.app.data.WorkoutXClient
 import com.repforge.app.data.local.WorkoutDatabase
 
 class RepForgeApplication : Application() {
+    // Schema changes must bump the version and register a Migration here; app/schemas keeps the exported history.
     val database by lazy { Room.databaseBuilder(this, WorkoutDatabase::class.java, "repforge.db").build() }
-    val repository by lazy { WorkoutRepositoryImpl(database.workoutDao()) }
+    val repository by lazy { WorkoutRepositoryImpl(database) }
     val settings by lazy { SettingsStore(this) }
     val backup by lazy { BackupManager(database) }
-    val workoutX by lazy { WorkoutXClient(this) }
+    val workoutX by lazy { WorkoutXClient(settings) }
 }

@@ -1,158 +1,113 @@
 package com.repforge.app.presentation
 
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.NavigationBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import kotlinx.coroutines.launch
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.repforge.app.RepForgeApplication
+import com.repforge.app.data.AppPreferences
 import com.repforge.app.presentation.home.HomeScreen
 import com.repforge.app.presentation.home.HomeViewModel
-import com.repforge.app.presentation.workout.WorkoutScreen
-import com.repforge.app.presentation.workout.WorkoutViewModel
 import com.repforge.app.presentation.progress.ProgressScreen
 import com.repforge.app.presentation.progress.ProgressViewModel
-import com.repforge.app.presentation.settings.SettingsScreen
-import com.repforge.app.presentation.settings.SettingsViewModel
-import com.repforge.app.data.AppPreferences
 import com.repforge.app.presentation.search.ExerciseSearchScreen
 import com.repforge.app.presentation.search.ExerciseSearchViewModel
-import androidx.lifecycle.ViewModelProvider
+import com.repforge.app.presentation.settings.SettingsScreen
+import com.repforge.app.presentation.settings.SettingsViewModel
+import com.repforge.app.presentation.workout.WorkoutScreen
+import com.repforge.app.presentation.workout.WorkoutViewModel
 
-private enum class Destination(val label: String, val icon: ImageVector) {
-    Home("Treino", Icons.Rounded.FitnessCenter),
-    Progress("Evolução", Icons.Rounded.Timeline),
-    Settings("Ajustes", Icons.Rounded.Settings)
+private enum class Destination(val route: String, val label: String, val icon: ImageVector) {
+    Home("home", "Treino", Icons.Rounded.FitnessCenter),
+    Progress("progress", "Evolução", Icons.Rounded.Timeline),
+    Settings("settings", "Ajustes", Icons.Rounded.Settings)
 }
+
+private const val SHEET_ID = "sheetId"
+private val sheetArguments = listOf(navArgument(SHEET_ID) { type = NavType.LongType })
 
 @Composable
 fun RepForgeApp() {
-    var selected by remember { mutableStateOf(Destination.Home) }
-    var activeSheet by remember { mutableStateOf<com.repforge.app.domain.model.TrainingSheet?>(null) }
-    var searchingSheetId by remember { mutableStateOf<Long?>(null) }
-    val appScope = rememberCoroutineScope()
+    val application = LocalContext.current.applicationContext as RepForgeApplication
+    val navController = rememberNavController()
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            // Sheet and search are full-screen flows; the tab bar only belongs to top-level destinations.
+            if (Destination.entries.any { it.route == currentRoute }) NavigationBar {
                 Destination.entries.forEach { destination ->
                     NavigationBarItem(
-                        selected = selected == destination,
-                        onClick = { selected = destination },
-                        icon = { Icon(destination.icon, contentDescription = destination.label) },
+                        selected = currentRoute == destination.route,
+                        onClick = {
+                            navController.navigate(destination.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        },
+                        icon = { Icon(destination.icon, contentDescription = null) },
                         label = { Text(destination.label) }
                     )
                 }
             }
         }
     ) { padding ->
-        if (searchingSheetId != null) {
-            val application = LocalContext.current.applicationContext as RepForgeApplication
-            val searchViewModel: ExerciseSearchViewModel = viewModel(factory = object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    ExerciseSearchViewModel(application.workoutX) as T
-            })
-            ExerciseSearchScreen(
-                searchViewModel,
-                onBack = { searchingSheetId = null },
-                onAdd = { name, target ->
-                    searchingSheetId?.let { sheetId ->
-                        appScope.launch {
-                            application.repository.addExercise(sheetId, name, target)
-                            searchingSheetId = null
-                        }
-                    }
-                }
-            )
-        } else if (activeSheet != null) {
-            val application = LocalContext.current.applicationContext as RepForgeApplication
-            val workoutViewModel: WorkoutViewModel = viewModel(factory = object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    WorkoutViewModel(application.repository) as T
-            })
-            val sheet = activeSheet!!
-            val preferences by application.settings.preferences.collectAsStateWithLifecycle(AppPreferences())
-            WorkoutScreen(
-                sheet.id, sheet.name, workoutViewModel, preferences.restSeconds,
-                onSearch = { searchingSheetId = sheet.id },
-                onBack = { activeSheet = null }
-            )
-        } else if (selected == Destination.Home) {
-            val application = LocalContext.current.applicationContext as RepForgeApplication
-            val homeViewModel: HomeViewModel = viewModel(factory = object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    HomeViewModel(application.repository) as T
-            })
-            val state by homeViewModel.state.collectAsStateWithLifecycle()
-            HomeScreen(
-                state = state,
-                onCreateSheet = homeViewModel::createSheet,
-                onStartSheet = { activeSheet = it },
-                onDeleteSheet = homeViewModel::deleteSheet,
-                modifier = Modifier.padding(padding)
-            )
-        } else if (selected == Destination.Progress) {
-            val application = LocalContext.current.applicationContext as RepForgeApplication
-            val progressViewModel: ProgressViewModel = viewModel(factory = object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    ProgressViewModel(application.repository) as T
-            })
-            ProgressScreen(progressViewModel)
-        } else {
-            val application = LocalContext.current.applicationContext as RepForgeApplication
-            val settingsViewModel: SettingsViewModel = viewModel(factory = object : ViewModelProvider.Factory {
-                @Suppress("UNCHECKED_CAST")
-                override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
-                    SettingsViewModel(application.settings) as T
-            })
-            val context = LocalContext.current
-            val scope = rememberCoroutineScope()
-            val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-                if (uri != null) scope.launch {
-                    context.contentResolver.openOutputStream(uri)?.use { output ->
-                        OutputStreamWriter(output).use { it.write(application.backup.exportJson()) }
-                    }
-                }
+        NavHost(navController, startDestination = Destination.Home.route, modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
+            composable(Destination.Home.route) {
+                val homeViewModel = viewModel { HomeViewModel(application.repository) }
+                val state by homeViewModel.state.collectAsStateWithLifecycle()
+                HomeScreen(
+                    state = state,
+                    onCreateSheet = homeViewModel::createSheet,
+                    onStartSheet = { navController.navigate("sheet/${it.id}") },
+                    onDuplicateSheet = homeViewModel::duplicateSheet,
+                    onDeleteSheet = homeViewModel::deleteSheet
+                )
             }
-            val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-                if (uri != null) scope.launch {
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        InputStreamReader(input).use { application.backup.importJson(it.readText()) }
-                    }
-                }
+            composable(Destination.Progress.route) {
+                ProgressScreen(viewModel { ProgressViewModel(application.repository) })
             }
-            SettingsScreen(
-                settingsViewModel,
-                onExport = { exportLauncher.launch("repforge-backup.json") },
-                onImport = { importLauncher.launch(arrayOf("application/json", "text/plain")) }
-            )
+            composable(Destination.Settings.route) {
+                SettingsScreen(viewModel { SettingsViewModel(application.settings, application.backup) })
+            }
+            composable("sheet/{$SHEET_ID}", arguments = sheetArguments) { entry ->
+                val sheetId = entry.arguments!!.getLong(SHEET_ID)
+                val preferences by application.settings.preferences.collectAsStateWithLifecycle(AppPreferences())
+                WorkoutScreen(
+                    viewModel = viewModel { WorkoutViewModel(application.repository, sheetId) },
+                    preferences = preferences,
+                    onSearch = { navController.navigate("sheet/$sheetId/search") },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("sheet/{$SHEET_ID}/search", arguments = sheetArguments) { entry ->
+                val sheetId = entry.arguments!!.getLong(SHEET_ID)
+                ExerciseSearchScreen(
+                    viewModel = viewModel { ExerciseSearchViewModel(application.workoutX, application.repository, sheetId) },
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

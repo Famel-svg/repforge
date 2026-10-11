@@ -76,6 +76,21 @@ interface WorkoutDao {
     @Query("DELETE FROM sheets WHERE id = :sheetId")
     suspend fun deleteSheet(sheetId: Long)
 
+    @Query("SELECT s.id, s.name, COUNT(e.id) AS exerciseCount, s.updatedAt FROM sheets s LEFT JOIN exercises e ON e.sheetId = s.id WHERE s.id = :sheetId GROUP BY s.id")
+    fun observeSheet(sheetId: Long): Flow<SheetWithCount?>
+
+    @Query("SELECT * FROM sheets WHERE id = :sheetId")
+    suspend fun findSheet(sheetId: Long): SheetEntity?
+
+    @Query("SELECT * FROM exercises WHERE sheetId = :sheetId ORDER BY position, id")
+    suspend fun exercisesOf(sheetId: Long): List<ExerciseEntity>
+
+    @Query("UPDATE sheets SET updatedAt = :now WHERE id = :sheetId")
+    suspend fun touchSheet(sheetId: Long, now: Long)
+
+    @Query("UPDATE sheets SET updatedAt = :now WHERE id = (SELECT sheetId FROM exercises WHERE id = :exerciseId)")
+    suspend fun touchSheetOfExercise(exerciseId: Long, now: Long)
+
     @Query("SELECT id, sheetId, name, target, position FROM exercises WHERE sheetId = :sheetId ORDER BY position, id")
     fun observeExercises(sheetId: Long): Flow<List<ExerciseRow>>
 
@@ -110,7 +125,7 @@ interface WorkoutDao {
     fun observeDailyVolume(since: Long): Flow<List<DailyVolumeRow>>
 }
 
-@Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class], version = 1, exportSchema = false)
+@Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class], version = 1, exportSchema = true)
 abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
 }
