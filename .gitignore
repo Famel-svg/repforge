@@ -63,3 +63,6 @@ graphify-out/
 # Cloudflare local output
 .wrangler/
 worker-dist/
+
+# release signing
+keystore.properties

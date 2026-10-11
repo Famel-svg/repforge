@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Workout data lives only on the device, so the system backup carries the database and preferences. -->
+<full-backup-content>
+    <include domain="database" path="." />
+    <include domain="file" path="datastore" />
+</full-backup-content>
