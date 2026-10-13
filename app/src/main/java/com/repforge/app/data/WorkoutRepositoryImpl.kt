@@ -6,10 +6,13 @@ import com.repforge.app.data.local.ExerciseEntity
 import com.repforge.app.data.local.SheetEntity
 import com.repforge.app.data.local.SheetWithCount
 import com.repforge.app.data.local.WorkoutDatabase
+import com.repforge.app.domain.metrics.currentStreak
 import com.repforge.app.domain.metrics.recentWindowStart
+import com.repforge.app.domain.metrics.trainingDays
 import com.repforge.app.domain.model.DailyVolume
 import com.repforge.app.domain.model.DashboardSummary
 import com.repforge.app.domain.model.Exercise
+import com.repforge.app.domain.model.HistoryEntry
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.repository.WorkoutRepository
@@ -19,6 +22,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import java.time.Instant
+import java.time.ZoneId
 
 class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepository {
     private val dao = database.workoutDao()
@@ -30,8 +35,10 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     // The window start is resolved on each collection so a long-lived process does not keep a stale week.
     override fun observeSummary(): Flow<DashboardSummary> = flow {
         val since = recentWindowStart()
-        emitAll(combine(dao.observeWeeklyVolume(since), dao.observeWeeklySets(since), dao.observeSheetCount()) { volume, sets, sheetCount ->
-            DashboardSummary(volume, sets, sheetCount)
+        val zone = ZoneId.systemDefault()
+        val today = Instant.now().atZone(zone).toLocalDate()
+        emitAll(combine(dao.observeWeeklyVolume(since), dao.observeWeeklySets(since), dao.observeSheetCount(), dao.observeHistory()) { volume, sets, sheetCount, history ->
+            DashboardSummary(volume, sets, sheetCount, currentStreak(trainingDays(history.map { it.recordedAt }, zone), today))
         })
     }
 
@@ -93,6 +100,10 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
 
     override fun observeDailyVolume(): Flow<List<DailyVolume>> = flow {
         emitAll(dao.observeDailyVolume(recentWindowStart()).map { rows -> rows.map { DailyVolume(it.day, it.volumeKg) } })
+    }
+
+    override fun observeHistory(): Flow<List<HistoryEntry>> = dao.observeHistory().map { rows ->
+        rows.map { HistoryEntry(it.exerciseId, it.exerciseName, it.sheetName, it.sets, it.reps, it.weightKg, it.recordedAt) }
     }
 
     private fun SheetWithCount.toDomain() = TrainingSheet(id, name, exerciseCount, updatedAt)

@@ -32,3 +32,13 @@ data class DashboardSummary(
 )
 
 data class DailyVolume(val day: String, val volumeKg: Double)
+
+data class HistoryEntry(
+    val exerciseId: Long,
+    val exerciseName: String,
+    val sheetName: String,
+    val sets: Int,
+    val reps: Int,
+    val weightKg: Double,
+    val recordedAt: Long
+)

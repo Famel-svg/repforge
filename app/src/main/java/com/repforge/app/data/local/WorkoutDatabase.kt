@@ -56,6 +56,16 @@ data class EntryRow(val id: Long, val exerciseId: Long, val sets: Int, val reps:
 
 data class DailyVolumeRow(val day: String, val volumeKg: Double)
 
+data class HistoryRow(
+    val exerciseId: Long,
+    val exerciseName: String,
+    val sheetName: String,
+    val sets: Int,
+    val reps: Int,
+    val weightKg: Double,
+    val recordedAt: Long
+)
+
 @Dao
 interface WorkoutDao {
     @Query("SELECT s.id, s.name, COUNT(e.id) AS exerciseCount, s.updatedAt FROM sheets s LEFT JOIN exercises e ON e.sheetId = s.id GROUP BY s.id ORDER BY s.updatedAt DESC")
@@ -123,6 +133,9 @@ interface WorkoutDao {
 
     @Query("SELECT strftime('%Y-%m-%d', recordedAt / 1000, 'unixepoch', 'localtime') AS day, COALESCE(SUM(sets * reps * weightKg), 0.0) AS volumeKg FROM entries WHERE recordedAt >= :since GROUP BY day ORDER BY day")
     fun observeDailyVolume(since: Long): Flow<List<DailyVolumeRow>>
+
+    @Query("SELECT ex.id AS exerciseId, ex.name AS exerciseName, s.name AS sheetName, en.sets AS sets, en.reps AS reps, en.weightKg AS weightKg, en.recordedAt AS recordedAt FROM entries en JOIN exercises ex ON ex.id = en.exerciseId JOIN sheets s ON s.id = ex.sheetId ORDER BY en.recordedAt DESC, en.id DESC")
+    fun observeHistory(): Flow<List<HistoryRow>>
 }
 
 @Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class], version = 1, exportSchema = true)
