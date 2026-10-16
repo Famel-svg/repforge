@@ -28,6 +28,22 @@ class BackupCodecTest {
         assertEquals(sample, BackupCodec.decode(raw))
     }
 
+    @Test fun roundTripsPlan() {
+        val plan = BackupPlan(mapOf(1 to "Ficha A", 2 to null), mapOf("2026-06-15" to null, "2026-06-16" to "Ficha B"))
+        val raw = BackupCodec.encode(sample, plan = plan)
+        assertEquals(plan, BackupCodec.decodePlan(raw))
+        assertEquals(sample, BackupCodec.decode(raw))
+    }
+
+    @Test fun oldBackupHasEmptyPlan() {
+        assertEquals(BackupPlan(), BackupCodec.decodePlan("""{"format":"repforge-backup","version":1,"sheets":[]}"""))
+    }
+
+    @Test fun rejectsBadPlan() {
+        assertThrows(IllegalArgumentException::class.java) { BackupCodec.decodePlan("""{"schedule":[{"dayOfWeek":8,"sheet":null}]}""") }
+        assertThrows(IllegalArgumentException::class.java) { BackupCodec.decodePlan("""{"scheduleOverrides":[{"date":"15/06","sheet":null}]}""") }
+    }
+
     @Test fun rejectsOutOfRangeBodyWeight() {
         assertThrows(IllegalArgumentException::class.java) { BackupCodec.decodeBodyWeights("""{"bodyWeights":[{"weightKg":5,"recordedAt":1}]}""") }
     }

@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import com.repforge.app.data.local.BodyWeightEntity
 import com.repforge.app.data.local.EntryEntity
 import com.repforge.app.data.local.ExerciseEntity
+import com.repforge.app.data.local.ScheduleEntity
+import com.repforge.app.data.local.ScheduleOverrideEntity
 import com.repforge.app.data.local.SheetEntity
 import com.repforge.app.data.local.WorkoutDatabase
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +27,9 @@ class BackupManager(private val database: WorkoutDatabase) {
         val exercises = dao.allExercises().groupBy { it.sheetId }
         val sheets = dao.allSheets()
         val weights = dao.allBodyWeights()
+        val schedule = dao.allSchedule()
+        val overrides = dao.allOverrides()
+        val names = sheets.associate { it.id to it.name }
         return withContext(Dispatchers.Default) {
             BackupCodec.encode(sheets.map { sheet ->
                 BackupSheet(sheet.name, sheet.updatedAt, exercises[sheet.id].orEmpty().map { exercise ->
@@ -32,21 +37,23 @@ class BackupManager(private val database: WorkoutDatabase) {
                         BackupEntry(it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe)
                     }, exercise.note, exercise.supersetGroup)
                 })
-            }, bodyWeights = weights.map { BackupBodyWeight(it.weightKg, it.recordedAt) })
+            }, bodyWeights = weights.map { BackupBodyWeight(it.weightKg, it.recordedAt) },
+                plan = BackupPlan(schedule.associate { it.dayOfWeek to it.sheetId?.let(names::get) }, overrides.associate { it.date to it.sheetId?.let(names::get) }))
         }
     }
 
     /** Appends the backup to the current data, skipping what already exists. */
     suspend fun importJson(raw: String): ImportResult {
-        val (sheets, weights) = withContext(Dispatchers.Default) { BackupCodec.decode(raw) to BackupCodec.decodeBodyWeights(raw) }
-        return importSheets(sheets, weights)
+        val (sheets, weights, plan) = withContext(Dispatchers.Default) { Triple(BackupCodec.decode(raw), BackupCodec.decodeBodyWeights(raw), BackupCodec.decodePlan(raw)) }
+        return importSheets(sheets, weights, plan)
     }
 
     /**
      * Appends in a single transaction. A sheet with an existing name is reused, and so are its same-named exercises;
      * sets with the same exercise + time + reps + load, and body weights with the same time + load, are skipped.
+     * Plan entries only fill weekdays/dates that are still unset, and are dropped when their sheet name is unknown.
      */
-    suspend fun importSheets(sheets: List<BackupSheet>, bodyWeights: List<BackupBodyWeight> = emptyList()): ImportResult {
+    suspend fun importSheets(sheets: List<BackupSheet>, bodyWeights: List<BackupBodyWeight> = emptyList(), plan: BackupPlan = BackupPlan()): ImportResult {
         var imported = 0
         var skipped = 0
         database.withTransaction {
@@ -74,6 +81,13 @@ class BackupManager(private val database: WorkoutDatabase) {
                     imported += fresh.size
                     skipped += old.size
                 }
+            }
+            val idByName = dao.allSheets().groupBy { it.name }.mapValues { it.value.first().id }
+            plan.weekly.forEach { (day, name) ->
+                if (name == null) dao.insertScheduleIfAbsent(ScheduleEntity(day, null)) else idByName[name]?.let { dao.insertScheduleIfAbsent(ScheduleEntity(day, it)) }
+            }
+            plan.overrides.forEach { (date, name) ->
+                if (name == null) dao.insertOverrideIfAbsent(ScheduleOverrideEntity(date, null)) else idByName[name]?.let { dao.insertOverrideIfAbsent(ScheduleOverrideEntity(date, it)) }
             }
         }
         return ImportResult(sheets.size, imported, skipped)

@@ -4,6 +4,8 @@ import androidx.room.withTransaction
 import com.repforge.app.data.local.BodyWeightEntity
 import com.repforge.app.data.local.EntryEntity
 import com.repforge.app.data.local.ExerciseEntity
+import com.repforge.app.data.local.ScheduleEntity
+import com.repforge.app.data.local.ScheduleOverrideEntity
 import com.repforge.app.data.local.SheetEntity
 import com.repforge.app.data.local.SheetWithCount
 import com.repforge.app.data.local.WorkoutDatabase
@@ -24,6 +26,9 @@ import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.repository.WorkoutRepository
+import com.repforge.app.domain.schedule.DayPlan
+import com.repforge.app.domain.schedule.rescheduleChanges
+import com.repforge.app.domain.schedule.resolveDay
 import com.repforge.app.domain.templates.WorkoutTemplate
 import com.repforge.app.domain.validation.AppError
 import com.repforge.app.domain.validation.AppException
@@ -35,6 +40,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 /** [onChanged] fires after writes the home-screen widget displays (sheets, logged sets). */
@@ -173,6 +179,36 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val o
     override suspend fun deleteBodyWeight(id: Long) {
         dao.deleteBodyWeight(id)
     }
+
+    override fun observeWeeklyPlan(): Flow<Map<Int, Long?>> = dao.observeSchedule().map { rows -> rows.associate { it.dayOfWeek to it.sheetId } }
+
+    override fun observePlan(from: LocalDate, days: Int): Flow<List<DayPlan>> = combine(observeWeeklyPlan(), dao.observeOverrides(from.toString())) { weekly, overrides ->
+        val byDate = overrides.associate { LocalDate.parse(it.date) to it.sheetId }
+        (0 until days).map { resolveDay(from.plusDays(it.toLong()), weekly, byDate) }
+    }
+
+    override suspend fun setWeekdaySheet(dayOfWeek: Int, sheetId: Long?) {
+        require(dayOfWeek in 1..7) { "Dia da semana inválido." }
+        dao.upsertSchedule(ScheduleEntity(dayOfWeek, sheetId))
+    }
+
+    override suspend fun todaySheet(now: Instant, zone: ZoneId): DayPlan {
+        val today = now.atZone(zone).toLocalDate()
+        return resolveDay(today, weeklyMap(), dao.overridesOn(listOf(today.toString())).associate { LocalDate.parse(it.date) to it.sheetId })
+    }
+
+    override suspend fun reschedule(from: LocalDate, to: LocalDate) {
+        database.withTransaction {
+            val weekly = weeklyMap()
+            val overrides = dao.overridesOn(listOf(from.toString(), to.toString())).associate { LocalDate.parse(it.date) to it.sheetId }
+            rescheduleChanges(from, to, weekly, overrides).forEach { (date, sheetId) ->
+                // An override equal to the weekly plan is redundant, so dropping it makes "moved back" clear the badge.
+                if (sheetId == weekly[date.dayOfWeek.value]) dao.deleteOverride(date.toString()) else dao.upsertOverride(ScheduleOverrideEntity(date.toString(), sheetId))
+            }
+        }
+    }
+
+    private suspend fun weeklyMap() = dao.allSchedule().associate { it.dayOfWeek to it.sheetId }
 
     override suspend fun createSheetFromTemplate(template: WorkoutTemplate) {
         if (template.sheetName.isBlank()) throw AppException(AppError.SheetNameEmpty)

@@ -12,7 +12,11 @@ import com.repforge.app.data.ExerciseCatalog
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FitnessCenter
-import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import com.repforge.app.presentation.library.LibraryScreen
+import com.repforge.app.presentation.plan.PlanScreen
+import com.repforge.app.presentation.plan.PlanViewModel
 import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -58,9 +62,12 @@ import com.repforge.app.presentation.workout.WorkoutViewModel
 
 private enum class Destination(val route: String, @StringRes val label: Int, val icon: ImageVector) {
     Home("home", R.string.nav_workout, Icons.Rounded.FitnessCenter),
+    Plan("plan", R.string.nav_plan, Icons.Rounded.CalendarMonth),
     Progress("progress", R.string.nav_progress, Icons.Rounded.Timeline),
-    Settings("settings", R.string.nav_settings, Icons.Rounded.Settings)
+    Library("library", R.string.nav_library, Icons.AutoMirrored.Rounded.MenuBook)
 }
+
+private const val SETTINGS_ROUTE = "settings" // opened from the Home gear; not a tab
 
 private const val SHEET_ID = "sheetId"
 private val sheetArguments = listOf(navArgument(SHEET_ID) { type = NavType.LongType })
@@ -93,8 +100,8 @@ fun RepForgeApp(initialSheetId: Long? = null) {
     CompositionLocalProvider(LocalCatalogNames provides catalogNames) {
     Scaffold(
         bottomBar = {
-            // Sheet and search are full-screen flows; the tab bar only belongs to top-level destinations.
-            if (Destination.entries.any { it.route == currentRoute }) NavigationBar {
+            // Sheet and search are full-screen flows; the tab bar only belongs to top-level destinations (and Settings, which has no back button).
+            if (currentRoute == SETTINGS_ROUTE || Destination.entries.any { it.route == currentRoute }) NavigationBar {
                 Destination.entries.forEach { destination ->
                     NavigationBarItem(
                         selected = currentRoute == destination.route,
@@ -132,16 +139,24 @@ fun RepForgeApp(initialSheetId: Long? = null) {
                     onDuplicateSheet = homeViewModel::duplicateSheet,
                     onDeleteSheet = homeViewModel::deleteSheet,
                     openTemplatePicker = openTemplatePicker,
-                    onTemplatePickerOpened = { openTemplatePicker = false }
+                    onTemplatePickerOpened = { openTemplatePicker = false },
+                    onOpenPlan = dropUnlessResumed { navController.navigate(Destination.Plan.route) { launchSingleTop = true } },
+                    onOpenSettings = dropUnlessResumed { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } }
                 )
+            }
+            composable(Destination.Plan.route) {
+                val planViewModel = viewModel { PlanViewModel(application.repository) }
+                val state by planViewModel.state.collectAsStateWithLifecycle()
+                PlanScreen(state, planViewModel::setWeekday, planViewModel::reschedule, planViewModel::createSheet, planViewModel::createSheetFromTemplate)
             }
             composable(Destination.Progress.route) {
                 ProgressScreen(
                     viewModel { ProgressViewModel(application.repository, application.pro.isPro, application.catalog) },
-                    onOpenPro = dropUnlessResumed { navController.navigate(Destination.Settings.route) { launchSingleTop = true } }
+                    onOpenPro = dropUnlessResumed { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } }
                 )
             }
-            composable(Destination.Settings.route) {
+            composable(Destination.Library.route) { LibraryScreen(application.catalog) }
+            composable(SETTINGS_ROUTE) {
                 SettingsScreen(viewModel { SettingsViewModel(application.settings, application.backup) }, application.pro, onOpenBodyWeight = dropUnlessResumed { navController.navigate("body") })
             }
             composable("body") {
@@ -155,7 +170,7 @@ fun RepForgeApp(initialSheetId: Long? = null) {
                     preferences = preferences,
                     onSearch = dropUnlessResumed { navController.navigate("sheet/$sheetId/search") },
                     isPro = isPro,
-                    onOpenPro = dropUnlessResumed { navController.navigate(Destination.Settings.route) { launchSingleTop = true } },
+                    onOpenPro = dropUnlessResumed { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } },
                     onBack = dropUnlessResumed { navController.popBackStack() }
                 )
             }

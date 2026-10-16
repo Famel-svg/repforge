@@ -8,6 +8,7 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -16,6 +17,8 @@ data class BackupEntry(val sets: Int, val reps: Int, val weightKg: Double, val r
 data class BackupExercise(val name: String, val target: String, val position: Int, val entries: List<BackupEntry>, val note: String = "", val supersetGroup: Int? = null)
 data class BackupBodyWeight(val weightKg: Double, val recordedAt: Long)
 data class BackupSheet(val name: String, val updatedAt: Long, val exercises: List<BackupExercise>)
+/** Plan entries reference sheets by name because sheet ids are renumbered on export; a null name is a rest day. */
+data class BackupPlan(val weekly: Map<Int, String?> = emptyMap(), val overrides: Map<String, String?> = emptyMap())
 
 /**
  * Reads and writes backup files. Besides the native format it accepts the nested
@@ -25,7 +28,7 @@ object BackupCodec {
     const val FORMAT = "repforge-backup"
     const val VERSION = 1
 
-    fun encode(sheets: List<BackupSheet>, exportedAt: Long = System.currentTimeMillis(), bodyWeights: List<BackupBodyWeight> = emptyList()): String {
+    fun encode(sheets: List<BackupSheet>, exportedAt: Long = System.currentTimeMillis(), bodyWeights: List<BackupBodyWeight> = emptyList(), plan: BackupPlan = BackupPlan()): String {
         val sheetArray = JSONArray()
         val exerciseArray = JSONArray()
         val entryArray = JSONArray()
@@ -59,6 +62,8 @@ object BackupCodec {
             put("exercises", exerciseArray)
             put("entries", entryArray)
             put("bodyWeights", JSONArray().apply { bodyWeights.forEach { put(JSONObject().apply { put("weightKg", it.weightKg); put("recordedAt", it.recordedAt) }) } })
+            put("schedule", JSONArray().apply { plan.weekly.forEach { (day, sheet) -> put(JSONObject().apply { put("dayOfWeek", day); put("sheet", sheet ?: JSONObject.NULL) }) } })
+            put("scheduleOverrides", JSONArray().apply { plan.overrides.forEach { (date, sheet) -> put(JSONObject().apply { put("date", date); put("sheet", sheet ?: JSONObject.NULL) }) } })
         }.toString(2)
     }
 
@@ -81,6 +86,21 @@ object BackupCodec {
                 val item = array.getJSONObject(it)
                 BackupBodyWeight(item.getDouble("weightKg"), item.getLong("recordedAt")).also { w -> if (validateBodyWeight(w.weightKg) != null) throw AppException(AppError.InvalidBodyWeight) }
             }
+        } catch (error: JSONException) {
+            throw AppException(AppError.Corrupt, error.message)
+        }
+    }
+
+    /** Optional top-level arrays (weekly plan + dated overrides); older files have none. */
+    fun decodePlan(raw: String): BackupPlan {
+        val root = try { JSONObject(raw) } catch (_: JSONException) { null } ?: return BackupPlan()
+        fun sheetOf(item: JSONObject) = if (item.isNull("sheet")) null else item.getString("sheet")
+        return try {
+            val weekly = root.optJSONArray("schedule")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty()
+                .associate { item -> item.getInt("dayOfWeek").also { if (it !in 1..7) throw AppException(AppError.Corrupt) } to sheetOf(item) }
+            val overrides = root.optJSONArray("scheduleOverrides")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty()
+                .associate { item -> item.getString("date").also { d -> runCatching { LocalDate.parse(d) }.getOrElse { throw AppException(AppError.InvalidDate, d) } } to sheetOf(item) }
+            BackupPlan(weekly, overrides)
         } catch (error: JSONException) {
             throw AppException(AppError.Corrupt, error.message)
         }

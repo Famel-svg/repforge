@@ -1,5 +1,7 @@
 package com.repforge.app.presentation.settings
 
+import com.repforge.app.data.Accent
+import com.repforge.app.data.ThemeMode
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.repforge.app.data.AppPreferences
@@ -40,6 +42,10 @@ class SettingsViewModel(private val store: SettingsStore, private val backup: Ba
     fun setRestSeconds(value: Int) = viewModelScope.launch(logExceptions) { store.setRestSeconds(value) }
     fun setHapticsEnabled(value: Boolean) = viewModelScope.launch(logExceptions) { store.setHapticsEnabled(value) }
     fun setRestNotification(value: Boolean) = viewModelScope.launch(logExceptions) { store.setRestNotification(value) }
+
+    fun setThemeMode(value: ThemeMode) = viewModelScope.launch(logExceptions) { store.setThemeMode(value) }
+    fun setAccent(value: Accent) = viewModelScope.launch(logExceptions) { store.setAccent(value) }
+    fun setSoundsEnabled(value: Boolean) = viewModelScope.launch(logExceptions) { store.setSoundsEnabled(value) }
 
     fun exportBackup(write: (String) -> Unit) = viewModelScope.launch(logExceptions) {
         runCatching {

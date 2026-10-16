@@ -54,6 +54,21 @@ data class EntryEntity(
     val rpe: Double? = null
 )
 
+@Entity(
+    tableName = "schedule",
+    foreignKeys = [androidx.room.ForeignKey(entity = SheetEntity::class, parentColumns = ["id"], childColumns = ["sheetId"], onDelete = androidx.room.ForeignKey.SET_NULL)],
+    indices = [androidx.room.Index("sheetId")]
+)
+data class ScheduleEntity(@androidx.room.PrimaryKey val dayOfWeek: Int, val sheetId: Long?)
+
+/** One-off change for a date ('yyyy-MM-dd'); null sheetId = rest day. */
+@Entity(
+    tableName = "schedule_overrides",
+    foreignKeys = [androidx.room.ForeignKey(entity = SheetEntity::class, parentColumns = ["id"], childColumns = ["sheetId"], onDelete = androidx.room.ForeignKey.CASCADE)],
+    indices = [androidx.room.Index("sheetId")]
+)
+data class ScheduleOverrideEntity(@androidx.room.PrimaryKey val date: String, val sheetId: Long?)
+
 data class SheetWithCount(
     val id: Long,
     val name: String,
@@ -169,6 +184,36 @@ interface WorkoutDao {
     @Query("DELETE FROM body_weights WHERE id = :id")
     suspend fun deleteBodyWeight(id: Long)
 
+    @Query("SELECT * FROM schedule")
+    fun observeSchedule(): Flow<List<ScheduleEntity>>
+
+    @Query("SELECT * FROM schedule")
+    suspend fun allSchedule(): List<ScheduleEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSchedule(row: ScheduleEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertScheduleIfAbsent(row: ScheduleEntity)
+
+    @Query("SELECT * FROM schedule_overrides WHERE date >= :from")
+    fun observeOverrides(from: String): Flow<List<ScheduleOverrideEntity>>
+
+    @Query("SELECT * FROM schedule_overrides ORDER BY date")
+    suspend fun allOverrides(): List<ScheduleOverrideEntity>
+
+    @Query("SELECT * FROM schedule_overrides WHERE date IN (:dates)")
+    suspend fun overridesOn(dates: List<String>): List<ScheduleOverrideEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertOverride(row: ScheduleOverrideEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertOverrideIfAbsent(row: ScheduleOverrideEntity)
+
+    @Query("DELETE FROM schedule_overrides WHERE date = :date")
+    suspend fun deleteOverride(date: String)
+
     @Query("SELECT * FROM entries ORDER BY exerciseId, recordedAt, id")
     suspend fun allEntries(): List<EntryEntity>
 
@@ -194,7 +239,16 @@ val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
     }
 }
 
-@Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class, BodyWeightEntity::class], version = 3, exportSchema = true)
+val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `schedule` (`dayOfWeek` INTEGER NOT NULL, `sheetId` INTEGER, PRIMARY KEY(`dayOfWeek`), FOREIGN KEY(`sheetId`) REFERENCES `sheets`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_schedule_sheetId` ON `schedule` (`sheetId`)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `schedule_overrides` (`date` TEXT NOT NULL, `sheetId` INTEGER, PRIMARY KEY(`date`), FOREIGN KEY(`sheetId`) REFERENCES `sheets`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_schedule_overrides_sheetId` ON `schedule_overrides` (`sheetId`)")
+    }
+}
+
+@Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class, BodyWeightEntity::class, ScheduleEntity::class, ScheduleOverrideEntity::class], version = 4, exportSchema = true)
 abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
 }

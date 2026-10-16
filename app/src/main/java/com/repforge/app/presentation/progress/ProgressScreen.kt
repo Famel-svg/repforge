@@ -114,6 +114,8 @@ fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit) {
                     }
                 }
             }
+            item { HeatmapCard(state.heatmap) }
+            item { BodyMapCard(state.bodyMap, state.muscleLocked, onOpenPro) }
             item { MuscleVolumeCard(state.muscleWeeks, state.muscleLocked, onOpenPro) }
             item { Text(stringResource(R.string.progress_by_exercise), style = MaterialTheme.typography.titleLarge) }
             if (state.exercises.isEmpty()) {
@@ -169,7 +171,7 @@ fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit) {
 }
 
 @Composable
-private fun ProUpsell(
+internal fun ProUpsell(
     onOpenPro: () -> Unit,
     title: String = stringResource(R.string.upsell_history_title),
     body: String = stringResource(R.string.upsell_history_body)

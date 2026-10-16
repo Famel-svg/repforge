@@ -197,6 +197,7 @@ fun WorkoutScreen(
             if (preferences.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             // Visible app already buzzed; the alert is for when the user is elsewhere (the alarm covers a dead process).
             if (preferences.restNotification && !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) RestNotifier.done(context, preferences.hapticsEnabled)
+            else com.repforge.app.presentation.playRestDone(context)
         }
     }
 

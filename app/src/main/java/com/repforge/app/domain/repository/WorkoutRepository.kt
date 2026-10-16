@@ -9,7 +9,11 @@ import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.DailyVolume
 import com.repforge.app.domain.model.HistoryEntry
 import com.repforge.app.domain.templates.WorkoutTemplate
+import com.repforge.app.domain.schedule.DayPlan
 import kotlinx.coroutines.flow.Flow
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 interface WorkoutRepository {
     fun observeSheets(): Flow<List<TrainingSheet>>
@@ -36,4 +40,12 @@ interface WorkoutRepository {
     fun observeBodyWeights(): Flow<List<BodyWeight>>
     suspend fun addBodyWeight(weightKg: Double)
     suspend fun deleteBodyWeight(id: Long)
+    /** Weekly plan keyed by ISO day of week (1 = Monday); a missing key or null value means rest. */
+    fun observeWeeklyPlan(): Flow<Map<Int, Long?>>
+    /** [days] resolved days starting at [from] (weekly plan with one-off overrides applied). */
+    fun observePlan(from: LocalDate, days: Int): Flow<List<DayPlan>>
+    suspend fun setWeekdaySheet(dayOfWeek: Int, sheetId: Long?)
+    suspend fun todaySheet(now: Instant, zone: ZoneId): DayPlan
+    /** Moves the sheet planned on [from] to [to] as overrides (from becomes rest); the weekly plan is untouched. */
+    suspend fun reschedule(from: LocalDate, to: LocalDate)
 }

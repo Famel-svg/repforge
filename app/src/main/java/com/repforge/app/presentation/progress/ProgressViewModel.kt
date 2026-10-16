@@ -10,6 +10,11 @@ import com.repforge.app.domain.metrics.OneRepMaxPoint
 import com.repforge.app.domain.metrics.ProgressRange
 import com.repforge.app.domain.metrics.MuscleInfo
 import com.repforge.app.domain.metrics.MuscleSets
+import com.repforge.app.domain.metrics.BodyRange
+import com.repforge.app.domain.metrics.Heatmap
+import com.repforge.app.domain.metrics.activityHeatmap
+import com.repforge.app.domain.metrics.bodyMuscleTotals
+import com.repforge.app.domain.metrics.weeksSpanned
 import com.repforge.app.domain.metrics.WorkoutDay
 import com.repforge.app.domain.metrics.muscleLookup
 import com.repforge.app.domain.metrics.weeklyMuscleVolume
@@ -54,7 +59,10 @@ data class ProgressUiState(
     val recent: List<WorkoutDay> = emptyList(),
     /** Index 0 = last 7 days; Pro adds the 3 previous weeks. */
     val muscleWeeks: List<List<MuscleSets>> = listOf(emptyList()),
-    val muscleLocked: Boolean = true
+    val muscleLocked: Boolean = true,
+    val heatmap: Heatmap = Heatmap(emptyList(), 0),
+    /** Sets per body muscle by range; free users only get [BodyRange.Week]. */
+    val bodyMap: Map<BodyRange, Map<String, Double>> = emptyMap()
 )
 
 class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>, catalog: ExerciseCatalog) : ViewModel() {
@@ -90,7 +98,12 @@ class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>
             detail = detail,
             recent = recentWorkouts(history, zone),
             muscleWeeks = weeklyMuscleVolume(history, lookup, now, zone, if (pro) 4 else 1),
-            muscleLocked = !pro
+            muscleLocked = !pro,
+            heatmap = activityHeatmap(history, now, zone),
+            bodyMap = BodyRange.entries.filter { pro || !it.pro }.associateWith { br ->
+                val weeks = when (br) { BodyRange.Week -> 1; BodyRange.Month -> 4; BodyRange.All -> weeksSpanned(history, now, zone) }
+                bodyMuscleTotals(weeklyMuscleVolume(history, lookup, now, zone, weeks))
+            }
         )
     }
 }

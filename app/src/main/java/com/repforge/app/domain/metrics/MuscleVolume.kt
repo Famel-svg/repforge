@@ -37,3 +37,25 @@ fun weeklyMuscleVolume(history: List<HistoryEntry>, catalog: Map<String, MuscleI
     }
     return totals.map { t -> t.map { (k, v) -> MuscleSets(labels.getValue(k), v) }.sortedWith(compareByDescending<MuscleSets> { it.sets }.thenBy { it.muscle }) }
 }
+
+/** The muscle groups drawn on the body map (pt-BR catalog values). */
+val BODY_MUSCLES = listOf(
+    "Peito", "Costas", "Ombros", "Bíceps", "Tríceps", "Antebraço", "Abdômen", "Quadríceps",
+    "Posterior de coxa", "Glúteos", "Panturrilha", "Trapézio", "Lombar"
+)
+
+enum class BodyRange(val pro: Boolean) { Week(false), Month(true), All(true) }
+
+/** Sums the 7-day windows per body muscle (accent/case-insensitive; "Panturrilhas" folds into Panturrilha); other labels are ignored. */
+fun bodyMuscleTotals(windows: List<List<MuscleSets>>): Map<String, Double> {
+    val byKey = BODY_MUSCLES.associateBy { key(it) } + (key("Panturrilhas") to "Panturrilha")
+    val out = HashMap<String, Double>()
+    windows.flatten().forEach { m -> byKey[key(m.muscle)]?.let { out.merge(it, m.sets, Double::plus) } }
+    return out
+}
+
+/** Weeks to cover from the oldest entry to today, at least 1. */
+fun weeksSpanned(history: List<HistoryEntry>, now: Long, zone: ZoneId): Int {
+    val oldest = history.working().minOfOrNull { it.recordedAt } ?: return 1
+    return (java.time.temporal.ChronoUnit.DAYS.between(localDate(oldest, zone), localDate(now, zone)) / 7 + 1).toInt().coerceAtLeast(1)
+}

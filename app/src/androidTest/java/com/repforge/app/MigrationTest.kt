@@ -5,6 +5,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.repforge.app.data.local.MIGRATION_1_2
 import com.repforge.app.data.local.MIGRATION_2_3
+import com.repforge.app.data.local.MIGRATION_3_4
 import com.repforge.app.data.local.WorkoutDatabase
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -50,5 +51,22 @@ class MigrationTest {
         db.query("SELECT weightKg FROM entries").use { it.moveToFirst(); assertEquals(80.0, it.getDouble(0), 0.0) }
         db.execSQL("INSERT INTO body_weights (weightKg, recordedAt) VALUES (82.5, 1)")
         db.query("SELECT COUNT(*) FROM body_weights").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
+    }
+
+    @Test fun migrate3To4KeepsDataAndAddsScheduleTables() {
+        helper.createDatabase("migration-test-4", 3).apply {
+            execSQL("INSERT INTO sheets (id, name, updatedAt) VALUES (1, 'A', 1)")
+            execSQL("INSERT INTO exercises (id, sheetId, name, target, position, note) VALUES (1, 1, 'Supino', 'Peito', 0, 'n')")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate("migration-test-4", 4, true, MIGRATION_3_4)
+        db.query("SELECT name FROM exercises").use { it.moveToFirst(); assertEquals("Supino", it.getString(0)) }
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("INSERT INTO schedule (dayOfWeek, sheetId) VALUES (1, 1)")
+        db.execSQL("INSERT INTO schedule_overrides (date, sheetId) VALUES ('2026-06-15', 1)")
+        db.execSQL("INSERT INTO schedule_overrides (date, sheetId) VALUES ('2026-06-16', NULL)")
+        db.execSQL("DELETE FROM sheets WHERE id = 1")
+        db.query("SELECT sheetId FROM schedule WHERE dayOfWeek = 1").use { it.moveToFirst(); assertEquals(true, it.isNull(0)) }
+        db.query("SELECT COUNT(*) FROM schedule_overrides").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
     }
 }

@@ -4,6 +4,27 @@ import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import com.repforge.app.data.ProStore
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.Icon
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.repforge.app.data.Accent
+import com.repforge.app.data.ThemeMode
+import com.repforge.app.presentation.theme.contrast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -140,6 +161,52 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
                     }
                 }
             }
+            Text(stringResource(R.string.appearance), style = MaterialTheme.typography.headlineSmall)
+            Card {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        val modes = ThemeMode.entries
+                        modes.forEachIndexed { index, mode ->
+                            SegmentedButton(
+                                selected = mode == state.themeMode, onClick = { viewModel.setThemeMode(mode) },
+                                shape = SegmentedButtonDefaults.itemShape(index, modes.size)
+                            ) { Text(stringResource(mode.label())) }
+                        }
+                    }
+                    Text(stringResource(R.string.accent_color), style = MaterialTheme.typography.titleMedium)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Accent.entries.forEach { accent ->
+                            val selected = accent == state.accent
+                            val name = stringResource(accent.label())
+                            val swatch = Color(if (isSystemInDarkTheme()) accent.dark else accent.light)
+                            Box(
+                                Modifier.size(48.dp).semantics { contentDescription = name }
+                                    .selectable(selected, role = Role.RadioButton, onClick = { viewModel.setAccent(accent) }),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    Modifier.size(36.dp).clip(CircleShape).background(swatch)
+                                        .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (selected) Icon(Icons.Rounded.Check, null, tint = if (contrast(swatch, Color.White) >= contrast(swatch, Color.Black)) Color.White else Color.Black)
+                                }
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+                    Row(
+                        Modifier.fillMaxWidth().toggleable(state.soundsEnabled, role = Role.Switch, onValueChange = { viewModel.setSoundsEnabled(it) }),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.sounds), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.sounds_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = state.soundsEnabled, onCheckedChange = null)
+                    }
+                }
+            }
             Text(stringResource(R.string.backup), style = MaterialTheme.typography.headlineSmall)
             Card {
                 Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -155,6 +222,23 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
             Text(stringResource(R.string.local_only_note), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+private fun ThemeMode.label() = when (this) {
+    ThemeMode.System -> R.string.theme_system
+    ThemeMode.Light -> R.string.theme_light
+    ThemeMode.Dark -> R.string.theme_dark
+}
+
+private fun Accent.label() = when (this) {
+    Accent.Ember -> R.string.accent_ember
+    Accent.Rose -> R.string.accent_rose
+    Accent.Violet -> R.string.accent_violet
+    Accent.Indigo -> R.string.accent_indigo
+    Accent.Sky -> R.string.accent_sky
+    Accent.Teal -> R.string.accent_teal
+    Accent.Green -> R.string.accent_green
+    Accent.Gold -> R.string.accent_gold
 }
 
 private fun Context.messageText(message: SettingsMessage): String = when (message) {

@@ -17,6 +17,10 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoGraph
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -59,7 +63,9 @@ fun HomeScreen(
     onCreateSheetFromTemplate: (WorkoutTemplate) -> Unit = {},
     /** One-shot: opens the create dialog on the template list (set by onboarding); [onTemplatePickerOpened] clears it. */
     openTemplatePicker: Boolean = false,
-    onTemplatePickerOpened: () -> Unit = {}
+    onTemplatePickerOpened: () -> Unit = {},
+    onOpenPlan: () -> Unit = {},
+    onOpenSettings: () -> Unit = {}
 ) {
     var showCreate by remember { mutableStateOf(false) }
     var initialTemplateId by remember { mutableStateOf<String?>(null) }
@@ -74,7 +80,11 @@ fun HomeScreen(
     }
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) },
+        topBar = {
+            TopAppBar(title = { Text(stringResource(R.string.app_name)) }, actions = {
+                IconButton(onClick = onOpenSettings) { Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.nav_settings)) }
+            })
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = { initialTemplateId = null; showCreate = true }) {
                 Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.create_sheet))
@@ -89,6 +99,9 @@ fun HomeScreen(
                 Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.home_greeting), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
                 Text(stringResource(R.string.home_tagline), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            state.today?.let { today ->
+                item { TodayCard(today, onStart = { today.sheet?.let(onStartSheet) }, onOpenPlan = onOpenPlan) }
             }
             item { SummaryCard(state) }
             item {
@@ -126,6 +139,33 @@ fun HomeScreen(
             confirmButton = { Button(onClick = { onDeleteSheet(sheet.id); deleteTarget = null }) { Text(stringResource(R.string.delete)) } },
             dismissButton = { OutlinedButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.cancel)) } }
         )
+    }
+}
+
+@Composable
+private fun TodayCard(today: TodayState, onStart: () -> Unit, onOpenPlan: () -> Unit) {
+    Card {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(stringResource(R.string.today_workout), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+                if (today.moved) AssistChip(onClick = {}, label = { Text(stringResource(R.string.moved_badge)) })
+            }
+            when {
+                today.sheet != null -> {
+                    Text(today.sheet.name, style = MaterialTheme.typography.headlineSmall)
+                    Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                        Text(stringResource(R.string.start_workout))
+                    }
+                }
+                !today.configured -> {
+                    Text(stringResource(R.string.set_plan_title), style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(R.string.set_plan_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Button(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.open_plan)) }
+                }
+                else -> Text(stringResource(R.string.today_rest), style = MaterialTheme.typography.bodyLarge)
+            }
+        }
     }
 }
 

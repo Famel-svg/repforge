@@ -38,3 +38,10 @@ class MuscleVolumeTest {
         assertEquals(1, weeklyMuscleVolume(listOf(e("Supino reto", 2, 10)), catalog, now, zone).size)
     }
 }
+
+class BodyMuscleTotalsTest {
+    @Test fun foldsAliasesAndIgnoresOthers() {
+        val r = bodyMuscleTotals(listOf(listOf(MuscleSets("Panturrilhas", 2.0), MuscleSets("peito", 3.0), MuscleSets("Cardio", 9.0)), listOf(MuscleSets("Panturrilha", 1.0))))
+        assertEquals(mapOf("Panturrilha" to 3.0, "Peito" to 3.0), r)
+    }
+}
