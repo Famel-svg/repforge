@@ -3,7 +3,9 @@ package com.repforge.app.presentation
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.res.stringResource
 import com.repforge.app.R
 import com.repforge.app.data.ExerciseCatalog
@@ -64,7 +66,7 @@ private const val SHEET_ID = "sheetId"
 private val sheetArguments = listOf(navArgument(SHEET_ID) { type = NavType.LongType })
 
 @Composable
-fun RepForgeApp() {
+fun RepForgeApp(initialSheetId: Long? = null) {
     val application = LocalContext.current.applicationContext as RepForgeApplication
     val navController = rememberNavController()
     // null until DataStore emits, so the start destination is never wrong for a frame.
@@ -79,6 +81,14 @@ fun RepForgeApp() {
     }
     if (onboardingDone == null) return
     val startRoute = remember { if (onboardingDone == true) Destination.Home.route else "onboarding" } // fixed at first value
+    // Widget launch: once Home is up, push the sheet on top (only for a cold start, not after rotation).
+    var widgetHandled by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(initialSheetId, onboardingDone) {
+        if (initialSheetId != null && !widgetHandled && onboardingDone == true) {
+            widgetHandled = true
+            navController.navigate("sheet/$initialSheetId")
+        }
+    }
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     CompositionLocalProvider(LocalCatalogNames provides catalogNames) {
     Scaffold(

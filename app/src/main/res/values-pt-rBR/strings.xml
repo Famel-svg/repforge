@@ -305,4 +305,27 @@
         <item>sáb</item>
         <item>dom</item>
     </string-array>
+    <string name="widget_description">Sequência, séries da semana e início rápido do último treino</string>
+    <string name="widget_preview_streak">Sequência de 5 dias</string>
+    <string name="widget_preview_sets">42 séries esta semana</string>
+    <string name="widget_streak">Sequência de %1$d dias</string>
+    <string name="widget_sets">%1$d séries esta semana</string>
+    <string name="widget_start">Iniciar treino</string>
+    <string name="widget_start_description">Iniciar treino %1$s</string>
+    <string name="widget_empty">Crie sua primeira ficha de treino</string>
+    <string name="widget_open_description">Abrir RepForge</string>
+    <string name="channel_rest_timer">Cronômetro de descanso</string>
+    <string name="channel_rest_done">Descanso terminado</string>
+    <string name="channel_rest_done_quiet">Descanso terminado (silencioso)</string>
+    <string name="rest_over">Descanso terminado</string>
+    <string name="rest_over_body">Hora da próxima série.</string>
+    <string name="rest_notification">Notificação do descanso</string>
+    <string name="rest_notification_hint">Contagem regressiva e alerta ao fim do descanso, mesmo em segundo plano</string>
+    <string name="plate_calculator">Calculadora de anilhas</string>
+    <string name="plate_bar">Barra</string>
+    <string name="plate_per_side">Por lado</string>
+    <string name="plate_empty_bar">Apenas a barra vazia.</string>
+    <string name="plate_not_exact">Carga mais próxima possível: %1$s</string>
+    <string name="plate_pro_body">Anilhas por lado para qualquer carga, com pagamento único.</string>
+    <string name="close">Fechar</string>
 </resources>

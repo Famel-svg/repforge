@@ -306,4 +306,27 @@
         <item>Sat</item>
         <item>Sun</item>
     </string-array>
+    <string name="widget_description">Streak, weekly sets and quick start for your last workout</string>
+    <string name="widget_preview_streak">5-day streak</string>
+    <string name="widget_preview_sets">42 sets this week</string>
+    <string name="widget_streak">%1$d-day streak</string>
+    <string name="widget_sets">%1$d sets this week</string>
+    <string name="widget_start">Start workout</string>
+    <string name="widget_start_description">Start workout %1$s</string>
+    <string name="widget_empty">Create your first workout sheet</string>
+    <string name="widget_open_description">Open RepForge</string>
+    <string name="channel_rest_timer">Rest timer</string>
+    <string name="channel_rest_done">Rest over</string>
+    <string name="channel_rest_done_quiet">Rest over (silent)</string>
+    <string name="rest_over">Rest over</string>
+    <string name="rest_over_body">Time for your next set.</string>
+    <string name="rest_notification">Rest notification</string>
+    <string name="rest_notification_hint">Countdown and alert when rest ends, even in the background</string>
+    <string name="plate_calculator">Plate calculator</string>
+    <string name="plate_bar">Bar</string>
+    <string name="plate_per_side">Per side</string>
+    <string name="plate_empty_bar">Just the empty bar.</string>
+    <string name="plate_not_exact">Closest loadable weight: %1$s</string>
+    <string name="plate_pro_body">Plates per side for any load, with a one-time payment.</string>
+    <string name="close">Close</string>
 </resources>

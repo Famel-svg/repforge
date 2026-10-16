@@ -37,7 +37,8 @@ import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.ZoneId
 
-class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepository {
+/** [onChanged] fires after writes the home-screen widget displays (sheets, logged sets). */
+class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val onChanged: () -> Unit = {}) : WorkoutRepository {
     private val dao = database.workoutDao()
 
     override fun observeSheets(): Flow<List<TrainingSheet>> = dao.observeSheets().map { sheets -> sheets.map { it.toDomain() } }
@@ -57,6 +58,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     override suspend fun createSheet(name: String) {
         require(name.isNotBlank()) { "Nome da ficha não pode ficar vazio." }
         dao.insertSheet(SheetEntity(name = name.trim()))
+        onChanged()
     }
 
     override suspend fun duplicateSheet(sheetId: Long, copyLabel: String) {
@@ -65,10 +67,12 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
             val copyId = dao.insertSheet(SheetEntity(name = "${source.name} ($copyLabel)"))
             dao.exercisesOf(sheetId).forEach { dao.insertExercise(it.copy(id = 0, sheetId = copyId)) }
         }
+        onChanged()
     }
 
     override suspend fun deleteSheet(sheetId: Long) {
         dao.deleteSheet(sheetId)
+        onChanged()
     }
 
     override fun observeExercises(sheetId: Long): Flow<List<Exercise>> = dao.observeExercises(sheetId).map { rows ->
@@ -110,6 +114,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
             dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg, setType = setType, rpe = rpe))
             dao.touchSheetOfExercise(exerciseId, System.currentTimeMillis())
         }
+        onChanged()
     }
 
     override suspend fun updateExerciseNote(exerciseId: Long, note: String) {
@@ -118,11 +123,13 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
 
     override suspend fun deleteEntry(entryId: Long) {
         dao.deleteEntry(entryId)
+        onChanged()
     }
 
     override suspend fun restoreEntry(entry: SetEntry) {
         if (dao.findExercise(entry.exerciseId) == null) return
         dao.insertEntry(EntryEntity(entry.id, entry.exerciseId, entry.sets, entry.reps, entry.weightKg, entry.recordedAt, entry.setType, entry.rpe))
+        onChanged()
     }
 
     override suspend fun moveExercise(exerciseId: Long, up: Boolean) {
@@ -175,6 +182,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
                 dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = e.name, target = e.target, position = index))
             }
         }
+        onChanged()
     }
 
     override fun observeDailyVolume(): Flow<List<DailyVolume>> = flow {

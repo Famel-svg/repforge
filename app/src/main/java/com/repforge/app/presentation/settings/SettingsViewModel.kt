@@ -39,6 +39,7 @@ class SettingsViewModel(private val store: SettingsStore, private val backup: Ba
 
     fun setRestSeconds(value: Int) = viewModelScope.launch(logExceptions) { store.setRestSeconds(value) }
     fun setHapticsEnabled(value: Boolean) = viewModelScope.launch(logExceptions) { store.setHapticsEnabled(value) }
+    fun setRestNotification(value: Boolean) = viewModelScope.launch(logExceptions) { store.setRestNotification(value) }
 
     fun exportBackup(write: (String) -> Unit) = viewModelScope.launch(logExceptions) {
         runCatching {

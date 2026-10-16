@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:name=".RepForgeApplication"
         android:theme="@style/Theme.RepForge"
@@ -10,11 +11,18 @@
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:localeConfig="@xml/locales_config"
         android:supportsRtl="true">
+        <receiver android:name=".notify.RestDoneReceiver" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <receiver android:name=".widget.RepForgeWidgetReceiver" android:exported="true" android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/repforge_widget_info" />
+        </receiver>
     </application>
 </manifest>

@@ -10,17 +10,18 @@ import kotlinx.coroutines.flow.map
 
 private val Context.repForgePreferences by preferencesDataStore("repforge_preferences")
 
-data class AppPreferences(val restSeconds: Int = 90, val hapticsEnabled: Boolean = true)
+data class AppPreferences(val restSeconds: Int = 90, val hapticsEnabled: Boolean = true, val restNotification: Boolean = true)
 
 class SettingsStore(private val context: Context) {
     private object Keys {
         val restSeconds = intPreferencesKey("rest_seconds")
         val hapticsEnabled = booleanPreferencesKey("haptics_enabled")
+        val restNotification = booleanPreferencesKey("rest_notification")
         val onboardingDone = booleanPreferencesKey("onboarding_done")
     }
 
     val preferences: Flow<AppPreferences> = context.repForgePreferences.data.map { values ->
-        AppPreferences(values[Keys.restSeconds] ?: 90, values[Keys.hapticsEnabled] ?: true)
+        AppPreferences(values[Keys.restSeconds] ?: 90, values[Keys.hapticsEnabled] ?: true, values[Keys.restNotification] ?: true)
     }
 
     suspend fun setRestSeconds(value: Int) {
@@ -36,5 +37,9 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setHapticsEnabled(value: Boolean) {
         context.repForgePreferences.edit { it[Keys.hapticsEnabled] = value }
+    }
+
+    suspend fun setRestNotification(value: Boolean) {
+        context.repForgePreferences.edit { it[Keys.restNotification] = value }
     }
 }

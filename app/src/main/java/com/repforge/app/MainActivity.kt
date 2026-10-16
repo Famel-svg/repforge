@@ -11,6 +11,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { RepForgeTheme { RepForgeApp() } }
+        setContent { RepForgeTheme { RepForgeApp(initialSheetId = intent.getLongExtra(EXTRA_SHEET_ID, -1L).takeIf { it > 0 }) } }
+    }
+
+    companion object {
+        const val EXTRA_SHEET_ID = "com.repforge.app.SHEET_ID"
     }
 }

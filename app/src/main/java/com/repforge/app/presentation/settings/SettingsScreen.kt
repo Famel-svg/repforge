@@ -127,6 +127,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
                         }
                         Switch(checked = state.hapticsEnabled, onCheckedChange = null)
                     }
+                    HorizontalDivider()
+                    Row(
+                        Modifier.fillMaxWidth().toggleable(state.restNotification, role = Role.Switch, onValueChange = { viewModel.setRestNotification(it) }),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.rest_notification), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.rest_notification_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = state.restNotification, onCheckedChange = null)
+                    }
                 }
             }
             Text(stringResource(R.string.backup), style = MaterialTheme.typography.headlineSmall)

@@ -1,6 +1,18 @@
 package com.repforge.app.presentation.workout
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.repforge.app.domain.plates.BAR_OPTIONS_KG
+import com.repforge.app.domain.plates.calculatePlates
+import com.repforge.app.notify.RestNotifier
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -163,7 +175,19 @@ fun WorkoutScreen(
         }
     }
 
+    var askedNotifications by rememberSaveable { mutableStateOf(false) }
+    // Denial is fine: the in-app timer keeps working without notifications.
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(Unit) { onDispose { RestNotifier.cancel(context) } }
+
     LaunchedEffect(running) {
+        if (running && remaining > 0 && preferences.restNotification) {
+            if (Build.VERSION.SDK_INT >= 33 && !askedNotifications &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) { askedNotifications = true; notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+            RestNotifier.start(context, System.currentTimeMillis() + remaining * 1_000L, preferences.hapticsEnabled)
+        } else RestNotifier.cancel(context)
         while (running && remaining > 0) {
             delay(1_000)
             remaining -= 1
@@ -171,6 +195,8 @@ fun WorkoutScreen(
         if (running && remaining == 0) {
             running = false
             if (preferences.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            // Visible app already buzzed; the alert is for when the user is elsewhere (the alarm covers a dead process).
+            if (preferences.restNotification && !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) RestNotifier.done(context, preferences.hapticsEnabled)
         }
     }
 
@@ -291,6 +317,7 @@ private fun ExerciseCard(
     var setType by rememberSaveable { mutableStateOf(SET_NORMAL) }
     var rpe by rememberSaveable { mutableStateOf<Double?>(null) }
     var showMenu by remember { mutableStateOf(false) }
+    var showPlates by rememberSaveable { mutableStateOf(false) }
     val today = remember(entries) { entriesOnDay(entries, System.currentTimeMillis(), ZoneId.systemDefault()) }
     val prefill = prefillFor(entries)
     val repsText = repsInput ?: prefill.reps.toString()
@@ -403,7 +430,8 @@ private fun ExerciseCard(
                     minusDescription = stringResource(R.string.decrease_load), plusDescription = stringResource(R.string.increase_load),
                     onValueChange = { weightInput = it; inputError = null },
                     onMinus = { weightInput = formatWeightInput(stepWeightKg(parseWeightKg(weightText), -WEIGHT_STEP_KG)); inputError = null },
-                    onPlus = { weightInput = formatWeightInput(stepWeightKg(parseWeightKg(weightText), WEIGHT_STEP_KG)); inputError = null }
+                    onPlus = { weightInput = formatWeightInput(stepWeightKg(parseWeightKg(weightText), WEIGHT_STEP_KG)); inputError = null },
+                    trailing = { IconButton(onClick = { showPlates = true }) { Icon(Icons.Rounded.FitnessCenter, stringResource(R.string.plate_calculator)) } }
                 )
                 TextButton(onClick = { showMore = !showMore }) { Text(stringResource(if (showMore) R.string.less else R.string.more)) }
                 if (showMore) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -447,6 +475,7 @@ private fun ExerciseCard(
         }
     }
     }
+    if (showPlates) PlatesDialog(parseWeightKg(weightText) ?: 0.0, isPro, onUpgrade = { showPlates = false; onUpgrade() }, onDismiss = { showPlates = false })
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
@@ -500,7 +529,8 @@ private fun StepperField(
     plusDescription: String,
     onValueChange: (String) -> Unit,
     onMinus: () -> Unit,
-    onPlus: () -> Unit
+    onPlus: () -> Unit,
+    trailing: @Composable () -> Unit = {}
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         FilledTonalIconButton(onClick = onMinus, modifier = Modifier.size(48.dp), enabled = minusEnabled) { Icon(Icons.Rounded.Remove, minusDescription) }
@@ -510,7 +540,37 @@ private fun StepperField(
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType)
         )
         FilledTonalIconButton(onClick = onPlus, modifier = Modifier.size(48.dp)) { Icon(Icons.Rounded.Add, plusDescription) }
+        trailing()
     }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PlatesDialog(targetKg: Double, isPro: Boolean, onUpgrade: () -> Unit, onDismiss: () -> Unit) {
+    var bar by rememberSaveable { mutableStateOf(BAR_OPTIONS_KG.first()) }
+    val result = remember(targetKg, bar) { calculatePlates(targetKg, bar) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.plate_calculator)) },
+        text = {
+            if (!isPro) Text(stringResource(R.string.plate_pro_body))
+            else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.plate_bar), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BAR_OPTIONS_KG.forEach { b -> FilterChip(bar == b, { bar = b }, { Text(formatKg(b)) }) }
+                }
+                Text(stringResource(R.string.plate_per_side), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (result.perSideKg.isEmpty()) Text(stringResource(R.string.plate_empty_bar))
+                else Text(result.perSideKg.joinToString(" + ") { formatWeightInput(it) } + " kg", style = MaterialTheme.typography.titleMedium)
+                if (!result.exact) Text(stringResource(R.string.plate_not_exact, formatKg(result.loadKg)), color = MaterialTheme.colorScheme.error)
+            }
+        },
+        confirmButton = {
+            if (isPro) Button(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+            else Button(onClick = onUpgrade) { Text(stringResource(R.string.learn_pro)) }
+        },
+        dismissButton = { if (!isPro) OutlinedButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
