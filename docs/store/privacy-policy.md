@@ -12,12 +12,12 @@ O RepForge (pacote `com.repforge.app`) é um aplicativo Android de registro de t
 - O app **não pede conta nem login**.
 - O app **não tem anúncios**, não usa ferramentas de análise de uso, nem SDK de relatório de falhas, nem outros SDKs de terceiros que coletem dados.
 - Seus dados de treino **nunca saem do aparelho**: o app não tem servidor próprio e não envia nada ao desenvolvedor.
-- O app declara apenas a permissão de compras do Google Play (`com.android.vending.BILLING`). A biblioteca do Google Play Billing usa a rede para falar com o Google Play, somente para processar e verificar a compra do **RepForge Pro**.
+- O **único uso de rede** do app é o Google Play Billing, que fala com o Google Play somente para processar e verificar a compra do **RepForge Pro**. O app declara apenas a permissão de compras (`com.android.vending.BILLING`) e as permissões de rede trazidas por essa biblioteca.
 - Seus treinos ficam **somente no seu aparelho**.
 
 ## 3. Quais dados o app trata
 
-O RepForge guarda, apenas no seu aparelho, as informações que você mesmo digita: fichas de treino, exercícios (inclusive os personalizados), séries, repetições, cargas em kg, histórico de treinos, recordes e preferências como o tema claro ou escuro. Esses dados são usados exclusivamente para o app funcionar e mostrar seu progresso.
+O RepForge guarda, apenas no seu aparelho, as informações que você mesmo digita: fichas de treino, exercícios (inclusive os personalizados), séries, repetições, cargas em kg, RPE e notas, seu peso corporal (se você registrar), histórico de treinos, recordes e preferências como o idioma e o tema claro ou escuro. Esses dados são usados exclusivamente para o app funcionar e mostrar seu progresso.
 
 O desenvolvedor não tem acesso a esses dados, não os recebe, não os armazena em servidores e não os compartilha com ninguém.
 

@@ -15,6 +15,7 @@ Versão do app: 2.0.0 (`com.repforge.app`). Política de privacidade: [URL DA PO
 
 Observações:
 
+- O peso corporal (e todo dado de saúde e fitness) fica apenas no aparelho; o desenvolvedor não coleta nada. O único uso de rede é o Google Play Billing.
 - Dados tratados apenas no aparelho, sem sair dele, não contam como "coletados" para o formulário.
 - O backup do sistema Android (conta Google) é operado pelo Google e não pelo app ou desenvolvedor; não é declarado como coleta.
 - Backups exportados pelo usuário são JSON legíveis salvos onde o usuário escolhe; o app não os envia a ninguém.

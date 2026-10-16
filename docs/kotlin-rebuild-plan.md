@@ -1,34 +1,14 @@
 # RepForge Kotlin rebuild
 
-## Direção de produto
+> **Substituído por [product-roadmap.md](product-roadmap.md).** Este plano
+> descrevia a reescrita inicial (WorkoutX, proxy, GIFs). Desde a 2.0.0 o app usa
+> catálogo offline próprio e o único uso de rede é o Google Play Billing; o
+> `proxy/` é legado. Mantido só como histórico.
 
-RepForge vira app Android nativo, offline-first e focado em registrar treino com o menor atrito possível. Dados de treino ficam no aparelho; rede serve apenas para enriquecer busca de exercícios.
+## Direção original
 
-## Melhorias incorporadas
-
-- Jetpack Compose + Material 3 com cores dinâmicas e suporte a dark mode.
-- Navigation Compose: abas Treino, Evolução e Ajustes; ficha e busca em tela cheia com voltar do sistema.
-- Home com próxima ação clara, resumo de volume dos últimos 7 dias e estado vazio acionável.
-- Room como fonte local reativa; UI observa `Flow` e continua útil sem internet.
-- Domínio separado da persistência para facilitar testes e evolução.
-- Confirmação visual e háptica de série registrada; timer de descanso inicia sozinho.
-- Remoção de exercício com confirmação e cascata do histórico no Room.
-- Edição de nome e grupo muscular sem apagar o histórico.
-- Duplicação de ficha, PR de carga e histórico datado por exercício.
-- Ações e campos reorganizados para escala de fonte ampliada; teclado numérico e vírgula decimal.
-- Backup JSON com validação, importação aditiva em transação e leitura do formato Expo 1.0.x.
-- Busca WorkoutX por nome, parte do corpo ou equipamento.
-- Build release com R8, schema Room exportado e versionCode acima do app Expo.
-
-## Melhorias futuras
-
-1. GIFs dos exercícios (exige download autenticado pelo proxy e cache local).
-2. Tradução de nomes de exercício e termos de busca para português.
-3. Reordenar exercícios por arrastar e soltar.
-4. Cache local de resultados WorkoutX e estado offline explícito na busca.
-5. Gráficos históricos por exercício.
-6. Testes Compose de acessibilidade e testes instrumentados de Room.
-7. Adaptação a tablets com Material 3 Adaptive.
+App Android nativo, offline-first, focado em registrar treino com o menor
+atrito. Dados de treino ficam no aparelho.
 
 ## Referências de design
 

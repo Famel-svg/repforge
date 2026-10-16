@@ -1,113 +1,91 @@
-# RepForge — Kotlin / Android nativo
+# RepForge
 
 ![RepForge icon](assets/icon.png)
 
-RepForge é um app Android nativo, offline-first, para montar fichas de treino,
-registrar cargas e acompanhar evolução sem depender de conta ou nuvem.
-
-Esta branch (`codex/repforge-kotlin-rebuild`) contém a reescrita nativa: `app/`
-é a fonte do APK e `proxy/` o Worker da busca. O app Expo/TypeScript original
-(1.0.x) foi removido daqui e continua na branch
-[`main`](https://github.com/Famel-svg/repforge/tree/main).
+RepForge é um app Android nativo (Kotlin + Jetpack Compose + Room), offline-first,
+para registrar treinos de musculação com o mínimo de toques. Sem conta, sem
+anúncios, sem analytics. Versão 2.0.0 (versionCode 10), `applicationId`
+`com.repforge.app`.
 
 ## Screenshots
 
-Emulador Android, capturas anteriores à 2.0.0 (a navegação e o timer mudaram
-desde então).
+Capturas da ficha da loja em `docs/store/screenshots/pt-BR/`:
 
-| Home | Treino | Evolução |
+| Início | Treino | Evolução | Volume por músculo |
+| --- | --- | --- | --- |
+| <img src="docs/store/screenshots/pt-BR/01-inicio.png" width="180" alt="Início"> | <img src="docs/store/screenshots/pt-BR/02-treino.png" width="180" alt="Treino"> | <img src="docs/store/screenshots/pt-BR/03-evolucao.png" width="180" alt="Evolução"> | <img src="docs/store/screenshots/pt-BR/04-volume-musculo.png" width="180" alt="Volume por músculo"> |
+
+| 1RM por exercício | Peso corporal | Catálogo |
 | --- | --- | --- |
-| <img src="docs/screenshots/repforge-kotlin-home.png" width="220" alt="Home"> | <img src="docs/screenshots/repforge-kotlin-set-logged.png" width="220" alt="Série registrada"> | <img src="docs/screenshots/repforge-kotlin-progress-real.png" width="220" alt="Evolução"> |
+| <img src="docs/store/screenshots/pt-BR/05-1rm-exercicio.png" width="180" alt="1RM por exercício"> | <img src="docs/store/screenshots/pt-BR/06-peso-corporal.png" width="180" alt="Peso corporal"> | <img src="docs/store/screenshots/pt-BR/07-catalogo.png" width="180" alt="Catálogo"> |
 
-## O que o app Kotlin faz
+Arquivos: `01-inicio.png`, `02-treino.png`, `03-evolucao.png`,
+`04-volume-musculo.png`, `05-1rm-exercicio.png`, `06-peso-corporal.png`,
+`07-catalogo.png`.
 
-- Cria, duplica e remove fichas de treino.
-- Adiciona exercícios manualmente ou pela busca WorkoutX (nome em inglês,
-  parte do corpo ou equipamento).
-- Edita nome e grupo muscular sem perder histórico; remove com confirmação.
-- Registra séries, repetições e carga em kg (aceita `80,5` e `80.5`; carga
-  vazia repete a anterior).
-- Mostra PR de carga, 1RM estimado (Epley) e histórico datado por exercício.
-- Timer de descanso fixo no rodapé da ficha, iniciado ao registrar uma série.
-- Resumo e volume por dia dos últimos 7 dias.
-- Exporta e importa backup JSON.
-- Material 3 com cores dinâmicas, tema claro/escuro do sistema, em português.
+## Funcionalidades
 
-### Ainda não portado do app Expo
+- Fichas de treino: criar, duplicar, remover e reordenar exercícios.
+- Modelos iniciais: Full body, ABC e Upper/Lower.
+- Catálogo offline de 264 exercícios em pt-BR (nomes em inglês quando o idioma
+  é inglês) e exercícios personalizados.
+- Registro de série em um toque, com preenchimento automático e botões +/-.
+- Tipos de série (aquecimento, drop, falha), RPE opcional e nota por exercício.
+- Séries do dia com desfazer; supersets (o descanso começa após o último
+  exercício do grupo).
+- Timer de descanso em barra e tela sempre ligada durante o treino.
+- Onboarding de primeira execução.
+- Aba Evolução: sequência de treinos, gráfico de volume dos últimos 7 dias,
+  séries semanais por músculo, gráfico de 1RM por exercício e treinos recentes.
+- Peso corporal com histórico (guardado só no aparelho).
+- Backup JSON (exportar/importar, com deduplicação) e importação de CSV do
+  Strong e do Hevy.
+- Inglês e português (pt-BR), com idioma por app.
+- Sem anúncios, sem conta, sem analytics. O único uso de rede é o Google Play
+  Billing, para a compra do Pro.
 
-- GIFs dos exercícios.
-- Tradução de nomes e termos de busca para português.
-- Reordenação de exercícios.
+## Grátis x RepForge Pro
 
-## Dados e conexão
+RepForge Pro é uma compra única vitalícia via Google Play Billing
+(`repforge_pro_lifetime`).
 
-Fichas, exercícios e séries ficam em Room (`repforge.db`); preferências em
-DataStore. Criar fichas e registrar treinos funciona offline. Apenas a busca
-de exercícios usa rede, sempre através do proxy.
+| Recurso | Grátis | Pro |
+| --- | --- | --- |
+| Fichas, exercícios, histórico, registro, timer, supersets | sim | sim |
+| Backup/importação, peso corporal, evolução básica | sim | sim |
+| Gráfico de 1RM nos períodos de 90 dias e todo o histórico | - | sim |
+| Comparação de volume por músculo em 4 semanas | - | sim |
+| Sugestões de progressão de carga | - | sim |
 
-Tabelas: `sheets`, `exercises`, `entries`, com chaves estrangeiras em cascata.
-O schema é exportado em `app/schemas/`. Qualquer mudança de schema exige subir
-a versão do banco e registrar uma `Migration` em `RepForgeApplication`.
+## Dados
 
-## Backup
+Room (`repforge.db`, versão 3) com migrações 1→2→3 e schemas exportados em
+`app/schemas/`. Mudança de schema exige subir a versão e registrar uma
+`Migration` (testada por teste instrumentado). Preferências em DataStore.
 
-Exportação gera `repforge-backup-YYYY-MM-DD.json` em texto legível — guarde
-com cuidado.
+Backup: `repforge-backup-YYYY-MM-DD.json`, texto legível; guarde com cuidado.
+A importação valida o arquivo antes de escrever, só adiciona dados (sem apagar),
+roda em transação e aceita também o formato do app Expo 1.0.x.
 
-Importação:
+## Build e testes
 
-- valida o arquivo inteiro antes de escrever;
-- **adiciona** as fichas às existentes, sem apagar nada;
-- roda em uma transação: falha no meio desfaz tudo;
-- aceita também o backup do app Expo 1.0.x (o grupo muscular e os GIFs não
-  existem nesse formato e ficam vazios).
-
-### Migrando do app Expo 1.0.x
-
-A versão Kotlin usa o mesmo `applicationId` (`com.repforge.app`) e
-`versionCode` maior, mas só atualiza por cima se o APK for assinado com a
-mesma chave do build EAS. Sem essa chave: exporte o backup no app antigo,
-desinstale, instale o novo e importe o arquivo.
-
-## Proxy WorkoutX
-
-O APK não contém chave WorkoutX: qualquer segredo embutido em um APK pode ser
-extraído. O app chama um Cloudflare Worker (`proxy/`), que guarda a chave e
-repassa apenas `/v1/exercises` e `/v1/gifs`.
-
-URL padrão, definida em
-`app/src/main/java/com/repforge/app/data/WorkoutXClient.kt`:
-
-```text
-https://repforge-workoutx-proxy.repforge-rafael.workers.dev
-```
-
-Implantação e limites em [`proxy/README.md`](proxy/README.md).
-
-## Build
-
-Requisitos: JDK 21 (`JAVA_HOME` apontando para ele) e Android SDK com API 36.
+Requisitos: JDK 21 (`JAVA_HOME`) e Android SDK com API 36.
 
 ```powershell
-./gradlew.bat :app:testDebugUnitTest
-./gradlew.bat :app:assembleDebug
+# testes unitários + lint + APK debug (o que o CI roda)
+./gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+
+# testes instrumentados (emulador/dispositivo conectado)
+./gradlew.bat :app:connectedDebugAndroidTest
+
+# release (AAB para a Play Store)
+./gradlew.bat :app:bundleRelease
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`.
+APK debug: `app/build/outputs/apk/debug/app-debug.apk`.
 
-```powershell
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb shell monkey -p com.repforge.app 1
-```
-
-### Release
-
-```powershell
-./gradlew.bat :app:assembleRelease
-```
-
-O build release usa R8. Para assinar, crie `keystore.properties` na raiz
-(ignorado pelo git):
+O release usa R8. Para assinar, crie `keystore.properties` na raiz (ignorado
+pelo git):
 
 ```properties
 storeFile=caminho/para/release.jks
@@ -116,25 +94,29 @@ keyAlias=...
 keyPassword=...
 ```
 
-Sem esse arquivo o resultado é `app-release-unsigned.apk`.
+Sem esse arquivo o resultado não é assinado. O CI fica em
+`.github/workflows/ci.yml`.
 
 ## Estrutura
 
 ```text
 app/src/main/java/com/repforge/app/
-├── data/          # Room, backup, DataStore e cliente WorkoutX
-├── domain/        # modelos, contrato do repositório, validações e métricas
+├── data/          # Room, backup, DataStore, Pro/Billing
+├── domain/        # modelos, repositório, métricas e progressão
 └── presentation/  # Compose, Navigation, ViewModels e tema
-proxy/             # Cloudflare Worker
+docs/              # roadmap, textos da loja, política de privacidade
+proxy/             # LEGADO: Worker WorkoutX, não é mais usado pelo app
 ```
 
-## Qualidade
+`proxy/` (Cloudflare Worker da busca WorkoutX) é legado e não é usado pelo app
+desde que o catálogo passou a ser offline.
 
-Testes unitários cobrem validação e parsing de carga, métricas (1RM, PR,
-janela de 7 dias), codec de backup (formato nativo e legado Expo) e parsing da
-resposta WorkoutX. Não há testes instrumentados; o fluxo principal é validado
-manualmente em emulador. O proxy tem `npm run typecheck` em `proxy/`.
+## Documentação
 
+- [Roadmap](docs/product-roadmap.md)
+- [Ficha da loja](docs/store/play-listing.md), [Data safety](docs/store/data-safety.md),
+  [Política de privacidade](docs/store/privacy-policy.md),
+  [Checklist de publicação](docs/store/release-checklist.md)
 
 ## Licença
 
