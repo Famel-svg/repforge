@@ -66,7 +66,9 @@ private fun dayFormat(): DateTimeFormatter {
 
 @Composable
 private fun weekday(day: DayOfWeek) = stringArrayResource(R.array.weekdays_short)[day.value - 1]
-private fun kg(value: Double) = if (value % 1.0 == 0.0) "%.0f kg".format(value) else "%.1f kg".format(value)
+// Per-app language can differ from Locale.getDefault(), so numbers follow the UI configuration.
+@Composable
+private fun kg(value: Double) = formatCount(value, LocalConfiguration.current.locales[0]) + " kg"
 @Composable
 private fun rangeLabel(range: ProgressRange) = stringResource(
     when (range) {
@@ -267,7 +269,8 @@ private fun OneRepMaxChart(series: List<OneRepMaxPoint>, rangeName: String) {
     }
 }
 
-private fun sets(v: Double) = formatCount(v)
+@Composable
+private fun sets(v: Double) = formatCount(v, LocalConfiguration.current.locales[0])
 
 @Composable
 private fun MuscleVolumeCard(weeks: List<List<MuscleSets>>, locked: Boolean, onOpenPro: () -> Unit) {
@@ -283,7 +286,7 @@ private fun MuscleVolumeCard(weeks: List<List<MuscleSets>>, locked: Boolean, onO
                 val before = weeks.drop(1).map { w -> w.firstOrNull { it.muscle == m.muscle }?.sets ?: 0.0 }
                 val muscleName = muscleLabel(m.muscle)
                 val desc = stringResource(R.string.muscle_sets_value, muscleName, sets(m.sets)) +
-                    if (before.isEmpty()) "" else stringResource(R.string.previous_weeks, before.joinToString(", ") { sets(it) })
+                    if (before.isEmpty()) "" else stringResource(R.string.previous_weeks, before.map { sets(it) }.joinToString(", "))
                 Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = desc }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(muscleName, style = MaterialTheme.typography.labelLarge)

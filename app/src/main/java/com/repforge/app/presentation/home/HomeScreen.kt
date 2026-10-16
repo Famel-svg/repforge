@@ -136,7 +136,13 @@ private fun SummaryCard(state: HomeUiState) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Text(stringResource(R.string.volume_last_7_days), color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text(formatKg(state.summary.weeklyVolumeKg), style = MaterialTheme.typography.headlineLarge)
+                    Text(
+                        com.repforge.app.presentation.formatCount(
+                            kotlin.math.round(state.summary.weeklyVolumeKg),
+                            androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+                        ) + " kg",
+                        style = MaterialTheme.typography.headlineLarge
+                    )
                 }
                 Icon(Icons.Rounded.AutoGraph, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
