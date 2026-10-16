@@ -43,6 +43,10 @@ class WorkoutViewModel(private val repository: WorkoutRepository, private val sh
         repository.moveExercise(exerciseId, up)
     }
 
+    fun setSuperset(exerciseId: Long, join: Boolean) = viewModelScope.launch {
+        repository.setSupersetWithNext(exerciseId, join)
+    }
+
     fun addExercise(name: String, target: String) = viewModelScope.launch {
         repository.addExercise(sheetId, name, target)
     }

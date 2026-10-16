@@ -1,5 +1,6 @@
 package com.repforge.app.domain.repository
 
+import com.repforge.app.domain.model.BodyWeight
 import com.repforge.app.domain.model.DashboardSummary
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.model.Exercise
@@ -30,4 +31,8 @@ interface WorkoutRepository {
     suspend fun createSheetFromTemplate(template: WorkoutTemplate)
     fun observeDailyVolume(): Flow<List<DailyVolume>>
     fun observeHistory(): Flow<List<HistoryEntry>>
+    suspend fun setSupersetWithNext(exerciseId: Long, join: Boolean)
+    fun observeBodyWeights(): Flow<List<BodyWeight>>
+    suspend fun addBodyWeight(weightKg: Double)
+    suspend fun deleteBodyWeight(id: Long)
 }

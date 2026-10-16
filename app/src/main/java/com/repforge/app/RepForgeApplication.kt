@@ -8,11 +8,12 @@ import com.repforge.app.data.SettingsStore
 import com.repforge.app.data.BackupManager
 import com.repforge.app.data.ExerciseCatalog
 import com.repforge.app.data.local.MIGRATION_1_2
+import com.repforge.app.data.local.MIGRATION_2_3
 import com.repforge.app.data.local.WorkoutDatabase
 
 class RepForgeApplication : Application() {
     // Schema changes must bump the version and register a Migration here; app/schemas keeps the exported history.
-    val database by lazy { Room.databaseBuilder(this, WorkoutDatabase::class.java, "repforge.db").addMigrations(MIGRATION_1_2).build() }
+    val database by lazy { Room.databaseBuilder(this, WorkoutDatabase::class.java, "repforge.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build() }
     val repository by lazy { WorkoutRepositoryImpl(database) }
     val settings by lazy { SettingsStore(this) }
     val pro by lazy { ProStore(this) }

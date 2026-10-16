@@ -10,8 +10,8 @@ class BackupCodecTest {
         BackupSheet(
             "Ficha A", 1_000,
             listOf(
-                BackupExercise("Supino", "Peito", 0, listOf(BackupEntry(3, 10, 80.5, 2_000), BackupEntry(1, 5, 40.0, 2_100, "warmup", 7.5)), "Pegada aberta"),
-                BackupExercise("Crucifixo", "", 1, emptyList())
+                BackupExercise("Supino", "Peito", 0, listOf(BackupEntry(3, 10, 80.5, 2_000), BackupEntry(1, 5, 40.0, 2_100, "warmup", 7.5)), "Pegada aberta", 1),
+                BackupExercise("Crucifixo", "", 1, emptyList(), supersetGroup = 1)
             )
         ),
         BackupSheet("Ficha B", 3_000, emptyList())
@@ -21,12 +21,25 @@ class BackupCodecTest {
         assertEquals(sample, BackupCodec.decode(BackupCodec.encode(sample)))
     }
 
+    @Test fun roundTripsBodyWeights() {
+        val weights = listOf(BackupBodyWeight(82.5, 10), BackupBodyWeight(81.0, 20))
+        val raw = BackupCodec.encode(sample, bodyWeights = weights)
+        assertEquals(weights, BackupCodec.decodeBodyWeights(raw))
+        assertEquals(sample, BackupCodec.decode(raw))
+    }
+
+    @Test fun rejectsOutOfRangeBodyWeight() {
+        assertThrows(IllegalArgumentException::class.java) { BackupCodec.decodeBodyWeights("""{"bodyWeights":[{"weightKg":5,"recordedAt":1}]}""") }
+    }
+
     @Test fun oldNativeBackupWithoutNewFieldsGetsDefaults() {
         val raw = """{"format":"repforge-backup","version":1,"sheets":[{"id":1,"name":"A","updatedAt":1}],
             "exercises":[{"id":1,"sheetId":1,"name":"X","target":"","position":0}],
             "entries":[{"id":1,"exerciseId":1,"sets":1,"reps":5,"weightKg":10,"recordedAt":5}]}"""
         val exercise = BackupCodec.decode(raw).single().exercises.single()
         assertEquals("", exercise.note)
+        assertEquals(null, exercise.supersetGroup)
+        assertEquals(emptyList<BackupBodyWeight>(), BackupCodec.decodeBodyWeights(raw))
         assertEquals(BackupEntry(1, 5, 10.0, 5, "normal", null), exercise.entries.single())
     }
 

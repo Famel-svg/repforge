@@ -31,4 +31,13 @@ class WorkoutValidationTest {
         assertNull(parseWeightKg(""))
         assertNull(parseWeightKg("NaN"))
     }
+
+    @Test fun bodyWeightRange() {
+        assertNull(validateBodyWeight(20.0))
+        assertNull(validateBodyWeight(400.0))
+        assertNull(validateBodyWeight(82.5))
+        assertEquals("Peso deve ficar entre 20 e 400 kg.", validateBodyWeight(19.9)?.message)
+        assertEquals("Peso deve ficar entre 20 e 400 kg.", validateBodyWeight(400.1)?.message)
+        assertEquals("Informe o peso em kg.", validateBodyWeight(null)?.message)
+    }
 }

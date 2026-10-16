@@ -8,7 +8,13 @@ import com.repforge.app.domain.metrics.ExerciseHistory
 import com.repforge.app.domain.metrics.ExerciseStats
 import com.repforge.app.domain.metrics.OneRepMaxPoint
 import com.repforge.app.domain.metrics.ProgressRange
+import com.repforge.app.domain.metrics.MuscleInfo
+import com.repforge.app.domain.metrics.MuscleSets
 import com.repforge.app.domain.metrics.WorkoutDay
+import com.repforge.app.domain.metrics.muscleLookup
+import com.repforge.app.domain.metrics.weeklyMuscleVolume
+import com.repforge.app.data.ExerciseCatalog
+import kotlinx.coroutines.flow.flow
 import com.repforge.app.domain.metrics.consistency
 import com.repforge.app.domain.metrics.exerciseStats
 import com.repforge.app.domain.metrics.exercisesWithHistory
@@ -42,15 +48,19 @@ data class ProgressUiState(
     val weekSets: Int = 0,
     val exercises: List<ExerciseHistory> = emptyList(),
     val detail: ExerciseDetail? = null,
-    val recent: List<WorkoutDay> = emptyList()
+    val recent: List<WorkoutDay> = emptyList(),
+    /** Index 0 = last 7 days; Pro adds the 3 previous weeks. */
+    val muscleWeeks: List<List<MuscleSets>> = listOf(emptyList()),
+    val muscleLocked: Boolean = true
 )
 
-class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>) : ViewModel() {
+class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>, catalog: ExerciseCatalog) : ViewModel() {
+    private val muscles = flow { emit(muscleLookup(catalog.all().map { it.name to MuscleInfo(it.muscle, it.secondary) })) }
     private val selectedId = MutableStateFlow<Long?>(null)
     private val range = MutableStateFlow(ProgressRange.Days30)
 
-    val state: StateFlow<ProgressUiState> = combine(repository.observeHistory(), selectedId, range, isPro) { history, id, r, pro ->
-        buildState(history, id, r, pro, System.currentTimeMillis(), ZoneId.systemDefault())
+    val state: StateFlow<ProgressUiState> = combine(repository.observeHistory(), selectedId, range, isPro, muscles) { history, id, r, pro, lookup ->
+        buildState(history, id, r, pro, lookup, System.currentTimeMillis(), ZoneId.systemDefault())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUiState())
 
     fun toggleExercise(exerciseId: Long) = selectedId.update { if (it == exerciseId) null else exerciseId }
@@ -59,7 +69,7 @@ class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>
         range.value = value
     }
 
-    private fun buildState(history: List<HistoryEntry>, id: Long?, r: ProgressRange, pro: Boolean, now: Long, zone: ZoneId): ProgressUiState {
+    private fun buildState(history: List<HistoryEntry>, id: Long?, r: ProgressRange, pro: Boolean, lookup: Map<String, MuscleInfo>, now: Long, zone: ZoneId): ProgressUiState {
         val exercises = exercisesWithHistory(history)
         val week = last7DaysVolume(history, now, zone)
         val weekStart = week.first().date
@@ -75,7 +85,9 @@ class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>
             weekSets = history.filter { !localDate(it.recordedAt, zone).isBefore(weekStart) }.sumOf { it.sets },
             exercises = exercises,
             detail = detail,
-            recent = recentWorkouts(history, zone)
+            recent = recentWorkouts(history, zone),
+            muscleWeeks = weeklyMuscleVolume(history, lookup, now, zone, if (pro) 4 else 1),
+            muscleLocked = !pro
         )
     }
 }

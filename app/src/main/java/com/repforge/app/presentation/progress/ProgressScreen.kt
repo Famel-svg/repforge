@@ -38,6 +38,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.repforge.app.domain.metrics.DayVolume
+import com.repforge.app.domain.metrics.MuscleSets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import com.repforge.app.domain.metrics.OneRepMaxPoint
 import com.repforge.app.domain.metrics.ProgressRange
 import java.time.DayOfWeek
@@ -90,6 +95,7 @@ fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit) {
                     }
                 }
             }
+            item { MuscleVolumeCard(state.muscleWeeks, state.muscleLocked, onOpenPro) }
             item { Text("Evolução por exercício", style = MaterialTheme.typography.titleLarge) }
             if (state.exercises.isEmpty()) {
                 item { Text("Os exercícios aparecem aqui depois do primeiro registro.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -144,11 +150,15 @@ fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit) {
 }
 
 @Composable
-private fun ProUpsell(onOpenPro: () -> Unit) {
+private fun ProUpsell(
+    onOpenPro: () -> Unit,
+    title: String = "Histórico longo é do RepForge Pro",
+    body: String = "Veja 90 dias e todo o histórico do 1RM com um pagamento único."
+) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Histórico longo é do RepForge Pro", style = MaterialTheme.typography.titleSmall)
-            Text("Veja 90 dias e todo o histórico do 1RM com um pagamento único.", style = MaterialTheme.typography.bodyMedium)
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(body, style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = onOpenPro) { Text("Conhecer o Pro") }
         }
     }
@@ -233,5 +243,44 @@ private fun OneRepMaxChart(series: List<OneRepMaxPoint>, rangeName: String) {
             if (series.size > 1) Text(series.last().date.format(dayFormat), style = MaterialTheme.typography.labelSmall)
         }
         if (series.size == 1) Text("Registre mais treinos para ver a linha de evolução.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private fun sets(v: Double) = if (v % 1.0 == 0.0) "%.0f".format(v) else "%.1f".format(v).replace('.', ',')
+
+@Composable
+private fun MuscleVolumeCard(weeks: List<List<MuscleSets>>, locked: Boolean, onOpenPro: () -> Unit) {
+    val current = weeks.firstOrNull().orEmpty()
+    val max = (weeks.flatten().maxOfOrNull { it.sets } ?: 0.0).coerceAtLeast(1.0)
+    val labels = listOf("sem. atual", "há 1 sem.", "há 2 sem.", "há 3 sem.")
+    Card {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Volume semanal por músculo", style = MaterialTheme.typography.titleMedium)
+            Text("Séries nos últimos 7 dias (secundários valem 0,5)", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (current.isEmpty()) Text("Registre séries para ver o volume por músculo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            current.forEach { m ->
+                val before = weeks.drop(1).map { w -> w.firstOrNull { it.muscle == m.muscle }?.sets ?: 0.0 }
+                val desc = "${m.muscle}: ${sets(m.sets)} séries" + if (before.isEmpty()) "" else ", semanas anteriores " + before.joinToString(", ") { sets(it) }
+                Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = desc }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(m.muscle, style = MaterialTheme.typography.labelLarge)
+                        Text("${sets(m.sets)} séries", style = MaterialTheme.typography.labelLarge)
+                    }
+                    MuscleBar(m.sets / max)
+                    if (before.isNotEmpty()) Text(
+                        before.mapIndexed { i, v -> "${labels[i + 1]} ${sets(v)}" }.joinToString(" · "),
+                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (locked) ProUpsell(onOpenPro, "Comparação de 4 semanas é do RepForge Pro", "Compare o volume por músculo com as 3 semanas anteriores.")
+        }
+    }
+}
+
+@Composable
+private fun MuscleBar(fraction: Double) {
+    Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+        Row(Modifier.fillMaxHeight().fillMaxWidth(fraction.toFloat().coerceIn(0.02f, 1f)).background(MaterialTheme.colorScheme.primary)) {}
     }
 }

@@ -13,8 +13,11 @@ data class Exercise(
     val name: String,
     val target: String,
     val position: Int,
-    val note: String = ""
+    val note: String = "",
+    val supersetGroup: Int? = null
 )
+
+data class BodyWeight(val id: Long, val weightKg: Double, val recordedAt: Long)
 
 data class SetEntry(
     val id: Long,
@@ -52,5 +55,7 @@ data class HistoryEntry(
     val weightKg: Double,
     val recordedAt: Long,
     val setType: String = SET_NORMAL,
-    val rpe: Double? = null
+    val rpe: Double? = null,
+    /** Free-text muscle group of the exercise; blank until the history query joins exercises.target. */
+    val target: String = ""
 )

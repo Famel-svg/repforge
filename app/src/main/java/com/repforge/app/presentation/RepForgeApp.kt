@@ -31,6 +31,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.repforge.app.RepForgeApplication
 import com.repforge.app.data.AppPreferences
+import com.repforge.app.presentation.body.BodyWeightScreen
+import com.repforge.app.presentation.body.BodyWeightViewModel
 import com.repforge.app.presentation.home.HomeScreen
 import com.repforge.app.presentation.home.HomeViewModel
 import com.repforge.app.presentation.progress.ProgressScreen
@@ -103,12 +105,15 @@ fun RepForgeApp() {
             }
             composable(Destination.Progress.route) {
                 ProgressScreen(
-                    viewModel { ProgressViewModel(application.repository, application.pro.isPro) },
+                    viewModel { ProgressViewModel(application.repository, application.pro.isPro, application.catalog) },
                     onOpenPro = { navController.navigate(Destination.Settings.route) { launchSingleTop = true } }
                 )
             }
             composable(Destination.Settings.route) {
-                SettingsScreen(viewModel { SettingsViewModel(application.settings, application.backup) }, application.pro)
+                SettingsScreen(viewModel { SettingsViewModel(application.settings, application.backup) }, application.pro, onOpenBodyWeight = { navController.navigate("body") })
+            }
+            composable("body") {
+                BodyWeightScreen(viewModel { BodyWeightViewModel(application.repository) }, onBack = { navController.popBackStack() })
             }
             composable("sheet/{$SHEET_ID}", arguments = sheetArguments) { entry ->
                 val sheetId = entry.arguments!!.getLong(SHEET_ID)

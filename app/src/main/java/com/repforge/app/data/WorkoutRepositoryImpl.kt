@@ -1,15 +1,20 @@
 package com.repforge.app.data
 
 import androidx.room.withTransaction
+import com.repforge.app.data.local.BodyWeightEntity
 import com.repforge.app.data.local.EntryEntity
 import com.repforge.app.data.local.ExerciseEntity
 import com.repforge.app.data.local.SheetEntity
 import com.repforge.app.data.local.SheetWithCount
 import com.repforge.app.data.local.WorkoutDatabase
+import com.repforge.app.domain.logging.joinWithNext
 import com.repforge.app.domain.logging.movedOrder
+import com.repforge.app.domain.logging.normalizeGroups
+import com.repforge.app.domain.logging.separateAt
 import com.repforge.app.domain.metrics.currentStreak
 import com.repforge.app.domain.metrics.recentWindowStart
 import com.repforge.app.domain.metrics.trainingDays
+import com.repforge.app.domain.model.BodyWeight
 import com.repforge.app.domain.model.DailyVolume
 import com.repforge.app.domain.model.DashboardSummary
 import com.repforge.app.domain.model.Exercise
@@ -20,6 +25,7 @@ import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.repository.WorkoutRepository
 import com.repforge.app.domain.templates.WorkoutTemplate
+import com.repforge.app.domain.validation.validateBodyWeight
 import com.repforge.app.domain.validation.validateSetInput
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -64,7 +70,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     }
 
     override fun observeExercises(sheetId: Long): Flow<List<Exercise>> = dao.observeExercises(sheetId).map { rows ->
-        rows.map { Exercise(it.id, it.sheetId, it.name, it.target, it.position, it.note) }
+        rows.map { Exercise(it.id, it.sheetId, it.name, it.target, it.position, it.note, it.supersetGroup) }
     }
 
     override fun observeEntries(exerciseId: Long): Flow<List<SetEntry>> = dao.observeEntries(exerciseId).map { rows ->
@@ -81,8 +87,10 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
 
     override suspend fun deleteExercise(exerciseId: Long) {
         database.withTransaction {
+            val sheetId = dao.findExercise(exerciseId)?.sheetId
             dao.touchSheetOfExercise(exerciseId, System.currentTimeMillis())
             dao.deleteExercise(exerciseId)
+            if (sheetId != null) regroup(sheetId) { normalizeGroups(it.map { e -> e.supersetGroup }) }
         }
     }
 
@@ -121,8 +129,39 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
             val newOrder = movedOrder(ordered.map { it.id }, exerciseId, up) ?: return@withTransaction
             val oldIndex = ordered.map { it.id }.withIndex().associate { it.value to it.index }
             newOrder.forEachIndexed { index, id -> if (oldIndex[id] != index) dao.updateExercisePosition(id, index) }
+            regroup(sheetId) { normalizeGroups(it.map { e -> e.supersetGroup }) }
             dao.touchSheet(sheetId, System.currentTimeMillis())
         }
+    }
+
+    override suspend fun setSupersetWithNext(exerciseId: Long, join: Boolean) {
+        database.withTransaction {
+            val sheetId = dao.findExercise(exerciseId)?.sheetId ?: return@withTransaction
+            regroup(sheetId) { list ->
+                val groups = list.map { it.supersetGroup }
+                val index = list.indexOfFirst { it.id == exerciseId }
+                if (join) joinWithNext(groups, index) else separateAt(groups, index)
+            }
+            dao.touchSheet(sheetId, System.currentTimeMillis())
+        }
+    }
+
+    /** Persists only the groups that changed; [transform] gets the sheet's exercises in display order. */
+    private suspend fun regroup(sheetId: Long, transform: (List<ExerciseEntity>) -> List<Int?>) {
+        val ordered = dao.exercisesOf(sheetId)
+        val after = transform(ordered)
+        ordered.forEachIndexed { i, e -> if (after[i] != e.supersetGroup) dao.updateSupersetGroup(e.id, after[i]) }
+    }
+
+    override fun observeBodyWeights(): Flow<List<BodyWeight>> = dao.observeBodyWeights().map { rows -> rows.map { BodyWeight(it.id, it.weightKg, it.recordedAt) } }
+
+    override suspend fun addBodyWeight(weightKg: Double) {
+        validateBodyWeight(weightKg)?.let { throw IllegalArgumentException(it.message) }
+        dao.insertBodyWeight(BodyWeightEntity(weightKg = weightKg))
+    }
+
+    override suspend fun deleteBodyWeight(id: Long) {
+        dao.deleteBodyWeight(id)
     }
 
     override suspend fun createSheetFromTemplate(template: WorkoutTemplate) {

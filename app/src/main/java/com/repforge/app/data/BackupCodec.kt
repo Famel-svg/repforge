@@ -1,6 +1,7 @@
 package com.repforge.app.data
 
 import com.repforge.app.domain.model.SET_TYPES
+import com.repforge.app.domain.validation.validateBodyWeight
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -10,7 +11,8 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 
 data class BackupEntry(val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long, val setType: String = "normal", val rpe: Double? = null)
-data class BackupExercise(val name: String, val target: String, val position: Int, val entries: List<BackupEntry>, val note: String = "")
+data class BackupExercise(val name: String, val target: String, val position: Int, val entries: List<BackupEntry>, val note: String = "", val supersetGroup: Int? = null)
+data class BackupBodyWeight(val weightKg: Double, val recordedAt: Long)
 data class BackupSheet(val name: String, val updatedAt: Long, val exercises: List<BackupExercise>)
 
 /**
@@ -21,7 +23,7 @@ object BackupCodec {
     const val FORMAT = "repforge-backup"
     const val VERSION = 1
 
-    fun encode(sheets: List<BackupSheet>, exportedAt: Long = System.currentTimeMillis()): String {
+    fun encode(sheets: List<BackupSheet>, exportedAt: Long = System.currentTimeMillis(), bodyWeights: List<BackupBodyWeight> = emptyList()): String {
         val sheetArray = JSONArray()
         val exerciseArray = JSONArray()
         val entryArray = JSONArray()
@@ -35,6 +37,7 @@ object BackupCodec {
                 exerciseArray.put(JSONObject().apply {
                     put("id", exerciseId); put("sheetId", sheetId); put("name", exercise.name)
                     put("target", exercise.target); put("position", exercise.position); put("note", exercise.note)
+                    exercise.supersetGroup?.let { put("supersetGroup", it) }
                 })
                 exercise.entries.forEach { entry ->
                     entryId += 1
@@ -53,6 +56,7 @@ object BackupCodec {
             put("sheets", sheetArray)
             put("exercises", exerciseArray)
             put("entries", entryArray)
+            put("bodyWeights", JSONArray().apply { bodyWeights.forEach { put(JSONObject().apply { put("weightKg", it.weightKg); put("recordedAt", it.recordedAt) }) } })
         }.toString(2)
     }
 
@@ -62,6 +66,19 @@ object BackupCodec {
         val sheets = root.optJSONArray("sheets") ?: throw IllegalArgumentException("Backup sem fichas.")
         return try {
             if (root.optString("format") == FORMAT) decodeNative(sheets, root) else decodeLegacy(sheets)
+        } catch (error: JSONException) {
+            throw IllegalArgumentException("Backup corrompido: ${error.message}")
+        }
+    }
+
+    /** Optional top-level array; legacy and pre-3 native files simply have none. */
+    fun decodeBodyWeights(raw: String): List<BackupBodyWeight> {
+        val array = try { JSONObject(raw).optJSONArray("bodyWeights") } catch (_: JSONException) { null } ?: return emptyList()
+        return try {
+            (0 until array.length()).map {
+                val item = array.getJSONObject(it)
+                BackupBodyWeight(item.getDouble("weightKg"), item.getLong("recordedAt")).also { w -> require(validateBodyWeight(w.weightKg) == null) { "Backup contém peso corporal inválido." } }
+            }
         } catch (error: JSONException) {
             throw IllegalArgumentException("Backup corrompido: ${error.message}")
         }
@@ -93,7 +110,8 @@ object BackupCodec {
                             entry(entry.getInt("sets"), entry.getInt("reps"), entry.getDouble("weightKg"), entry.getLong("recordedAt"),
                                 entry.optString("setType", "normal"), if (entry.isNull("rpe")) null else entry.optDouble("rpe"))
                         },
-                        note = exercise.optString("note").trim()
+                        note = exercise.optString("note").trim(),
+                        supersetGroup = if (exercise.isNull("supersetGroup")) null else exercise.optInt("supersetGroup")
                     )
                 }
             )

@@ -39,7 +39,7 @@ import java.time.LocalDate
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore) {
+fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight: () -> Unit = {}) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isPro by pro.isPro.collectAsStateWithLifecycle()
     val price by pro.price.collectAsStateWithLifecycle()
@@ -93,6 +93,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore) {
             Text("Treino", style = MaterialTheme.typography.headlineSmall)
             Card {
                 Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(onClick = onOpenBodyWeight) { Text("Peso corporal") }
                     Text("Descanso padrão", style = MaterialTheme.typography.titleMedium)
                     Text("${state.restSeconds} segundos entre séries")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

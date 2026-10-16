@@ -27,7 +27,15 @@ data class ExerciseEntity(
     val name: String,
     val target: String,
     val position: Int,
-    @androidx.room.ColumnInfo(defaultValue = "") val note: String = ""
+    @androidx.room.ColumnInfo(defaultValue = "") val note: String = "",
+    val supersetGroup: Int? = null
+)
+
+@Entity(tableName = "body_weights")
+data class BodyWeightEntity(
+    @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val weightKg: Double,
+    val recordedAt: Long = System.currentTimeMillis()
 )
 
 @Entity(
@@ -53,7 +61,7 @@ data class SheetWithCount(
     val updatedAt: Long
 )
 
-data class ExerciseRow(val id: Long, val sheetId: Long, val name: String, val target: String, val position: Int, val note: String)
+data class ExerciseRow(val id: Long, val sheetId: Long, val name: String, val target: String, val position: Int, val note: String, val supersetGroup: Int?)
 
 data class EntryRow(val id: Long, val exerciseId: Long, val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long, val setType: String, val rpe: Double?)
 
@@ -106,7 +114,7 @@ interface WorkoutDao {
     @Query("UPDATE sheets SET updatedAt = :now WHERE id = (SELECT sheetId FROM exercises WHERE id = :exerciseId)")
     suspend fun touchSheetOfExercise(exerciseId: Long, now: Long)
 
-    @Query("SELECT id, sheetId, name, target, position, note FROM exercises WHERE sheetId = :sheetId ORDER BY position, id")
+    @Query("SELECT id, sheetId, name, target, position, note, supersetGroup FROM exercises WHERE sheetId = :sheetId ORDER BY position, id")
     fun observeExercises(sheetId: Long): Flow<List<ExerciseRow>>
 
     @Query("SELECT id, exerciseId, sets, reps, weightKg, recordedAt, setType, rpe FROM entries WHERE exerciseId = :exerciseId ORDER BY recordedAt DESC, id DESC")
@@ -145,6 +153,21 @@ interface WorkoutDao {
     @Query("DELETE FROM entries WHERE id = :entryId")
     suspend fun deleteEntry(entryId: Long)
 
+    @Query("UPDATE exercises SET supersetGroup = :group WHERE id = :exerciseId")
+    suspend fun updateSupersetGroup(exerciseId: Long, group: Int?)
+
+    @Query("SELECT * FROM body_weights ORDER BY recordedAt DESC, id DESC")
+    fun observeBodyWeights(): Flow<List<BodyWeightEntity>>
+
+    @Query("SELECT * FROM body_weights ORDER BY recordedAt, id")
+    suspend fun allBodyWeights(): List<BodyWeightEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertBodyWeight(entry: BodyWeightEntity): Long
+
+    @Query("DELETE FROM body_weights WHERE id = :id")
+    suspend fun deleteBodyWeight(id: Long)
+
     @Query("SELECT * FROM entries ORDER BY exerciseId, recordedAt, id")
     suspend fun allEntries(): List<EntryEntity>
 
@@ -163,7 +186,14 @@ val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
     }
 }
 
-@Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class], version = 2, exportSchema = true)
+val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE exercises ADD COLUMN supersetGroup INTEGER")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `body_weights` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `weightKg` REAL NOT NULL, `recordedAt` INTEGER NOT NULL)")
+    }
+}
+
+@Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class, BodyWeightEntity::class], version = 3, exportSchema = true)
 abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
 }

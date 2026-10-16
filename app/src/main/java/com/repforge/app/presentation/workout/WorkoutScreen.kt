@@ -27,6 +27,8 @@ import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.LinkOff
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
@@ -66,7 +68,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
@@ -84,6 +90,7 @@ import com.repforge.app.domain.logging.entriesOnDay
 import com.repforge.app.domain.logging.formatKg
 import com.repforge.app.domain.logging.formatSet
 import com.repforge.app.domain.logging.formatWeightInput
+import com.repforge.app.domain.logging.isGroupEnd
 import com.repforge.app.domain.logging.prefillFor
 import com.repforge.app.domain.logging.stepReps
 import com.repforge.app.domain.logging.stepWeightKg
@@ -180,11 +187,17 @@ fun WorkoutScreen(
             if (exercises.isEmpty()) item { Text("Adicione exercícios para iniciar seu treino.", Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             itemsIndexed(exercises, key = { _, item -> item.id }) { index, exercise ->
                 val entries = entriesByExercise?.get(exercise.id).orEmpty()
+                val groups = exercises.map { it.supersetGroup }
+                val linkedPrev = exercise.supersetGroup != null && groups.getOrNull(index - 1) == exercise.supersetGroup
+                val linkedNext = exercise.supersetGroup != null && groups.getOrNull(index + 1) == exercise.supersetGroup
                 ExerciseCard(
                     exercise, entries,
                     expanded = expandedId == exercise.id,
                     canMoveUp = index > 0,
                     canMoveDown = index < exercises.lastIndex,
+                    linkedPrev = linkedPrev,
+                    linkedNext = linkedNext,
+                    onSuperset = { join -> viewModel.setSuperset(exercise.id, join) },
                     onToggle = { expandedId = if (expandedId == exercise.id) null else exercise.id },
                     onMove = { up -> viewModel.moveExercise(exercise.id, up) },
                     onEdit = { name, target -> viewModel.updateExercise(exercise.id, name, target) },
@@ -197,9 +210,11 @@ fun WorkoutScreen(
                 ) { reps, weight, newRecord, setType, rpe ->
                     viewModel.addEntry(exercise.id, 1, reps, weight, setType, rpe)
                     if (preferences.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    // Logging a set starts the rest countdown from the configured default.
-                    remaining = restSeconds
-                    running = true
+                    // Inside a superset the rest only starts after its last exercise; until then the next card opens.
+                    if (isGroupEnd(groups, index)) {
+                        remaining = restSeconds
+                        running = true
+                    } else expandedId = exercises[index + 1].id
                     announce(if (newRecord) "Novo PR: ${formatKg(weight)}" else "Série registrada")
                 }
             }
@@ -221,6 +236,9 @@ private fun ExerciseCard(
     expanded: Boolean,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
+    linkedPrev: Boolean,
+    linkedNext: Boolean,
+    onSuperset: (join: Boolean) -> Unit,
     onToggle: () -> Unit,
     onMove: (Boolean) -> Unit,
     onEdit: (String, String) -> Unit,
@@ -250,7 +268,16 @@ private fun ExerciseCard(
         entries.isNotEmpty() -> "Último: ${formatSet(entries.first())}"
         else -> "Sem registros"
     }
-    Card {
+    val group = exercise.supersetGroup
+    val barColor = MaterialTheme.colorScheme.let { listOf(it.primary, it.tertiary, it.secondary) }[(group ?: 0).mod(3)]
+    // The list spaces items by 12dp; the bar is drawn through that gap so linked cards read as one block.
+    val gapPx = with(LocalDensity.current) { 12.dp.toPx() }
+    Row(
+        if (group != null) Modifier.drawBehind {
+            drawRect(barColor, Offset(0f, if (linkedPrev) -gapPx else 0f), Size(4.dp.toPx(), size.height + (if (linkedPrev) gapPx else 0f) + (if (linkedNext) gapPx else 0f)))
+        }.padding(start = 10.dp) else Modifier
+    ) {
+    Card(Modifier.weight(1f)) {
         Column(Modifier.fillMaxWidth()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Row(
@@ -261,6 +288,7 @@ private fun ExerciseCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
+                        if (group != null) Text("Superset", style = MaterialTheme.typography.labelMedium, color = barColor)
                         Text(exercise.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
                         Text(exercise.target.ifBlank { "Alvo não definido" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (exercise.note.isNotBlank()) Text(exercise.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -280,6 +308,16 @@ private fun ExerciseCard(
                             text = { Text("Mover para baixo") }, enabled = canMoveDown,
                             leadingIcon = { Icon(Icons.Rounded.KeyboardArrowDown, null) },
                             onClick = { showMenu = false; onMove(false) }
+                        )
+                        if (canMoveDown && !linkedNext) DropdownMenuItem(
+                            text = { Text("Juntar com o próximo (superset)") },
+                            leadingIcon = { Icon(Icons.Rounded.Link, null) },
+                            onClick = { showMenu = false; onSuperset(true) }
+                        )
+                        if (group != null) DropdownMenuItem(
+                            text = { Text("Separar do superset") },
+                            leadingIcon = { Icon(Icons.Rounded.LinkOff, null) },
+                            onClick = { showMenu = false; onSuperset(false) }
                         )
                         DropdownMenuItem(
                             text = { Text("Editar exercício") },
@@ -366,6 +404,7 @@ private fun ExerciseCard(
                 }
             }
         }
+    }
     }
     if (showDeleteConfirmation) {
         AlertDialog(
