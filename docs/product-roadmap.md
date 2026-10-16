@@ -42,9 +42,13 @@ Entregue: **RepForge Pro vitalício** (compra única, Play Billing,
 | Catálogo, modelos, PR, 1RM, peso corporal | sim | sim |
 | Backup manual (exportar/importar JSON, CSV Strong/Hevy) | sim | sim |
 | Evolução: sequência, volume 7 dias, séries por músculo, treinos recentes | sim | sim |
+| Plano semanal, sessões, regras de progressão, tipos de exercício, Biblioteca, widget, temas | sim | sim |
+| Mapa de atividade de 52 semanas e mapa corporal (curto) | sim | sim |
 | 1RM em 90 dias e todo o histórico | — | sim |
 | Comparação de volume por músculo em 4 semanas | — | sim |
+| Mapa corporal por mês e todo o histórico | — | sim |
 | Sugestões de progressão de carga | — | sim |
+| Calculadora de anilhas | — | sim |
 
 Preço: definir no Play Console (referência inicial R$ 59,90, a validar após o
 lançamento). Sem anúncios.
@@ -69,7 +73,7 @@ Regra: nada que hoje é grátis passa a ser pago.
 ### M2 — Teste fechado (em andamento)
 
 - [x] Strings em recursos, inglês e pt-BR com idioma por app
-- [x] Testes instrumentados (Room, migração) e schemas 1→2→3
+- [x] Testes instrumentados (Room, migração) e schemas até a v5
 - [x] Onboarding de primeira execução
 - [x] Capturas de tela (pt-BR) para a loja
 - [ ] Conta de desenvolvedor verificada; chave de assinatura e Play App Signing
@@ -87,13 +91,29 @@ Regra: nada que hoje é grátis passa a ser pago.
 
 ### M4 — Crescimento
 
-- [ ] Sessão de treino explícita (início/fim, duração) — exige migração Room
-- [ ] Widget e notificação persistente do timer
-- [ ] Calculadora de anilhas e aquecimento
-- [ ] Programas avançados e periodização
-- [ ] Health Connect (opcional, por consentimento)
+Entregue:
+
+- [x] Navegação em 4 abas (Treino, Plano, Evolução, Biblioteca); configurações pela engrenagem
+- [x] Plano semanal por dia, reagendamento pontual e cartão "Treino de hoje"
+- [x] Sessão de treino explícita (cronômetro, finalizar/descartar, resumo final) e peso corporal opcional ao iniciar
+- [x] Tipos de exercício: repetições, tempo, peso corporal, por lado e cardio
+- [x] Regras de progressão por ficha com ajuste por exercício (nenhuma, linear, dupla, tempo, deload)
+- [x] Mapa de atividade de 52 semanas e mapa corporal frente/costas com músculos não treinados
+- [x] Aba Biblioteca
+- [x] Tema sistema/claro/escuro, 8 cores de destaque e sons
+- [x] Notificação do timer de descanso
+- [x] Calculadora de anilhas (Pro)
+- [x] Widget da tela inicial
+- [x] Backup com plano, sessões e regras; Room v5
+
+Pendente:
+
 - [ ] Imagens ou animações de exercícios com licença própria
-- [ ] Backup automático no Drive via Storage Access Framework
+- [ ] Mais idiomas
+- [ ] Compartilhar plano como arquivo/PDF
+- [ ] Importação FitNotes e Apple Health
+- [ ] Health Connect (opcional, por consentimento)
+- [ ] Backup automático no Drive
 - [ ] Wear OS
 
 ## Riscos

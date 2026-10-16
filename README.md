@@ -9,7 +9,7 @@ anúncios, sem analytics. Versão 2.0.0 (versionCode 10), `applicationId`
 
 ## Screenshots
 
-Capturas da ficha da loja em `docs/store/screenshots/pt-BR/`:
+Capturas em `docs/store/screenshots/pt-BR/` (anteriores à navegação em 4 abas; serão refeitas em aparelho real antes da publicação):
 
 | Início | Treino | Evolução | Volume por músculo |
 | --- | --- | --- | --- |
@@ -25,22 +25,37 @@ Arquivos: `01-inicio.png`, `02-treino.png`, `03-evolucao.png`,
 
 ## Funcionalidades
 
-- Fichas de treino: criar, duplicar, remover e reordenar exercícios.
-- Modelos iniciais: Full body, ABC e Upper/Lower.
+- Navegação em 4 abas: Treino, Plano, Evolução e Biblioteca; configurações pela
+  engrenagem na tela inicial.
+- Fichas de treino: criar, duplicar, remover e reordenar exercícios. Modelos
+  iniciais: Full body, ABC e Upper/Lower.
+- Plano semanal por dia da semana, reagendamento pontual e cartão "Treino de
+  hoje" na tela inicial.
+- Sessão de treino com cronômetro, finalizar ou descartar e resumo final
+  (duração, séries, volume, recordes, exercícios e músculos). Pergunta opcional
+  de peso corporal ao iniciar.
+- Tipos de exercício: repetições, por tempo (cronômetro), peso corporal (com
+  carga extra opcional), por lado e cardio (duração/distância).
+- Regras de progressão por ficha, com ajuste por exercício: nenhuma, linear,
+  dupla, por tempo e deload.
 - Catálogo offline de 264 exercícios em pt-BR (nomes em inglês quando o idioma
-  é inglês) e exercícios personalizados.
-- Registro de série em um toque, com preenchimento automático e botões +/-.
-- Tipos de série (aquecimento, drop, falha), RPE opcional e nota por exercício.
+  é inglês), exercícios personalizados e aba Biblioteca.
+- Registro de série em um toque, com preenchimento automático e botões +/-;
+  tipos de série (aquecimento, drop, falha), RPE opcional e nota por exercício.
 - Séries do dia com desfazer; supersets (o descanso começa após o último
   exercício do grupo).
-- Timer de descanso em barra e tela sempre ligada durante o treino.
-- Onboarding de primeira execução.
-- Aba Evolução: sequência de treinos, gráfico de volume dos últimos 7 dias,
-  séries semanais por músculo, gráfico de 1RM por exercício e treinos recentes.
+- Timer de descanso em barra, notificação do timer e tela sempre ligada durante
+  o treino.
+- Aba Evolução: sequência de treinos, mapa de atividade de 52 semanas, volume
+  dos últimos 7 dias, séries semanais por músculo, mapa corporal frente/costas
+  com músculos não treinados, gráfico de 1RM por exercício e treinos recentes.
 - Peso corporal com histórico (guardado só no aparelho).
-- Backup JSON (exportar/importar, com deduplicação) e importação de CSV do
-  Strong e do Hevy.
+- Widget para a tela inicial.
+- Tema sistema/claro/escuro, 8 cores de destaque e sons.
+- Backup JSON (exportar/importar, com deduplicação; inclui plano, sessões e
+  regras) e importação de CSV do Strong e do Hevy.
 - Inglês e português (pt-BR), com idioma por app.
+- Onboarding de primeira execução.
 - Sem anúncios, sem conta, sem analytics. O único uso de rede é o Google Play
   Billing, para a compra do Pro.
 
@@ -51,15 +66,19 @@ RepForge Pro é uma compra única vitalícia via Google Play Billing
 
 | Recurso | Grátis | Pro |
 | --- | --- | --- |
-| Fichas, exercícios, histórico, registro, timer, supersets | sim | sim |
-| Backup/importação, peso corporal, evolução básica | sim | sim |
+| Fichas, plano semanal, sessões, exercícios, histórico, registro, timer, supersets | sim | sim |
+| Regras de progressão, tipos de exercício, Biblioteca, widget, temas e cores | sim | sim |
+| Backup/importação, peso corporal, evolução básica, mapa de atividade | sim | sim |
+| Mapa corporal (período mais curto) | sim | sim |
 | Gráfico de 1RM nos períodos de 90 dias e todo o histórico | - | sim |
 | Comparação de volume por músculo em 4 semanas | - | sim |
+| Mapa corporal por mês e todo o histórico | - | sim |
 | Sugestões de progressão de carga | - | sim |
+| Calculadora de anilhas | - | sim |
 
 ## Dados
 
-Room (`repforge.db`, versão 3) com migrações 1→2→3 e schemas exportados em
+Room (`repforge.db`, versão 5) com migrações até a 5 e schemas exportados em
 `app/schemas/`. Mudança de schema exige subir a versão e registrar uma
 `Migration` (testada por teste instrumentado). Preferências em DataStore.
 

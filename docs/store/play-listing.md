@@ -2,7 +2,9 @@
 
 Contagens de caracteres calculadas por script; todos os campos respeitam os limites do Play Console. App: RepForge (`com.repforge.app`), versão 2.0.0. Categoria sugerida: Saúde e fitness (Health & Fitness). Idioma principal: pt-BR; secundário: en-US.
 
-Notas: use ícone 512x512, gráfico de recursos 1024x500 e as capturas de `docs/store/screenshots/pt-BR/` (ver `release-checklist.md`). As descrições não usam superlativos. O app tem compras no app (RepForge Pro): marque "Contém compras no app" no Play Console.
+Notas: use ícone 512x512, gráfico de recursos 1024x500 e as capturas de `docs/store/screenshots/pt-BR/` (ver `release-checklist.md`).
+
+**ATENÇÃO:** as capturas atuais em `docs/store/screenshots/pt-BR/` são anteriores à navegação em 4 abas e devem ser refeitas em aparelho real antes do envio. Telas sugeridas (8): 1) Início com o cartão "Treino de hoje"; 2) Plano semanal; 3) sessão de treino; 4) resumo ao finalizar; 5) Evolução com o mapa de atividade; 6) mapa do corpo; 7) Biblioteca; 8) Configurações > Aparência. Atualize as legendas abaixo ao recapturar. As descrições não usam superlativos. O app tem compras no app (RepForge Pro): marque "Contém compras no app" no Play Console.
 
 ## Português (Brasil) - pt-BR
 
@@ -18,28 +20,35 @@ RepForge: Treino de Musculação
 Registre séries com um toque, 1RM e progresso. Sem conta, sem anúncios.
 ```
 
-### Descrição completa / Full description (máx. 4000) - 2458 caracteres
+### Descrição completa / Full description (máx. 4000) - 3433 caracteres
 
 ```
 O RepForge é um caderno de treino digital para quem leva a musculação a sério e não quer perder tempo no celular entre uma série e outra.
 
-Monte suas fichas, escolha os exercícios, registre repetições e carga com um toque e acompanhe sua evolução. Funciona offline e sem criar conta.
+Monte suas fichas, planeje a semana, registre repetições e carga com um toque e acompanhe sua evolução. Funciona offline e sem criar conta.
 
 O QUE VOCÊ FAZ NO REPFORGE
 
+• Quatro abas: Treino, Plano, Evolução e Biblioteca. As configurações ficam na engrenagem da tela inicial.
+• Plano semanal: defina a ficha de cada dia da semana, reagende um treino só uma vez e veja o cartão "Treino de hoje" na tela inicial.
+• Sessão de treino: cronômetro, finalizar ou descartar e um resumo com duração, séries, volume, recordes, exercícios e músculos. Se quiser, o app pergunta seu peso corporal ao começar.
+• Tipos de exercício: repetições, por tempo (com cronômetro), peso corporal (com carga extra opcional), por lado e cardio com duração e distância.
+• Progressão: regras por ficha (nenhuma, linear, dupla, por tempo e deload) com ajuste por exercício.
 • Fichas de treino: crie, duplique e reordene exercícios. Comece rápido com os modelos Full body, ABC ou Upper/Lower.
-• Catálogo offline: 264 exercícios com os nomes usados nas academias do Brasil, mais exercícios personalizados.
+• Catálogo offline: 264 exercícios com os nomes usados nas academias do Brasil, mais exercícios personalizados, na aba Biblioteca.
 • Registro em um toque: a série já vem preenchida e você ajusta carga e repetições com os botões + e -.
 • Tipos de série: aquecimento, drop e falha, com RPE opcional e nota por exercício.
 • Séries do dia com desfazer e superséries (o descanso começa após o último exercício do grupo).
-• Timer de descanso em barra e tela sempre ligada durante o treino.
-• Aba de progresso: sequência de treinos, volume dos últimos 7 dias, séries semanais por músculo, gráfico de 1RM estimado por exercício e treinos recentes.
+• Timer de descanso em barra, com notificação, e tela sempre ligada durante o treino.
+• Evolução: sequência de treinos, mapa de atividade de 52 semanas, volume dos últimos 7 dias, séries semanais por músculo, mapa do corpo (frente e costas) com os músculos não treinados e gráfico de 1RM estimado por exercício.
 • Peso corporal: registre e acompanhe, guardado só no seu aparelho.
+• Widget para a tela inicial.
+• Tema do sistema, claro ou escuro, 8 cores de destaque e sons.
 • Português e inglês, com idioma por app.
 
 REPFORGE PRO (COMPRA ÚNICA)
 
-Tudo o que é essencial é gratuito e sem limite. O RepForge Pro é um desbloqueio vitalício, pago uma vez pelo Google Play, que libera o gráfico de 1RM em 90 dias e em todo o histórico, a comparação de 4 semanas por músculo e sugestões de progressão de carga.
+Tudo o que é essencial é gratuito e sem limite. O RepForge Pro é um desbloqueio vitalício, pago uma vez pelo Google Play, que libera o gráfico de 1RM em 90 dias e em todo o histórico, a comparação de 4 semanas por músculo, o mapa do corpo por mês e em todo o histórico, a calculadora de anilhas e sugestões de progressão de carga.
 
 PRIVACIDADE EM PRIMEIRO LUGAR
 
@@ -50,7 +59,7 @@ PRIVACIDADE EM PRIMEIRO LUGAR
 
 SEUS DADOS, SOB SEU CONTROLE
 
-Exporte um backup em arquivo JSON e guarde onde preferir. Ao importar, o RepForge adiciona os dados ao que você já tem, sem duplicar nem apagar registros. Também importa históricos exportados em CSV do Strong e do Hevy. Se o backup do sistema Android estiver ativado, ele pode incluir os dados do app; isso é gerenciado pelo Google, não pelo desenvolvedor.
+Exporte um backup em arquivo JSON, com plano, sessões e regras, e guarde onde preferir. Ao importar, o RepForge adiciona os dados ao que você já tem, sem duplicar nem apagar registros. Também importa históricos exportados em CSV do Strong e do Hevy. Se o backup do sistema Android estiver ativado, ele pode incluir os dados do app; isso é gerenciado pelo Google, não pelo desenvolvedor.
 
 O RepForge é um app de registro de treino. Ele não oferece orientação médica nem recomendações de saúde. Em caso de dúvida sobre sua saúde ou sua forma de treinar, procure um profissional qualificado.
 
@@ -72,17 +81,17 @@ Desenvolvido por um desenvolvedor independente no Brasil. Sugestões e dúvidas 
 - Categoria / Category: Saúde e fitness
 - Tags: Rastreador de fitness; Treino/Exercícios; Musculação (selecione as que a lista do Play Console oferecer)
 
-### O que há de novo / What's new - 2.0.0 (máx. 500) - 419 caracteres
+### O que há de novo / What's new - 2.0.0 (máx. 500) - 378 caracteres
 
 ```
 Versão 2.0.0
-• App nativo reescrito: mais leve e rápido
-• Registro de série em um toque, tipos de série, RPE e notas
-• Séries do dia com desfazer, reordenar e superséries
-• Catálogo offline com 264 exercícios; modelos Full body, ABC e Upper/Lower
-• Progresso: volume, séries por músculo e 1RM por exercício
-• Peso corporal e importação de CSV do Strong e do Hevy
-• Português e inglês
+• Novo: 4 abas (Treino, Plano, Evolução, Biblioteca)
+• Plano semanal e cartão "Treino de hoje"
+• Sessões com cronômetro e resumo final
+• Exercícios por tempo, peso corporal, por lado e cardio
+• Regras de progressão por ficha
+• Mapa de atividade e mapa do corpo
+• Temas claro/escuro, 8 cores, widget e calculadora de anilhas (Pro)
 • RepForge Pro vitalício (opcional)
 ```
 
@@ -102,28 +111,35 @@ RepForge: Workout Log
 Log sets in one tap, track 1RM and progress. No account, no ads.
 ```
 
-### Descrição completa / Full description (máx. 4000) - 2286 caracteres
+### Descrição completa / Full description (máx. 4000) - 3222 caracteres
 
 ```
 RepForge is a digital training notebook for lifters who want to log workouts fast and spend less time on the phone between sets.
 
-Build your training sheets, pick exercises, log reps and load with one tap and follow your progress. Works offline and without creating an account.
+Build your training sheets, plan your week, log reps and load with one tap and follow your progress. Works offline and without creating an account.
 
 WHAT YOU CAN DO IN REPFORGE
 
+• Four tabs: Workout, Plan, Progress and Library. Settings are behind the gear on the home screen.
+• Weekly plan: assign a sheet to each weekday, reschedule a workout just once and see the "Today's workout" card on the home screen.
+• Workout sessions: elapsed clock, finish or discard, and a summary with duration, sets, volume, records, exercises and muscles. If you like, the app asks for your body weight when you start.
+• Exercise types: reps, timed (with stopwatch), bodyweight (with optional extra load), per side, and cardio with duration and distance.
+• Progression: rules per sheet (none, linear, double, time and deload) with a per-exercise override.
 • Training sheets: create, duplicate and reorder exercises. Get going with the Full body, ABC or Upper/Lower templates.
-• Offline catalog: 264 exercises, plus custom exercises. Names are shown in English in the English locale.
+• Offline catalog: 264 exercises, plus custom exercises, in the Library tab. Names are shown in English in the English locale.
 • One-tap logging: the set comes prefilled and you adjust load and reps with the + and - buttons.
 • Set types: warm-up, drop and failure, with optional RPE and a note per exercise.
 • Today's sets with undo, and supersets (rest starts after the last exercise of the group).
-• Rest timer bar and keep-screen-on during your workout.
-• Progress tab: workout streak, 7-day volume, weekly sets per muscle, per-exercise estimated 1RM chart and recent workouts.
+• Rest timer bar with a notification, and keep-screen-on during your workout.
+• Progress: workout streak, 52-week activity heatmap, 7-day volume, weekly sets per muscle, a front and back body map with untrained muscles, and a per-exercise estimated 1RM chart.
 • Body weight: log and track it, stored only on your device.
+• Home-screen widget.
+• System, light or dark theme, 8 accent colors and sounds.
 • English and Portuguese, with per-app language.
 
 REPFORGE PRO (ONE-TIME PURCHASE)
 
-Everything essential is free and unlimited. RepForge Pro is a lifetime unlock, paid once through Google Play, that adds the 1RM chart over 90 days and all time, the 4-week muscle comparison and load progression suggestions.
+Everything essential is free and unlimited. RepForge Pro is a lifetime unlock, paid once through Google Play, that adds the 1RM chart over 90 days and all time, the 4-week muscle comparison, the body map by month and all time, the plate calculator and load progression suggestions.
 
 PRIVACY FIRST
 
@@ -134,7 +150,7 @@ PRIVACY FIRST
 
 YOUR DATA, YOUR CONTROL
 
-Export a backup as a JSON file and keep it wherever you prefer. When you import, RepForge adds the data to what you already have, without duplicating or erasing records. It can also import CSV history exported from Strong and Hevy. If Android system backup is enabled, it may include the app's data; that is handled by Google, not by the developer.
+Export a backup as a JSON file, including plan, sessions and rules, and keep it wherever you prefer. When you import, RepForge adds the data to what you already have, without duplicating or erasing records. It can also import CSV history exported from Strong and Hevy. If Android system backup is enabled, it may include the app's data; that is handled by Google, not by the developer.
 
 RepForge is a workout logging app. It does not provide medical advice or health recommendations. If you have questions about your health or how to train, consult a qualified professional.
 
@@ -156,16 +172,16 @@ Built by an independent developer in Brazil. Feedback and questions are welcome 
 - Categoria / Category: Health & Fitness
 - Tags: Fitness tracker; Workout/Exercise; Strength training (pick whatever the Play Console list offers)
 
-### O que há de novo / What's new - 2.0.0 (máx. 500) - 393 caracteres
+### O que há de novo / What's new - 2.0.0 (máx. 500) - 364 caracteres
 
 ```
 Version 2.0.0
-• Rebuilt as a lighter, faster native app
-• One-tap set logging, set types, RPE and notes
-• Today's sets with undo, reorder and supersets
-• Offline catalog of 264 exercises; Full body, ABC and Upper/Lower templates
-• Progress: volume, sets per muscle and per-exercise 1RM
-• Body weight tracking and Strong/Hevy CSV import
-• English and Portuguese
+• New: 4 tabs (Workout, Plan, Progress, Library)
+• Weekly plan and "Today's workout" card
+• Sessions with elapsed clock and finish summary
+• Timed, bodyweight, per-side and cardio exercises
+• Progression rules per sheet
+• Activity heatmap and body map
+• Light/dark themes, 8 accents, widget and plate calculator (Pro)
 • Optional lifetime RepForge Pro
 ```

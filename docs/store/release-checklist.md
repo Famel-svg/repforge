@@ -36,6 +36,7 @@ Pacote: `com.repforge.app`. Mercado principal: Brasil (pt-BR). Requisitos pesqui
 
 - [ ] Ícone do app 512x512 PNG (32 bits, até 1 MB).
 - [ ] Gráfico de recursos 1024x500 (PNG ou JPEG, sem transparência).
+- [ ] Refazer as capturas em aparelho real: as de `docs/store/screenshots/pt-BR/` são anteriores à navegação em 4 abas. Telas sugeridas (8): Início com o cartão "Treino de hoje", Plano, sessão de treino, resumo ao finalizar, Evolução com mapa de atividade, mapa do corpo, Biblioteca e Configurações > Aparência.
 - [ ] Capturas de tela de celular: ao menos 2, ideal 8, proporção 16:9 ou 9:16, lados entre 320 px e 3840 px. Use as legendas de `play-listing.md`.
 - [ ] Textos pt-BR e en-US de `play-listing.md` (título até 30, descrição curta até 80, completa até 4000).
 - [ ] Categoria Saúde e fitness; e-mail de contato; URL da política: [URL DA POLÍTICA].
