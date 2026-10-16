@@ -83,7 +83,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.repforge.app.R
 import com.repforge.app.data.AppPreferences
+import com.repforge.app.domain.validation.AppError
+import com.repforge.app.presentation.exerciseDisplayName
+import com.repforge.app.presentation.muscleLabel
+import com.repforge.app.presentation.res
 import com.repforge.app.domain.logging.WEIGHT_STEP_KG
 import com.repforge.app.domain.logging.beatsPersonalRecord
 import com.repforge.app.domain.logging.entriesOnDay
@@ -137,7 +145,8 @@ fun WorkoutScreen(
     var appliedRest by rememberSaveable { mutableStateOf(restSeconds) }
     var running by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(viewModel) { viewModel.messages.collect { snackbarHostState.showSnackbar(it) } }
+    val context = LocalContext.current
+    LaunchedEffect(viewModel) { viewModel.messages.collect { snackbarHostState.showSnackbar(context.getString(it)) } }
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val view = LocalView.current
@@ -186,10 +195,10 @@ fun WorkoutScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(sheetName) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Voltar") } }, actions = { IconButton(onSearch) { Icon(Icons.Rounded.Search, "Buscar exercício") } }) },
+        topBar = { TopAppBar(title = { Text(sheetName) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back)) } }, actions = { IconButton(onSearch) { Icon(Icons.Rounded.Search, stringResource(R.string.search_exercise)) } }) },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, "Adicionar exercício") }
+            FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, stringResource(R.string.add_exercise)) }
         },
         bottomBar = {
             RestTimerBar(
@@ -200,7 +209,7 @@ fun WorkoutScreen(
         }
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (exercises.isEmpty()) item { Text("Adicione exercícios para iniciar seu treino.", Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (exercises.isEmpty()) item { Text(stringResource(R.string.add_exercises_hint), Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             itemsIndexed(exercises, key = { _, item -> item.id }) { index, exercise ->
                 val entries = entriesByExercise?.get(exercise.id).orEmpty()
                 val groups = exercises.map { it.supersetGroup }
@@ -221,7 +230,7 @@ fun WorkoutScreen(
                     onDelete = { viewModel.deleteExercise(exercise.id) },
                     onDeleteEntry = { entry ->
                         viewModel.deleteEntry(entry.id)
-                        announce("Série removida", "Desfazer") { viewModel.restoreEntry(entry) }
+                        announce(context.getString(R.string.set_removed), context.getString(R.string.undo)) { viewModel.restoreEntry(entry) }
                     }
                 ) { reps, weight, newRecord, setType, rpe ->
                     viewModel.addEntry(exercise.id, 1, reps, weight, setType, rpe)
@@ -231,7 +240,7 @@ fun WorkoutScreen(
                         remaining = restSeconds
                         running = true
                     } else expandedId = exercises[index + 1].id
-                    announce(if (newRecord) "Novo PR: ${formatKg(weight)}" else "Série registrada")
+                    announce(if (newRecord) context.getString(R.string.new_pr, formatKg(weight)) else context.getString(R.string.set_logged))
                 }
             }
             // Keeps the last card clear of the floating action button.
@@ -268,7 +277,7 @@ private fun ExerciseCard(
     // Null means "untouched": the field follows the last logged set instead of freezing the first prefill.
     var repsInput by rememberSaveable { mutableStateOf<String?>(null) }
     var weightInput by rememberSaveable { mutableStateOf<String?>(null) }
-    var inputError by remember { mutableStateOf<String?>(null) }
+    var inputError by remember { mutableStateOf<AppError?>(null) }
     var showHistory by rememberSaveable { mutableStateOf(false) }
     var historyLimit by rememberSaveable { mutableStateOf(HISTORY_PAGE) }
     val dateFormat = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
@@ -287,11 +296,13 @@ private fun ExerciseCard(
     val repsText = repsInput ?: prefill.reps.toString()
     val weightText = weightInput ?: prefill.weightKg?.let(::formatWeightInput).orEmpty()
     val summary = when {
-        today.isNotEmpty() -> if (today.size == 1) "1 série hoje" else "${today.size} séries hoje"
-        entries.isNotEmpty() -> "Último: ${formatSet(entries.first())}"
-        else -> "Sem registros"
+        today.isNotEmpty() -> pluralStringResource(R.plurals.sets_today, today.size, today.size)
+        entries.isNotEmpty() -> stringResource(R.string.last_set, formatSet(entries.first()))
+        else -> stringResource(R.string.no_records)
     }
     val group = exercise.supersetGroup
+    val displayName = exerciseDisplayName(exercise.name)
+    val stateExpanded = stringResource(if (expanded) R.string.state_expanded else R.string.state_collapsed)
     val barColor = MaterialTheme.colorScheme.let { listOf(it.primary, it.tertiary, it.secondary) }[(group ?: 0).mod(3)]
     // The list spaces items by 12dp; the bar is drawn through that gap so linked cards read as one block.
     val gapPx = with(LocalDensity.current) { 12.dp.toPx() }
@@ -305,55 +316,55 @@ private fun ExerciseCard(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Row(
                     Modifier.weight(1f).heightIn(min = 56.dp)
-                        .clickable(onClickLabel = if (expanded) "Recolher" else "Expandir", role = Role.Button, onClick = onToggle)
-                        .semantics { stateDescription = if (expanded) "Expandido" else "Recolhido" }
+                        .clickable(onClickLabel = stringResource(if (expanded) R.string.collapse else R.string.expand), role = Role.Button, onClick = onToggle)
+                        .semantics { stateDescription = stateExpanded }
                         .padding(start = 16.dp, top = 12.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        if (group != null) Text("Superset", style = MaterialTheme.typography.labelMedium, color = barColor)
-                        Text(exercise.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-                        Text(exercise.target.ifBlank { "Alvo não definido" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (group != null) Text(stringResource(R.string.superset), style = MaterialTheme.typography.labelMedium, color = barColor)
+                        Text(displayName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+                        Text(if (exercise.target.isBlank()) stringResource(R.string.target_not_set) else muscleLabel(exercise.target), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (exercise.note.isNotBlank()) Text(exercise.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (!expanded) Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                     }
                     Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
                 }
                 Box {
-                    IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreVert, "Mais ações de ${exercise.name}") }
+                    IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.more_actions_for, displayName)) }
                     DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Mover para cima") }, enabled = canMoveUp,
+                            text = { Text(stringResource(R.string.move_up)) }, enabled = canMoveUp,
                             leadingIcon = { Icon(Icons.Rounded.KeyboardArrowUp, null) },
                             onClick = { showMenu = false; onMove(true) }
                         )
                         DropdownMenuItem(
-                            text = { Text("Mover para baixo") }, enabled = canMoveDown,
+                            text = { Text(stringResource(R.string.move_down)) }, enabled = canMoveDown,
                             leadingIcon = { Icon(Icons.Rounded.KeyboardArrowDown, null) },
                             onClick = { showMenu = false; onMove(false) }
                         )
                         if (canMoveDown && !linkedNext) DropdownMenuItem(
-                            text = { Text("Juntar com o próximo (superset)") },
+                            text = { Text(stringResource(R.string.join_superset)) },
                             leadingIcon = { Icon(Icons.Rounded.Link, null) },
                             onClick = { showMenu = false; onSuperset(true) }
                         )
                         if (group != null) DropdownMenuItem(
-                            text = { Text("Separar do superset") },
+                            text = { Text(stringResource(R.string.leave_superset)) },
                             leadingIcon = { Icon(Icons.Rounded.LinkOff, null) },
                             onClick = { showMenu = false; onSuperset(false) }
                         )
                         DropdownMenuItem(
-                            text = { Text("Editar exercício") },
+                            text = { Text(stringResource(R.string.edit_exercise)) },
                             leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                             onClick = { showMenu = false; showEdit = true }
                         )
                         DropdownMenuItem(
-                            text = { Text("Nota do exercício") },
+                            text = { Text(stringResource(R.string.exercise_note)) },
                             leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                             onClick = { showMenu = false; showNote = true }
                         )
                         DropdownMenuItem(
-                            text = { Text("Remover exercício") },
+                            text = { Text(stringResource(R.string.remove_exercise)) },
                             leadingIcon = { Icon(Icons.Rounded.Delete, null) },
                             onClick = { showMenu = false; showDeleteConfirmation = true }
                         )
@@ -362,15 +373,15 @@ private fun ExerciseCard(
             }
             if (expanded) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (entries.isNotEmpty()) Text(
-                    "PR: %.1f kg · 1RM estimado: %.1f kg".format(personalRecordKg(entries), bestEstimatedOneRepMax(entries)),
+                    stringResource(R.string.pr_and_1rm, formatKg(personalRecordKg(entries)), formatKg(bestEstimatedOneRepMax(entries))),
                     color = MaterialTheme.colorScheme.primary
                 )
                 if (today.isNotEmpty()) Column {
-                    Text("Hoje", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.today), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     today.forEachIndexed { index, entry ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text("${index + 1}. ${setMarker(entry.setType)}${formatSet(entry)}${entry.rpe?.let { " @" + formatRpe(it) }.orEmpty()}", Modifier.weight(1f))
-                            IconButton(onClick = { onDeleteEntry(entry) }) { Icon(Icons.Rounded.Delete, "Remover série ${index + 1}") }
+                            IconButton(onClick = { onDeleteEntry(entry) }) { Icon(Icons.Rounded.Delete, stringResource(R.string.remove_set_n, index + 1)) }
                         }
                     }
                 }
@@ -379,27 +390,27 @@ private fun ExerciseCard(
                     onApply = { reps, weightKg -> repsInput = reps.toString(); weightInput = formatWeightInput(weightKg); inputError = null }
                 )
                 StepperField(
-                    value = repsText, label = "Repetições", keyboardType = KeyboardType.Number,
+                    value = repsText, label = stringResource(R.string.reps), keyboardType = KeyboardType.Number,
                     minusEnabled = (repsText.trim().toIntOrNull() ?: 0) > 1,
-                    minusDescription = "Diminuir repetições", plusDescription = "Aumentar repetições",
+                    minusDescription = stringResource(R.string.decrease_reps), plusDescription = stringResource(R.string.increase_reps),
                     onValueChange = { repsInput = it; inputError = null },
                     onMinus = { repsInput = stepReps(repsText.trim().toIntOrNull(), -1).toString(); inputError = null },
                     onPlus = { repsInput = stepReps(repsText.trim().toIntOrNull(), 1).toString(); inputError = null }
                 )
                 StepperField(
-                    value = weightText, label = "Carga (kg)", keyboardType = KeyboardType.Decimal,
+                    value = weightText, label = stringResource(R.string.load_kg), keyboardType = KeyboardType.Decimal,
                     minusEnabled = (parseWeightKg(weightText) ?: 0.0) > 0.0,
-                    minusDescription = "Diminuir carga", plusDescription = "Aumentar carga",
+                    minusDescription = stringResource(R.string.decrease_load), plusDescription = stringResource(R.string.increase_load),
                     onValueChange = { weightInput = it; inputError = null },
                     onMinus = { weightInput = formatWeightInput(stepWeightKg(parseWeightKg(weightText), -WEIGHT_STEP_KG)); inputError = null },
                     onPlus = { weightInput = formatWeightInput(stepWeightKg(parseWeightKg(weightText), WEIGHT_STEP_KG)); inputError = null }
                 )
-                TextButton(onClick = { showMore = !showMore }) { Text(if (showMore) "Menos" else "Mais") }
+                TextButton(onClick = { showMore = !showMore }) { Text(stringResource(if (showMore) R.string.less else R.string.more)) }
                 if (showMore) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         SET_TYPES.forEach { t -> FilterChip(setType == t, { setType = t }, { Text(setTypeLabel(t)) }) }
                     }
-                    Text("RPE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.rpe), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         RPE_VALUES.forEach { r -> FilterChip(rpe == r, { rpe = if (rpe == r) null else r }, { Text(formatRpe(r)) }) }
                     }
@@ -409,18 +420,18 @@ private fun ExerciseCard(
                         val parsedReps = repsText.trim().toIntOrNull()
                         // Blank load means bodyweight; only a malformed number is an error.
                         val parsedWeight = if (weightText.isBlank()) 0.0 else parseWeightKg(weightText)
-                        inputError = validateSetInput(1, parsedReps, parsedWeight)?.message
+                        inputError = validateSetInput(1, parsedReps, parsedWeight)
                         if (inputError == null) {
                             onLog(parsedReps!!, parsedWeight!!, setType != SET_WARMUP && beatsPersonalRecord(entries, parsedWeight), setType, rpe)
                             setType = SET_NORMAL; rpe = null
                         }
                     },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                ) { Text("Registrar série") }
-                inputError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                ) { Text(stringResource(R.string.log_set)) }
+                inputError?.let { Text(stringResource(it.res()), color = MaterialTheme.colorScheme.error) }
                 if (entries.isNotEmpty()) {
                     TextButton(onClick = { showHistory = !showHistory }) {
-                        Text(if (showHistory) "Ocultar histórico" else "Ver histórico (${entries.size})")
+                        Text(if (showHistory) stringResource(R.string.hide_history) else stringResource(R.string.view_history, entries.size))
                     }
                     if (showHistory) {
                         entries.take(historyLimit).forEach { entry ->
@@ -429,7 +440,7 @@ private fun ExerciseCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        if (entries.size > historyLimit) TextButton(onClick = { historyLimit += HISTORY_PAGE }) { Text("Ver mais") }
+                        if (entries.size > historyLimit) TextButton(onClick = { historyLimit += HISTORY_PAGE }) { Text(stringResource(R.string.see_more)) }
                     }
                 }
             }
@@ -439,13 +450,13 @@ private fun ExerciseCard(
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("Remover exercício?") },
-            text = { Text("O histórico deste exercício também será removido.") },
+            title = { Text(stringResource(R.string.remove_exercise_title)) },
+            text = { Text(stringResource(R.string.remove_exercise_body)) },
             confirmButton = {
-                Button(onClick = { showDeleteConfirmation = false; onDelete() }) { Text("Remover") }
+                Button(onClick = { showDeleteConfirmation = false; onDelete() }) { Text(stringResource(R.string.remove)) }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showDeleteConfirmation = false }) { Text("Cancelar") }
+                OutlinedButton(onClick = { showDeleteConfirmation = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -453,29 +464,31 @@ private fun ExerciseCard(
         var note by rememberSaveable { mutableStateOf(exercise.note) }
         AlertDialog(
             onDismissRequest = { showNote = false },
-            title = { Text("Nota do exercício") },
-            text = { OutlinedTextField(note, { note = it }, label = { Text("Nota") }, minLines = 2) },
-            confirmButton = { Button(onClick = { showNote = false; onNote(note) }) { Text("Salvar") } },
-            dismissButton = { OutlinedButton(onClick = { showNote = false }) { Text("Cancelar") } }
+            title = { Text(stringResource(R.string.exercise_note)) },
+            text = { OutlinedTextField(note, { note = it }, label = { Text(stringResource(R.string.note)) }, minLines = 2) },
+            confirmButton = { Button(onClick = { showNote = false; onNote(note) }) { Text(stringResource(R.string.save)) } },
+            dismissButton = { OutlinedButton(onClick = { showNote = false }) { Text(stringResource(R.string.cancel)) } }
         )
     }
     if (showEdit) {
         ExerciseDialog(
             initialName = exercise.name,
             initialTarget = exercise.target,
-            title = "Editar exercício",
-            actionLabel = "Salvar",
+            title = stringResource(R.string.edit_exercise),
+            actionLabel = stringResource(R.string.save),
             onDismiss = { showEdit = false },
             onConfirm = { name, target -> showEdit = false; onEdit(name, target) }
         )
     }
 }
 
-private fun setTypeLabel(t: String) = when (t) { SET_WARMUP -> "Aquecimento"; SET_DROP -> "Drop"; SET_FAILURE -> "Falha"; else -> "Normal" }
+@Composable
+private fun setTypeLabel(t: String) = stringResource(when (t) { SET_WARMUP -> R.string.set_warmup; SET_DROP -> R.string.set_drop; SET_FAILURE -> R.string.set_failure; else -> R.string.set_normal })
 
-private fun setMarker(t: String) = when (t) { SET_WARMUP -> "A "; SET_DROP -> "D "; SET_FAILURE -> "F "; else -> "" }
+@Composable
+private fun setMarker(t: String) = when (t) { SET_WARMUP -> stringResource(R.string.marker_warmup) + " "; SET_DROP -> stringResource(R.string.marker_drop) + " "; SET_FAILURE -> stringResource(R.string.marker_failure) + " "; else -> "" }
 
-private fun formatRpe(r: Double) = if (r % 1.0 == 0.0) r.toInt().toString() else "%.1f".format(java.util.Locale.forLanguageTag("pt-BR"), r)
+private fun formatRpe(r: Double) = if (r % 1.0 == 0.0) r.toInt().toString() else "%.1f".format(java.util.Locale.getDefault(), r)
 
 @Composable
 private fun StepperField(
@@ -507,11 +520,11 @@ private fun RestTimerBar(remaining: Int, total: Int, running: Boolean, onToggle:
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.padding(end = 16.dp)) {
-                    Text("Descanso", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.rest), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("%02d:%02d".format(remaining / 60, remaining % 60), style = MaterialTheme.typography.headlineSmall)
                 }
-                Button(onClick = onToggle) { Text(if (running) "Pausar" else "Iniciar") }
-                OutlinedButton(onClick = onReset) { Text("Resetar") }
+                Button(onClick = onToggle) { Text(stringResource(if (running) R.string.pause else R.string.start)) }
+                OutlinedButton(onClick = onReset) { Text(stringResource(R.string.reset)) }
             }
             LinearProgressIndicator(progress = { remaining / total.coerceAtLeast(1).toFloat() }, modifier = Modifier.fillMaxWidth())
         }
@@ -522,8 +535,8 @@ private fun RestTimerBar(remaining: Int, total: Int, running: Boolean, onToggle:
 private fun ExerciseDialog(
     initialName: String = "",
     initialTarget: String = "",
-    title: String = "Adicionar exercício",
-    actionLabel: String = "Adicionar",
+    title: String = stringResource(R.string.add_exercise),
+    actionLabel: String = stringResource(R.string.add),
     onDismiss: () -> Unit,
     onConfirm: (String, String) -> Unit
 ) {
@@ -533,10 +546,10 @@ private fun ExerciseDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(name, { name = it }, label = { Text("Nome") }, singleLine = true)
-            OutlinedTextField(target, { target = it }, label = { Text("Grupo muscular") }, singleLine = true)
+            OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.name)) }, singleLine = true)
+            OutlinedTextField(target, { target = it }, label = { Text(stringResource(R.string.muscle_group)) }, singleLine = true)
         } },
         confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onConfirm(name, target) }) { Text(actionLabel) } },
-        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = { OutlinedButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }

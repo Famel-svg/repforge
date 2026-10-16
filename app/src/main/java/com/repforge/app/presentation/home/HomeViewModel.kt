@@ -36,8 +36,8 @@ class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
         viewModelScope.launch(logExceptions) { runCatching { repository.createSheetFromTemplate(template) } }
     }
 
-    fun duplicateSheet(sheetId: Long) {
-        viewModelScope.launch(logExceptions) { repository.duplicateSheet(sheetId) }
+    fun duplicateSheet(sheetId: Long, copyLabel: String) {
+        viewModelScope.launch(logExceptions) { repository.duplicateSheet(sheetId, copyLabel) }
     }
 
     fun deleteSheet(sheetId: Long) {

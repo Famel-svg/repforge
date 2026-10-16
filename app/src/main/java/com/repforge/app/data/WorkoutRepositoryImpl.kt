@@ -25,6 +25,8 @@ import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.repository.WorkoutRepository
 import com.repforge.app.domain.templates.WorkoutTemplate
+import com.repforge.app.domain.validation.AppError
+import com.repforge.app.domain.validation.AppException
 import com.repforge.app.domain.validation.validateBodyWeight
 import com.repforge.app.domain.validation.validateSetInput
 import kotlinx.coroutines.flow.Flow
@@ -57,10 +59,10 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
         dao.insertSheet(SheetEntity(name = name.trim()))
     }
 
-    override suspend fun duplicateSheet(sheetId: Long) {
+    override suspend fun duplicateSheet(sheetId: Long, copyLabel: String) {
         database.withTransaction {
             val source = dao.findSheet(sheetId) ?: return@withTransaction
-            val copyId = dao.insertSheet(SheetEntity(name = "${source.name} (cópia)"))
+            val copyId = dao.insertSheet(SheetEntity(name = "${source.name} ($copyLabel)"))
             dao.exercisesOf(sheetId).forEach { dao.insertExercise(it.copy(id = 0, sheetId = copyId)) }
         }
     }
@@ -103,7 +105,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     }
 
     override suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double, setType: String, rpe: Double?) {
-        validateSetInput(sets, reps, weightKg)?.let { throw IllegalArgumentException(it.message) }
+        validateSetInput(sets, reps, weightKg)?.let { throw AppException(it) }
         database.withTransaction {
             dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg, setType = setType, rpe = rpe))
             dao.touchSheetOfExercise(exerciseId, System.currentTimeMillis())
@@ -157,7 +159,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     override fun observeBodyWeights(): Flow<List<BodyWeight>> = dao.observeBodyWeights().map { rows -> rows.map { BodyWeight(it.id, it.weightKg, it.recordedAt) } }
 
     override suspend fun addBodyWeight(weightKg: Double) {
-        validateBodyWeight(weightKg)?.let { throw IllegalArgumentException(it.message) }
+        validateBodyWeight(weightKg)?.let { throw AppException(it) }
         dao.insertBodyWeight(BodyWeightEntity(weightKg = weightKg))
     }
 
@@ -166,7 +168,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     }
 
     override suspend fun createSheetFromTemplate(template: WorkoutTemplate) {
-        require(template.sheetName.isNotBlank()) { "Nome da ficha não pode ficar vazio." }
+        if (template.sheetName.isBlank()) throw AppException(AppError.SheetNameEmpty)
         database.withTransaction {
             val sheetId = dao.insertSheet(SheetEntity(name = template.sheetName.trim()))
             template.exercises.forEachIndexed { index, e ->

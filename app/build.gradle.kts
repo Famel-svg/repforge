@@ -51,6 +51,8 @@ android {
     }
 
     sourceSets { getByName("androidTest").assets.srcDir("$projectDir/schemas") }
+    // Keeps the per-app language picker (Android 13+) in sync with the shipped translations.
+    androidResources { localeFilters += listOf("en", "pt-rBR") }
     buildFeatures { compose = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }

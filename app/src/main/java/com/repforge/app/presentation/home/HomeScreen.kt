@@ -40,6 +40,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.repforge.app.domain.model.TrainingSheet
+import com.repforge.app.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.repforge.app.domain.logging.formatKg
 import com.repforge.app.domain.templates.StarterTemplates
 import com.repforge.app.domain.templates.WorkoutTemplate
 
@@ -49,7 +53,7 @@ fun HomeScreen(
     state: HomeUiState,
     onCreateSheet: (String) -> Unit,
     onStartSheet: (TrainingSheet) -> Unit,
-    onDuplicateSheet: (Long) -> Unit,
+    onDuplicateSheet: (Long, String) -> Unit,
     onDeleteSheet: (Long) -> Unit,
     modifier: Modifier = Modifier,
     onCreateSheetFromTemplate: (WorkoutTemplate) -> Unit = {},
@@ -60,6 +64,7 @@ fun HomeScreen(
     var showCreate by remember { mutableStateOf(false) }
     var initialTemplateId by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<TrainingSheet?>(null) }
+    val copyLabel = stringResource(R.string.copy_suffix)
     LaunchedEffect(openTemplatePicker) {
         if (openTemplatePicker) {
             initialTemplateId = StarterTemplates.first().id
@@ -69,10 +74,10 @@ fun HomeScreen(
     }
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text("RepForge") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) },
         floatingActionButton = {
             FloatingActionButton(onClick = { initialTemplateId = null; showCreate = true }) {
-                Icon(Icons.Rounded.Add, contentDescription = "Criar ficha")
+                Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.create_sheet))
             }
         }
     ) { padding ->
@@ -82,14 +87,14 @@ fun HomeScreen(
         ) {
             item {
                 Spacer(Modifier.height(8.dp))
-                Text("Bom treino.", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
-                Text("Seu progresso começa no próximo set.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.home_greeting), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
+                Text(stringResource(R.string.home_tagline), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             item { SummaryCard(state) }
             item {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Suas fichas", style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-                    OutlinedButton(onClick = { initialTemplateId = null; showCreate = true }, modifier = Modifier.fillMaxWidth()) { Text("Nova ficha") }
+                    Text(stringResource(R.string.your_sheets), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+                    OutlinedButton(onClick = { initialTemplateId = null; showCreate = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.new_sheet)) }
                 }
             }
             if (state.sheets.isEmpty()) {
@@ -101,7 +106,7 @@ fun HomeScreen(
                 }
             } else {
                 items(state.sheets, key = { it.id }) { sheet ->
-                    SheetCard(sheet, onStart = { onStartSheet(sheet) }, onDuplicate = { onDuplicateSheet(sheet.id) }, onDelete = { deleteTarget = sheet })
+                    SheetCard(sheet, onStart = { onStartSheet(sheet) }, onDuplicate = { onDuplicateSheet(sheet.id, copyLabel) }, onDelete = { deleteTarget = sheet })
                 }
             }
             item { Spacer(Modifier.height(80.dp)) }
@@ -116,10 +121,10 @@ fun HomeScreen(
     deleteTarget?.let { sheet ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("Excluir ficha?") },
-            text = { Text("${sheet.name} e todo seu histórico serão removidos deste aparelho.") },
-            confirmButton = { Button(onClick = { onDeleteSheet(sheet.id); deleteTarget = null }) { Text("Excluir") } },
-            dismissButton = { OutlinedButton(onClick = { deleteTarget = null }) { Text("Cancelar") } }
+            title = { Text(stringResource(R.string.delete_sheet_title)) },
+            text = { Text(stringResource(R.string.delete_sheet_body, sheet.name)) },
+            confirmButton = { Button(onClick = { onDeleteSheet(sheet.id); deleteTarget = null }) { Text(stringResource(R.string.delete)) } },
+            dismissButton = { OutlinedButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.cancel)) } }
         )
     }
 }
@@ -130,13 +135,16 @@ private fun SummaryCard(state: HomeUiState) {
         Column(Modifier.padding(20.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
-                    Text("Volume últimos 7 dias", color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text("%.1f kg".format(state.summary.weeklyVolumeKg), style = MaterialTheme.typography.headlineLarge)
+                    Text(stringResource(R.string.volume_last_7_days), color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text(formatKg(state.summary.weeklyVolumeKg), style = MaterialTheme.typography.headlineLarge)
                 }
                 Icon(Icons.Rounded.AutoGraph, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
             Spacer(Modifier.height(16.dp))
-            Text("${state.summary.completedSets} séries · ${state.summary.activeSheets} fichas ativas")
+            Text(
+                pluralStringResource(R.plurals.sets_count, state.summary.completedSets, state.summary.completedSets) + " · " +
+                    pluralStringResource(R.plurals.active_sheets_count, state.summary.activeSheets, state.summary.activeSheets)
+            )
         }
     }
 }
@@ -147,15 +155,15 @@ private fun SheetCard(sheet: TrainingSheet, onStart: () -> Unit, onDuplicate: ()
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Column {
                 Text(sheet.name, style = MaterialTheme.typography.titleMedium)
-                Text("${sheet.exerciseCount} exercícios", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(pluralStringResource(R.plurals.exercises_count, sheet.exerciseCount, sheet.exerciseCount), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                Text("Iniciar treino")
+                Text(stringResource(R.string.start_workout))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onDuplicate, modifier = Modifier.weight(1f)) { Text("Duplicar") }
-                OutlinedButton(onClick = onDelete, modifier = Modifier.weight(1f)) { Text("Excluir") }
+                OutlinedButton(onClick = onDuplicate, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.duplicate)) }
+                OutlinedButton(onClick = onDelete, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.delete)) }
             }
         }
     }
@@ -168,12 +176,12 @@ private fun EmptySheetsCard(onCreate: () -> Unit, onPickTemplate: () -> Unit) {
         Column(Modifier.fillMaxWidth().padding(24.dp)) {
             Icon(Icons.Rounded.FitnessCenter, contentDescription = null)
             Spacer(Modifier.height(12.dp))
-            Text("Nenhuma ficha ainda", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-            Text("Monte sua primeira rotina e registre evolução sem depender de internet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.no_sheets_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+            Text(stringResource(R.string.no_sheets_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onCreate) { Text("Criar primeira ficha") }
-                OutlinedButton(onClick = onPickTemplate) { Text("Começar com um modelo") }
+                Button(onClick = onCreate) { Text(stringResource(R.string.create_first_sheet)) }
+                OutlinedButton(onClick = onPickTemplate) { Text(stringResource(R.string.start_with_template)) }
             }
         }
     }

@@ -19,13 +19,23 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Outcome events; the screen turns them into localized text. */
+sealed interface SettingsMessage {
+    data object Exported : SettingsMessage
+    data class ExportFailed(val error: Throwable) : SettingsMessage
+    data class CsvImported(val sheets: Int, val result: ImportResult, val skippedRows: Int, val maybePounds: Boolean) : SettingsMessage
+    data object BackupEmpty : SettingsMessage
+    data class BackupImported(val sheets: Int, val result: ImportResult) : SettingsMessage
+    data class ImportFailed(val error: Throwable) : SettingsMessage
+}
+
 class SettingsViewModel(private val store: SettingsStore, private val backup: BackupManager) : ViewModel() {
     val state: StateFlow<AppPreferences> = store.preferences.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5_000), AppPreferences()
     )
 
-    private val _messages = Channel<String>(Channel.BUFFERED)
-    val messages: Flow<String> = _messages.receiveAsFlow()
+    private val _messages = Channel<SettingsMessage>(Channel.BUFFERED)
+    val messages: Flow<SettingsMessage> = _messages.receiveAsFlow()
 
     fun setRestSeconds(value: Int) = viewModelScope.launch(logExceptions) { store.setRestSeconds(value) }
     fun setHapticsEnabled(value: Boolean) = viewModelScope.launch(logExceptions) { store.setHapticsEnabled(value) }
@@ -35,8 +45,8 @@ class SettingsViewModel(private val store: SettingsStore, private val backup: Ba
             val json = backup.exportJson()
             withContext(Dispatchers.IO) { write(json) }
         }.fold(
-            { _messages.send("Backup exportado.") },
-            { _messages.send("Falha ao exportar: ${it.message ?: "erro desconhecido"}") }
+            { _messages.send(SettingsMessage.Exported) },
+            { _messages.send(SettingsMessage.ExportFailed(it)) }
         )
     }
 
@@ -46,21 +56,15 @@ class SettingsViewModel(private val store: SettingsStore, private val backup: Ba
             val parsed = withContext(Dispatchers.Default) { parseCsvWorkoutsWithStats(text, ZoneId.systemDefault()) }
             parsed to backup.importSheets(parsed.sheets)
         }.fold(
-            { (parsed, result) ->
-                val ignored = if (parsed.skippedRows > 0) " (${parsed.skippedRows} linhas ignoradas)" else ""
-                val pounds = if (parsed.maybePounds) " (verifique se o CSV está em lb)" else ""
-                _messages.send("${parsed.sheets.size} fichas: ${importSummary(result)}$ignored$pounds")
-            },
-            { _messages.send("Falha ao importar: ${it.message ?: "erro desconhecido"}") }
+            { (parsed, result) -> _messages.send(SettingsMessage.CsvImported(parsed.sheets.size, result, parsed.skippedRows, parsed.maybePounds)) },
+            { _messages.send(SettingsMessage.ImportFailed(it)) }
         )
     }
 
     fun importBackup(read: () -> String) = viewModelScope.launch(logExceptions) {
         runCatching { backup.importJson(withContext(Dispatchers.IO) { read() }) }.fold(
-            { result -> _messages.send(if (result.imported + result.skipped == 0) "Backup vazio; nada importado." else "${result.sheets} ficha(s): ${importSummary(result)}") },
-            { _messages.send("Falha ao importar: ${it.message ?: "erro desconhecido"}") }
+            { result -> _messages.send(if (result.imported + result.skipped == 0) SettingsMessage.BackupEmpty else SettingsMessage.BackupImported(result.sheets, result)) },
+            { _messages.send(SettingsMessage.ImportFailed(it)) }
         )
     }
-
-    private fun importSummary(result: ImportResult) = "${result.imported} novas, ${result.skipped} já existiam"
 }

@@ -1,85 +1,85 @@
 package com.repforge.app.domain.templates
 
+/** [name]/[target] are catalog (pt-BR) keys; the UI localizes them. */
 data class TemplateExercise(val name: String, val target: String)
 
 data class WorkoutTemplate(
     val id: String,
-    val group: String,
-    val label: String,
-    val sheetName: String,
-    val exercises: List<TemplateExercise>
+    val exercises: List<TemplateExercise>,
+    /** Localized by the UI when the sheet is created; display names live in string resources keyed by [id]. */
+    val sheetName: String = ""
 )
 
 private fun ex(name: String, target: String) = TemplateExercise(name, target)
 
 val StarterTemplates: List<WorkoutTemplate> = listOf(
     WorkoutTemplate(
-        "full-body", "Full body", "Full body iniciante", "Full body iniciante",
+        "full-body",
         listOf(
             ex("Agachamento livre", "Pernas"),
             ex("Supino reto com halteres", "Peito"),
-            ex("Remada curvada", "Costas"),
-            ex("Desenvolvimento com halteres", "Ombros"),
+            ex("Remada curvada com barra", "Costas"),
+            ex("Desenvolvimento com halteres sentado", "Ombros"),
             ex("Leg press 45°", "Pernas"),
-            ex("Rosca direta", "Bíceps"),
-            ex("Tríceps corda", "Tríceps"),
+            ex("Rosca direta com barra", "Bíceps"),
+            ex("Tríceps pulley com corda", "Tríceps"),
             ex("Prancha", "Abdômen")
         )
     ),
     WorkoutTemplate(
-        "abc-a", "ABC", "A — Peito, Tríceps e Ombros", "ABC — A (Peito/Tríceps/Ombros)",
+        "abc-a",
         listOf(
-            ex("Supino reto", "Peito"),
+            ex("Supino reto com barra", "Peito"),
             ex("Supino inclinado com halteres", "Peito"),
-            ex("Crucifixo na máquina", "Peito"),
-            ex("Desenvolvimento com halteres", "Ombros"),
-            ex("Elevação lateral", "Ombros"),
-            ex("Tríceps corda", "Tríceps"),
-            ex("Tríceps testa", "Tríceps")
+            ex("Voador / Peck deck", "Peito"),
+            ex("Desenvolvimento com halteres sentado", "Ombros"),
+            ex("Elevação lateral com halteres", "Ombros"),
+            ex("Tríceps pulley com corda", "Tríceps"),
+            ex("Tríceps testa com barra W", "Tríceps")
         )
     ),
     WorkoutTemplate(
-        "abc-b", "ABC", "B — Costas e Bíceps", "ABC — B (Costas/Bíceps)",
+        "abc-b",
         listOf(
             ex("Puxada frontal", "Costas"),
-            ex("Remada curvada", "Costas"),
+            ex("Remada curvada com barra", "Costas"),
             ex("Remada baixa", "Costas"),
-            ex("Crucifixo inverso", "Ombros"),
-            ex("Rosca direta", "Bíceps"),
+            ex("Crucifixo invertido na máquina", "Ombros"),
+            ex("Rosca direta com barra", "Bíceps"),
             ex("Rosca martelo", "Bíceps")
         )
     ),
     WorkoutTemplate(
-        "abc-c", "ABC", "C — Pernas", "ABC — C (Pernas)",
+        "abc-c",
         listOf(
             ex("Agachamento livre", "Quadríceps"),
             ex("Leg press 45°", "Quadríceps"),
             ex("Cadeira extensora", "Quadríceps"),
             ex("Mesa flexora", "Posterior de coxa"),
-            ex("Stiff", "Posterior de coxa"),
-            ex("Panturrilha em pé", "Panturrilhas")
+            ex("Stiff com barra", "Posterior de coxa"),
+            ex("Panturrilha em pé na máquina", "Panturrilhas")
         )
     ),
     WorkoutTemplate(
-        "upper", "Upper/Lower", "Upper — Parte superior", "Upper (Superiores)",
+        "upper",
         listOf(
-            ex("Supino reto", "Peito"),
+            ex("Supino reto com barra", "Peito"),
             ex("Puxada frontal", "Costas"),
-            ex("Desenvolvimento com halteres", "Ombros"),
+            ex("Desenvolvimento com halteres sentado", "Ombros"),
             ex("Remada baixa", "Costas"),
-            ex("Rosca direta", "Bíceps"),
-            ex("Tríceps corda", "Tríceps")
+            ex("Rosca direta com barra", "Bíceps"),
+            ex("Tríceps pulley com corda", "Tríceps")
         )
     ),
     WorkoutTemplate(
-        "lower", "Upper/Lower", "Lower — Parte inferior", "Lower (Inferiores)",
+        "lower",
         listOf(
             ex("Agachamento livre", "Quadríceps"),
             ex("Leg press 45°", "Quadríceps"),
-            ex("Stiff", "Posterior de coxa"),
+            ex("Stiff com barra", "Posterior de coxa"),
             ex("Mesa flexora", "Posterior de coxa"),
             ex("Cadeira abdutora", "Glúteos"),
-            ex("Panturrilha em pé", "Panturrilhas")
+            ex("Panturrilha em pé na máquina", "Panturrilhas")
         )
     )
 )

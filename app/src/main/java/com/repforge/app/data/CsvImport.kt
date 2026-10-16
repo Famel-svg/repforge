@@ -4,6 +4,8 @@ import com.repforge.app.domain.model.SET_DROP
 import com.repforge.app.domain.model.SET_FAILURE
 import com.repforge.app.domain.model.SET_NORMAL
 import com.repforge.app.domain.model.SET_WARMUP
+import com.repforge.app.domain.validation.AppError
+import com.repforge.app.domain.validation.AppException
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -24,7 +26,7 @@ fun parseCsvWorkoutsWithStats(raw: String, zone: ZoneId): CsvImportResult {
     val strong = listOf("date", "workout name", "exercise name", "set order", "weight", "reps").all { it in header }
     val hevy = listOf("title", "start_time", "exercise_title", "set_index", "set_type", "reps").all { it in header } &&
         ("weight_kg" in header || "weight_lbs" in header)
-    require(strong || hevy) { "Formato CSV não reconhecido (use exportação do Strong ou Hevy)." }
+    if (!(strong || hevy)) throw AppException(AppError.CsvFormat)
 
     fun col(row: List<String>, name: String) = header.indexOf(name).takeIf { it >= 0 }?.let { row.getOrNull(it) }?.trim().orEmpty()
     // Accepts "12", "12.0" and "12,5" (decimal comma).

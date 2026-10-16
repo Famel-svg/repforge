@@ -63,15 +63,21 @@ class SetLoggingTest {
     }
 
     @Test fun formatsPtBr() {
-        assertEquals("80,0 kg", formatKg(80.0))
-        assertEquals("80", formatWeightInput(80.0))
-        assertEquals("82,5", formatWeightInput(82.5))
-        assertEquals("10 × 80,0 kg", formatSet(entry(1, 10, 80.0, 0)))
-        assertEquals("3 × 10 · 80,0 kg", formatSet(entry(1, 10, 80.0, 0, sets = 3)))
+        val pt = java.util.Locale.forLanguageTag("pt-BR")
+        assertEquals("80,0 kg", formatKg(80.0, pt))
+        assertEquals("80", formatWeightInput(80.0, pt))
+        assertEquals("82,5", formatWeightInput(82.5, pt))
+        assertEquals("10 × 80,0 kg", formatSet(entry(1, 10, 80.0, 0), pt))
+        assertEquals("3 × 10 · 80,0 kg", formatSet(entry(1, 10, 80.0, 0, sets = 3), pt))
+        assertEquals("82.5", formatWeightInput(82.5, java.util.Locale.US))
     }
 
     @Test fun templatesAreWellFormed() {
         assertEquals(StarterTemplates.size, StarterTemplates.map { it.id }.toSet().size)
-        assertTrue(StarterTemplates.all { it.sheetName.isNotBlank() && it.exercises.isNotEmpty() && it.exercises.all { e -> e.name.isNotBlank() && e.target.isNotBlank() } })
+        assertTrue(StarterTemplates.all { it.exercises.isNotEmpty() && it.exercises.all { e -> e.name.isNotBlank() && e.target.isNotBlank() } })
+        // Template names must match the catalog, otherwise they are never translated or linked to muscles.
+        val catalog = org.json.JSONArray(java.io.File("src/main/assets/exercises.json").readText())
+        val names = (0 until catalog.length()).map { catalog.getJSONObject(it).getString("name") }.toSet()
+        assertEquals(emptyList<String>(), StarterTemplates.flatMap { it.exercises }.map { it.name }.filter { it !in names })
     }
 }

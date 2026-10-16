@@ -29,7 +29,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.repforge.app.R
 import com.repforge.app.data.ExerciseCatalog
+import com.repforge.app.presentation.equipmentLabel
+import com.repforge.app.presentation.isPortuguese
+import com.repforge.app.presentation.muscleLabel
 
 private val MUSCLES = listOf(
     "Peito", "Costas", "Ombros", "Bíceps", "Tríceps", "Antebraço", "Abdômen", "Quadríceps",
@@ -42,32 +48,35 @@ private val GUTTER = PaddingValues(horizontal = 20.dp)
 @OptIn(ExperimentalMaterial3Api::class)
 fun ExerciseSearchScreen(viewModel: ExerciseSearchViewModel, onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Scaffold(topBar = { TopAppBar(title = { Text("Buscar exercício") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Voltar") } }) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.search_exercise)) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back)) } }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 state.query, viewModel::queryChanged, Modifier.fillMaxWidth().padding(GUTTER),
-                label = { Text("Nome, músculo ou equipamento") }, singleLine = true
+                label = { Text(stringResource(R.string.search_hint)) }, singleLine = true
             )
-            ChipRow(MUSCLES, state.muscle, viewModel::muscleChanged)
-            ChipRow(EQUIPMENT, state.equipment, viewModel::equipmentChanged)
+            ChipRow(MUSCLES, state.muscle, viewModel::muscleChanged) { muscleLabel(it) }
+            ChipRow(EQUIPMENT, state.equipment, viewModel::equipmentChanged) { equipmentLabel(it) }
             Text(
-                if (state.loading) "Carregando…" else "${state.results.size} exercícios",
+                if (state.loading) stringResource(R.string.loading) else pluralStringResource(R.plurals.exercises_count, state.results.size, state.results.size),
                 Modifier.padding(GUTTER), color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             LazyColumn(Modifier.weight(1f), contentPadding = GUTTER, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (!state.loading && state.results.isEmpty()) {
-                    item { Text("Nenhum exercício encontrado.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    item { Text(stringResource(R.string.no_exercises_found), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 items(state.results, key = { it.id }) { exercise ->
                     val added = ExerciseCatalog.normalize(exercise.name) in state.added
                     Card {
                         Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Column(Modifier.weight(1f)) {
-                                Text(exercise.name, style = MaterialTheme.typography.titleMedium)
-                                if (exercise.nameEn.isNotBlank()) Text(exercise.nameEn, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("${exercise.muscle} · ${exercise.equipment}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                // Primary name follows the app language; the other one stays as a subtitle (search matches both).
+                                val english = !isPortuguese() && exercise.nameEn.isNotBlank()
+                                Text(if (english) exercise.nameEn else exercise.name, style = MaterialTheme.typography.titleMedium)
+                                val other = if (english) exercise.name else exercise.nameEn
+                                if (other.isNotBlank()) Text(other, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(muscleLabel(exercise.muscle) + " · " + equipmentLabel(exercise.equipment), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Button(onClick = { viewModel.add(exercise, onBack) }, enabled = !added) { Text(if (added) "Adicionado" else "Adicionar") }
+                            Button(onClick = { viewModel.add(exercise, onBack) }, enabled = !added) { Text(stringResource(if (added) R.string.added else R.string.add)) }
                         }
                     }
                 }
@@ -75,16 +84,16 @@ fun ExerciseSearchScreen(viewModel: ExerciseSearchViewModel, onBack: () -> Unit)
             OutlinedButton(
                 onClick = { viewModel.addCustom(onBack) }, enabled = state.query.isNotBlank(),
                 modifier = Modifier.fillMaxWidth().padding(GUTTER)
-            ) { Text(if (state.query.isBlank()) "Criar exercício personalizado" else "Criar \"${state.query.trim()}\"") }
+            ) { Text(if (state.query.isBlank()) stringResource(R.string.create_custom_exercise) else stringResource(R.string.create_named, state.query.trim())) }
         }
     }
 }
 
 @Composable
-private fun ChipRow(options: List<String>, selected: String?, onSelect: (String?) -> Unit) {
+private fun ChipRow(options: List<String>, selected: String?, onSelect: (String?) -> Unit, label: @Composable (String) -> String) {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = GUTTER) {
         items(options) { option ->
-            FilterChip(selected == option, { onSelect(if (selected == option) null else option) }, label = { Text(option) })
+            FilterChip(selected == option, { onSelect(if (selected == option) null else option) }, label = { Text(label(option)) })
         }
     }
 }

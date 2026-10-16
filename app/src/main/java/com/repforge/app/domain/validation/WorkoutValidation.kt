@@ -1,12 +1,10 @@
 package com.repforge.app.domain.validation
 
-data class SetInputError(val message: String)
-
-fun validateSetInput(sets: Int?, reps: Int?, weightKg: Double?): SetInputError? {
-    if (sets == null || reps == null || weightKg == null) return SetInputError("Preencha séries, repetições e carga.")
-    if (sets <= 0) return SetInputError("Séries devem ser maiores que zero.")
-    if (reps <= 0) return SetInputError("Repetições devem ser maiores que zero.")
-    if (weightKg < 0) return SetInputError("Carga não pode ser negativa.")
+fun validateSetInput(sets: Int?, reps: Int?, weightKg: Double?): AppError? {
+    if (sets == null || reps == null || weightKg == null) return AppError.SetMissing
+    if (sets <= 0) return AppError.SetsNotPositive
+    if (reps <= 0) return AppError.RepsNotPositive
+    if (weightKg < 0) return AppError.WeightNegative
     return null
 }
 
@@ -16,8 +14,8 @@ fun parseWeightKg(text: String): Double? = text.trim().replace(',', '.').toDoubl
 const val MIN_BODY_WEIGHT_KG = 20.0
 const val MAX_BODY_WEIGHT_KG = 400.0
 
-fun validateBodyWeight(weightKg: Double?): SetInputError? = when {
-    weightKg == null -> SetInputError("Informe o peso em kg.")
-    weightKg !in MIN_BODY_WEIGHT_KG..MAX_BODY_WEIGHT_KG -> SetInputError("Peso deve ficar entre 20 e 400 kg.")
+fun validateBodyWeight(weightKg: Double?): AppError? = when {
+    weightKg == null -> AppError.BodyWeightMissing
+    weightKg !in MIN_BODY_WEIGHT_KG..MAX_BODY_WEIGHT_KG -> AppError.BodyWeightRange
     else -> null
 }

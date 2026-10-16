@@ -38,8 +38,17 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.content.ContentResolver
+import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.repforge.app.R
+import com.repforge.app.data.ImportResult
+import com.repforge.app.domain.validation.AppError
+import com.repforge.app.domain.validation.AppException
+import com.repforge.app.presentation.errorText
+import com.repforge.app.presentation.proErrorText
 import java.io.IOException
 import java.time.LocalDate
 
@@ -55,11 +64,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
     val resolver = context.contentResolver
     val versionName = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() }
     val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(viewModel) { viewModel.messages.collect { snackbarHostState.showSnackbar(it) } }
+    LaunchedEffect(viewModel) { viewModel.messages.collect { snackbarHostState.showSnackbar(context.messageText(it)) } }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) viewModel.exportBackup { json ->
-            (resolver.openOutputStream(uri) ?: throw IOException("destino indisponível")).use { it.write(json.toByteArray()) }
+            (resolver.openOutputStream(uri) ?: throw AppException(AppError.DestinationUnavailable)).use { it.write(json.toByteArray()) }
         }
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -74,37 +83,37 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
         }
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Ajustes") }) }, snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.nav_settings)) }) }, snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("RepForge Pro", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.pro_title), style = MaterialTheme.typography.headlineSmall)
             Card {
                 Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (isPro) {
-                        Text("Pro ativo", style = MaterialTheme.typography.titleMedium)
-                        Text("Obrigado por apoiar o RepForge! Histórico de 90 dias e completo liberado, para sempre.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.pro_active), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.pro_thanks), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
-                        Text("Desbloqueio vitalício${price?.let { " · $it" }.orEmpty()}", style = MaterialTheme.typography.titleMedium)
-                        Text("Pagamento único, sem assinatura. Libera os gráficos de 1RM de 90 dias e de todo o histórico.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        proError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        Text(price?.let { stringResource(R.string.pro_lifetime_price, it) } ?: stringResource(R.string.pro_lifetime), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.pro_description), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        proError?.let { Text(context.proErrorText(it), color = MaterialTheme.colorScheme.error) }
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { activity?.let(pro::purchase) }, enabled = activity != null) { Text(price?.let { "Comprar por $it" } ?: "Comprar Pro") }
-                            OutlinedButton(onClick = pro::restore) { Text("Restaurar compra") }
+                            Button(onClick = { activity?.let(pro::purchase) }, enabled = activity != null) { Text(price?.let { stringResource(R.string.buy_for, it) } ?: stringResource(R.string.buy_pro)) }
+                            OutlinedButton(onClick = pro::restore) { Text(stringResource(R.string.restore_purchase)) }
                         }
                     }
                 }
             }
-            Text("Treino", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.workout_section), style = MaterialTheme.typography.headlineSmall)
             Card {
                 Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedButton(onClick = onOpenBodyWeight) { Text("Peso corporal") }
-                    Text("Descanso padrão", style = MaterialTheme.typography.titleMedium)
-                    Text("${state.restSeconds} segundos entre séries")
+                    OutlinedButton(onClick = onOpenBodyWeight) { Text(stringResource(R.string.body_weight)) }
+                    Text(stringResource(R.string.default_rest), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.rest_seconds_between_sets, state.restSeconds))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(60, 90, 120, 180).forEach { seconds ->
-                            FilterChip(selected = seconds == state.restSeconds, onClick = { viewModel.setRestSeconds(seconds) }, label = { Text("${seconds}s") })
+                            FilterChip(selected = seconds == state.restSeconds, onClick = { viewModel.setRestSeconds(seconds) }, label = { Text(stringResource(R.string.seconds_short, seconds)) })
                         }
                     }
                     HorizontalDivider()
@@ -113,35 +122,55 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text("Feedback háptico", style = MaterialTheme.typography.titleMedium)
-                            Text("Vibrar ao registrar uma série", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.haptics), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.haptics_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Switch(checked = state.hapticsEnabled, onCheckedChange = null)
                     }
                 }
             }
-            Text("Backup", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.backup), style = MaterialTheme.typography.headlineSmall)
             Card {
                 Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Importar adiciona as fichas do arquivo às atuais; nada é apagado. Backups do RepForge 1.0 (Expo) também são aceitos.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.backup_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { exportLauncher.launch("repforge-backup-${LocalDate.now()}.json") }) { Text("Exportar backup") }
-                        OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text("Importar backup") }
-                        OutlinedButton(onClick = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain")) }) { Text("Importar do Strong/Hevy (CSV)") }
+                        OutlinedButton(onClick = { exportLauncher.launch("repforge-backup-${LocalDate.now()}.json") }) { Text(stringResource(R.string.export_backup)) }
+                        OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text(stringResource(R.string.import_backup)) }
+                        OutlinedButton(onClick = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain")) }) { Text(stringResource(R.string.import_csv)) }
                     }
                 }
             }
-            Text("RepForge $versionName", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Seus treinos ficam no aparelho e funcionam sem conta.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.version_line, versionName), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.local_only_note), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
+
+private fun Context.messageText(message: SettingsMessage): String = when (message) {
+    SettingsMessage.Exported -> getString(R.string.backup_exported)
+    is SettingsMessage.ExportFailed -> getString(R.string.export_failed, errorText(message.error))
+    SettingsMessage.BackupEmpty -> getString(R.string.backup_empty)
+    is SettingsMessage.BackupImported ->
+        getString(R.string.import_result, resources.getQuantityString(R.plurals.sheets_count, message.sheets, message.sheets), importSummary(message.result))
+    is SettingsMessage.CsvImported -> buildString {
+        append(getString(R.string.import_result, resources.getQuantityString(R.plurals.sheets_count, message.sheets, message.sheets), importSummary(message.result)))
+        if (message.skippedRows > 0) append(" (").append(resources.getQuantityString(R.plurals.rows_ignored, message.skippedRows, message.skippedRows)).append(")")
+        if (message.maybePounds) append(" (").append(getString(R.string.check_csv_lb)).append(")")
+    }
+    is SettingsMessage.ImportFailed -> getString(R.string.import_failed, errorText(message.error))
+}
+
+private fun Context.importSummary(result: ImportResult) = getString(
+    R.string.import_counts,
+    resources.getQuantityString(R.plurals.import_new, result.imported, result.imported),
+    resources.getQuantityString(R.plurals.import_existing, result.skipped, result.skipped)
+)
 
 private const val MAX_IMPORT_BYTES = 20L * 1024 * 1024
 
 /** Reads a picked file as text, refusing anything over 20 MB before loading it. */
 private fun ContentResolver.readTextCapped(uri: Uri): String {
     val size = query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { if (it.moveToFirst() && !it.isNull(0)) it.getLong(0) else null }
-    if (size != null && size > MAX_IMPORT_BYTES) throw IOException("arquivo maior que 20 MB")
-    return (openInputStream(uri) ?: throw IOException("arquivo indisponível")).use { it.readBytes().decodeToString() }
+    if (size != null && size > MAX_IMPORT_BYTES) throw AppException(AppError.FileTooLarge)
+    return (openInputStream(uri) ?: throw AppException(AppError.FileUnavailable)).use { it.readBytes().decodeToString() }
 }

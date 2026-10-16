@@ -33,14 +33,17 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.annotation.StringRes
+import androidx.compose.ui.res.stringResource
+import com.repforge.app.R
 import kotlinx.coroutines.launch
 
-private data class Page(val icon: ImageVector, val title: String, val body: String)
+private data class Page(val icon: ImageVector, @StringRes val title: Int, @StringRes val body: Int)
 
 private val PAGES = listOf(
-    Page(Icons.Rounded.CloudOff, "Tudo no seu aparelho", "Sem conta e funciona offline. Seus treinos ficam só no seu celular."),
-    Page(Icons.Rounded.TouchApp, "Uma série, um toque", "Abra a ficha, ajuste repetições e carga e toque em Registrar série."),
-    Page(Icons.Rounded.Timeline, "Evolução e backup", "Acompanhe PRs e volume ao longo do tempo e exporte um backup quando quiser.")
+    Page(Icons.Rounded.CloudOff, R.string.onb1_title, R.string.onb1_body),
+    Page(Icons.Rounded.TouchApp, R.string.onb2_title, R.string.onb2_body),
+    Page(Icons.Rounded.Timeline, R.string.onb3_title, R.string.onb3_body)
 )
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -51,7 +54,7 @@ fun OnboardingScreen(onFinish: () -> Unit, onFinishWithTemplate: () -> Unit = on
     val last = pager.currentPage == PAGES.lastIndex
     Column(Modifier.fillMaxSize().safeDrawingPadding().padding(20.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            if (!last) TextButton(onClick = onFinish) { Text("Pular") }
+            if (!last) TextButton(onClick = onFinish) { Text(stringResource(R.string.skip)) }
         }
         HorizontalPager(pager, Modifier.weight(1f)) { index ->
             val page = PAGES[index]
@@ -61,16 +64,16 @@ fun OnboardingScreen(onFinish: () -> Unit, onFinishWithTemplate: () -> Unit = on
             ) {
                 Icon(page.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(8.dp))
                 Spacer(Modifier.height(24.dp))
-                Text(page.title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
+                Text(stringResource(page.title), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
                 Spacer(Modifier.height(12.dp))
-                Text(page.body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(page.body), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Text("Passo ${pager.currentPage + 1} de ${PAGES.size}", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterHorizontally))
+        Text(stringResource(R.string.step_x_of_y, pager.currentPage + 1, PAGES.size), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterHorizontally))
         Spacer(Modifier.height(12.dp))
         if (last) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onFinish) { Text("Começar") }
-            OutlinedButton(onClick = onFinishWithTemplate) { Text("Começar com um modelo") }
-        } else Button(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }, modifier = Modifier.fillMaxWidth()) { Text("Próximo") }
+            Button(onClick = onFinish) { Text(stringResource(R.string.get_started)) }
+            OutlinedButton(onClick = onFinishWithTemplate) { Text(stringResource(R.string.start_with_template)) }
+        } else Button(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.next)) }
     }
 }

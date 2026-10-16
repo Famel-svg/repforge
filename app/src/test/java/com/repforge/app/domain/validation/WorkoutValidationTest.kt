@@ -10,15 +10,15 @@ class WorkoutValidationTest {
     }
 
     @Test fun rejectsMissingValues() {
-        assertEquals("Preencha séries, repetições e carga.", validateSetInput(null, 10, 20.0)?.message)
+        assertEquals(AppError.SetMissing, validateSetInput(null, 10, 20.0))
     }
 
     @Test fun rejectsNonPositiveReps() {
-        assertEquals("Repetições devem ser maiores que zero.", validateSetInput(3, 0, 20.0)?.message)
+        assertEquals(AppError.RepsNotPositive, validateSetInput(3, 0, 20.0))
     }
 
     @Test fun rejectsNegativeWeight() {
-        assertEquals("Carga não pode ser negativa.", validateSetInput(3, 10, -1.0)?.message)
+        assertEquals(AppError.WeightNegative, validateSetInput(3, 10, -1.0))
     }
 
     @Test fun parsesDecimalCommaAndPoint() {
@@ -36,8 +36,8 @@ class WorkoutValidationTest {
         assertNull(validateBodyWeight(20.0))
         assertNull(validateBodyWeight(400.0))
         assertNull(validateBodyWeight(82.5))
-        assertEquals("Peso deve ficar entre 20 e 400 kg.", validateBodyWeight(19.9)?.message)
-        assertEquals("Peso deve ficar entre 20 e 400 kg.", validateBodyWeight(400.1)?.message)
-        assertEquals("Informe o peso em kg.", validateBodyWeight(null)?.message)
+        assertEquals(AppError.BodyWeightRange, validateBodyWeight(19.9))
+        assertEquals(AppError.BodyWeightRange, validateBodyWeight(400.1))
+        assertEquals(AppError.BodyWeightMissing, validateBodyWeight(null))
     }
 }

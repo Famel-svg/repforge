@@ -25,6 +25,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
+import com.repforge.app.R
 import com.repforge.app.domain.templates.StarterTemplates
 import com.repforge.app.domain.templates.WorkoutTemplate
 
@@ -36,25 +40,29 @@ fun CreateSheetDialog(
     initialTemplateId: String? = null
 ) {
     var templateId by rememberSaveable { mutableStateOf(initialTemplateId) }
-    var name by rememberSaveable { mutableStateOf(StarterTemplates.firstOrNull { it.id == initialTemplateId }?.sheetName.orEmpty()) }
+    val context = LocalContext.current
+    var name by rememberSaveable { mutableStateOf(StarterTemplates.firstOrNull { it.id == initialTemplateId }?.let { context.getString(it.sheetNameRes()) }.orEmpty()) }
     val template = StarterTemplates.firstOrNull { it.id == templateId }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Nova ficha") },
+        title = { Text(stringResource(R.string.new_sheet)) },
         text = {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nome") },
-                    placeholder = { Text("Ex.: Hipertrofia A") },
+                    label = { Text(stringResource(R.string.name)) },
+                    placeholder = { Text(stringResource(R.string.sheet_name_placeholder)) },
                     singleLine = true
                 )
-                Text("Modelo", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.template), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(Modifier.selectableGroup()) {
-                    TemplateOption("Ficha em branco", null, selected = template == null) { templateId = null }
+                    TemplateOption(stringResource(R.string.blank_sheet), null, selected = template == null) { templateId = null }
                     StarterTemplates.forEach { t ->
-                        TemplateOption(t.label, "${t.exercises.size} exercícios", selected = t.id == templateId) { templateId = t.id; name = t.sheetName }
+                        TemplateOption(
+                            stringResource(t.labelRes()), pluralStringResource(R.plurals.exercises_count, t.exercises.size, t.exercises.size),
+                            selected = t.id == templateId
+                        ) { templateId = t.id; name = context.getString(t.sheetNameRes()) }
                     }
                 }
             }
@@ -62,9 +70,9 @@ fun CreateSheetDialog(
         confirmButton = {
             Button(enabled = name.isNotBlank(), onClick = {
                 if (template == null) onCreate(name) else onCreateFromTemplate(template.copy(sheetName = name.trim()))
-            }) { Text("Criar") }
+            }) { Text(stringResource(R.string.create)) }
         },
-        dismissButton = { Button(onClick = onDismiss) { Text("Cancelar") } }
+        dismissButton = { Button(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }
 
@@ -81,4 +89,25 @@ private fun TemplateOption(label: String, detail: String?, selected: Boolean, on
             if (detail != null) Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+/** Template display names live in string resources keyed by template id (stored exercise names stay catalog keys). */
+@androidx.annotation.StringRes
+private fun WorkoutTemplate.labelRes(): Int = when (id) {
+    "full-body" -> R.string.template_full_body_label
+    "abc-a" -> R.string.template_abc_a_label
+    "abc-b" -> R.string.template_abc_b_label
+    "abc-c" -> R.string.template_abc_c_label
+    "upper" -> R.string.template_upper_label
+    else -> R.string.template_lower_label
+}
+
+@androidx.annotation.StringRes
+private fun WorkoutTemplate.sheetNameRes(): Int = when (id) {
+    "full-body" -> R.string.template_full_body_sheet
+    "abc-a" -> R.string.template_abc_a_sheet
+    "abc-b" -> R.string.template_abc_b_sheet
+    "abc-c" -> R.string.template_abc_c_sheet
+    "upper" -> R.string.template_upper_sheet
+    else -> R.string.template_lower_sheet
 }

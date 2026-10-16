@@ -1,6 +1,12 @@
 package com.repforge.app.presentation
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.res.stringResource
+import com.repforge.app.R
+import com.repforge.app.data.ExerciseCatalog
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FitnessCenter
@@ -48,10 +54,10 @@ import com.repforge.app.presentation.settings.SettingsViewModel
 import com.repforge.app.presentation.workout.WorkoutScreen
 import com.repforge.app.presentation.workout.WorkoutViewModel
 
-private enum class Destination(val route: String, val label: String, val icon: ImageVector) {
-    Home("home", "Treino", Icons.Rounded.FitnessCenter),
-    Progress("progress", "Evolução", Icons.Rounded.Timeline),
-    Settings("settings", "Ajustes", Icons.Rounded.Settings)
+private enum class Destination(val route: String, @StringRes val label: Int, val icon: ImageVector) {
+    Home("home", R.string.nav_workout, Icons.Rounded.FitnessCenter),
+    Progress("progress", R.string.nav_progress, Icons.Rounded.Timeline),
+    Settings("settings", R.string.nav_settings, Icons.Rounded.Settings)
 }
 
 private const val SHEET_ID = "sheetId"
@@ -68,9 +74,13 @@ fun RepForgeApp() {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { application.pro.restore() }
     val isPro by application.pro.isPro.collectAsStateWithLifecycle()
     var openTemplatePicker by remember { mutableStateOf(false) }
+    val catalogNames by produceState(emptyMap<String, String>()) {
+        value = application.catalog.all().filter { it.nameEn.isNotBlank() }.associate { ExerciseCatalog.normalize(it.name) to it.nameEn }
+    }
     if (onboardingDone == null) return
     val startRoute = remember { if (onboardingDone == true) Destination.Home.route else "onboarding" } // fixed at first value
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    CompositionLocalProvider(LocalCatalogNames provides catalogNames) {
     Scaffold(
         bottomBar = {
             // Sheet and search are full-screen flows; the tab bar only belongs to top-level destinations.
@@ -86,7 +96,7 @@ fun RepForgeApp() {
                             }
                         },
                         icon = { Icon(destination.icon, contentDescription = null) },
-                        label = { Text(destination.label) }
+                        label = { Text(stringResource(destination.label)) }
                     )
                 }
             }
@@ -147,5 +157,6 @@ fun RepForgeApp() {
                 )
             }
         }
+    }
     }
 }

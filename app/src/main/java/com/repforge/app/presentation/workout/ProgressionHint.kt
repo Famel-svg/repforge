@@ -16,6 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.repforge.app.R
+import com.repforge.app.domain.logging.formatWeightInput
+import com.repforge.app.domain.progression.ProgressionKind
 import com.repforge.app.domain.progression.ProgressionSuggestion
 
 /** One-line progression suggestion. Free users see a "Pro" teaser; a null [suggestion] hides it for Pro users. */
@@ -29,17 +33,23 @@ fun ProgressionHint(
 ) {
     val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
     if (!isPro) {
-        Card(modifier.fillMaxWidth().clickable(onClickLabel = "Conhecer o Pro", role = Role.Button, onClick = onUpgrade), colors = colors) {
-            Text("Sugestão de carga · Pro", Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.labelLarge)
+        Card(modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.learn_pro), role = Role.Button, onClick = onUpgrade), colors = colors) {
+            Text(stringResource(R.string.suggestion_pro_teaser), Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.labelLarge)
         }
         return
     }
     if (suggestion == null) return
-    val w = suggestion.weightKg.let { if (it % 1.0 == 0.0) "%.0f".format(it) else "%.1f".format(it).replace('.', ',') }
+    val w = formatWeightInput(suggestion.weightKg)
+    val reason = when (suggestion.kind) {
+        ProgressionKind.Deload -> stringResource(R.string.progression_deload, 10)
+        ProgressionKind.RaiseLoad -> stringResource(R.string.progression_raise, suggestion.topReps)
+        ProgressionKind.KeepLoad -> stringResource(R.string.progression_keep, suggestion.reps, w, suggestion.reps)
+        ProgressionKind.AddRep -> stringResource(R.string.progression_add_rep, w, suggestion.reps)
+    }
     Card(modifier.fillMaxWidth(), colors = colors) {
         Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Sugestão: $w kg × ${suggestion.reps} · ${suggestion.reason}", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            TextButton(onClick = { onApply(suggestion.reps, suggestion.weightKg) }) { Text("Aplicar") }
+            Text(stringResource(R.string.suggestion_line, w, suggestion.reps, reason), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            TextButton(onClick = { onApply(suggestion.reps, suggestion.weightKg) }) { Text(stringResource(R.string.apply)) }
         }
     }
 }

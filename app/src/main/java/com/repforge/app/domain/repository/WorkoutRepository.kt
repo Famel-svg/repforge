@@ -16,7 +16,8 @@ interface WorkoutRepository {
     fun observeSheet(sheetId: Long): Flow<TrainingSheet?>
     fun observeSummary(): Flow<DashboardSummary>
     suspend fun createSheet(name: String)
-    suspend fun duplicateSheet(sheetId: Long)
+    /** [copyLabel] is the localized word appended to the copy's name, e.g. "copy". */
+    suspend fun duplicateSheet(sheetId: Long, copyLabel: String)
     suspend fun deleteSheet(sheetId: Long)
     fun observeExercises(sheetId: Long): Flow<List<Exercise>>
     fun observeEntries(exerciseId: Long): Flow<List<SetEntry>>

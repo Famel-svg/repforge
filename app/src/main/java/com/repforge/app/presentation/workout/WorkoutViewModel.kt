@@ -2,6 +2,7 @@ package com.repforge.app.presentation.workout
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.repforge.app.R
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.repository.WorkoutRepository
@@ -20,11 +21,12 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
 class WorkoutViewModel(private val repository: WorkoutRepository, private val sheetId: Long) : ViewModel() {
-    private val _messages = Channel<String>(Channel.BUFFERED)
-    val messages: Flow<String> = _messages.receiveAsFlow()
+    private val _messages = Channel<Int>(Channel.BUFFERED)
+    /** String resource ids; resolved by the screen. */
+    val messages: Flow<Int> = _messages.receiveAsFlow()
     private val guard = CoroutineExceptionHandler { _, e ->
         android.util.Log.e("RepForge", "Falha em operação", e)
-        _messages.trySend("Não foi possível concluir a ação.")
+        _messages.trySend(R.string.action_failed)
     }
 
     val sheetName: StateFlow<String> = repository.observeSheet(sheetId).map { it?.name.orEmpty() }

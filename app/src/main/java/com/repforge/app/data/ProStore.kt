@@ -35,7 +35,13 @@ import kotlin.coroutines.resume
 private val Context.proPreferences by preferencesDataStore("repforge_pro")
 private val cachedPro = booleanPreferencesKey("is_pro")
 const val PRO_PRODUCT_ID = "repforge_pro_lifetime"
-private const val UNAVAILABLE = "Google Play indisponível neste aparelho. Tente novamente mais tarde."
+
+/** Billing failure kinds; the UI maps each to a string resource. */
+sealed interface ProError {
+    data object Unavailable : ProError
+    data object Pending : ProError
+    data class PurchaseFailed(val code: Int) : ProError
+}
 
 /** Lifetime unlock via Play Billing. Never throws: without Play it stays at the cached (offline) state plus [error]. */
 class ProStore(context: Context) {
@@ -46,10 +52,10 @@ class ProStore(context: Context) {
 
     private val _isPro = MutableStateFlow(false)
     private val _price = MutableStateFlow<String?>(null)
-    private val _error = MutableStateFlow<String?>(null)
+    private val _error = MutableStateFlow<ProError?>(null)
     val isPro: StateFlow<Boolean> = _isPro
     val price: StateFlow<String?> = _price
-    val error: StateFlow<String?> = _error
+    val error: StateFlow<ProError?> = _error
 
     private val client: BillingClient? = runCatching {
         BillingClient.newBuilder(app)
@@ -58,7 +64,7 @@ class ProStore(context: Context) {
                     BillingClient.BillingResponseCode.OK -> scope.launch { handle(purchases.orEmpty()) }
                     BillingClient.BillingResponseCode.USER_CANCELED -> Unit
                     BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> restore()
-                    else -> _error.value = "Não foi possível concluir a compra (${result.responseCode})."
+                    else -> _error.value = ProError.PurchaseFailed(result.responseCode)
                 }
             }
             .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
@@ -80,12 +86,12 @@ class ProStore(context: Context) {
         scope.launch {
             _error.value = null
             if (details == null) refresh()
-            val d = details ?: return@launch run { _error.value = _error.value ?: UNAVAILABLE }
+            val d = details ?: return@launch run { _error.value = _error.value ?: ProError.Unavailable }
             val params = BillingFlowParams.newBuilder()
                 .setProductDetailsParamsList(listOf(BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(d).build()))
                 .build()
             val result = runCatching { client?.launchBillingFlow(activity, params) }.getOrNull()
-            if (result?.responseCode != BillingClient.BillingResponseCode.OK) _error.value = UNAVAILABLE
+            if (result?.responseCode != BillingClient.BillingResponseCode.OK) _error.value = ProError.Unavailable
         }
     }
 
@@ -113,7 +119,7 @@ class ProStore(context: Context) {
 
     private suspend fun refresh() {
         val c = client
-        if (c == null || !ready()) return run { _error.value = UNAVAILABLE }
+        if (c == null || !ready()) return run { _error.value = ProError.Unavailable }
         try {
             val product = QueryProductDetailsParams.Product.newBuilder().setProductId(PRO_PRODUCT_ID).setProductType(BillingClient.ProductType.INAPP).build()
             val found = c.queryProductDetails(QueryProductDetailsParams.newBuilder().setProductList(listOf(product)).build())
@@ -124,11 +130,11 @@ class ProStore(context: Context) {
             if (owned.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                 _error.value = null
                 handle(owned.purchasesList, authoritative = true)
-            } else _error.value = UNAVAILABLE
+            } else _error.value = ProError.Unavailable
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _error.value = UNAVAILABLE
+            _error.value = ProError.Unavailable
         }
     }
 
@@ -150,7 +156,7 @@ class ProStore(context: Context) {
     private suspend fun handle(purchases: List<Purchase>, authoritative: Boolean = false) {
         val mine = purchases.filter { PRO_PRODUCT_ID in it.products }
         val owned = mine.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
-        if (mine.any { it.purchaseState == Purchase.PurchaseState.PENDING }) _error.value = "Compra pendente; o Pro será liberado quando o pagamento for confirmado."
+        if (mine.any { it.purchaseState == Purchase.PurchaseState.PENDING }) _error.value = ProError.Pending
         owned.filter { !it.isAcknowledged }.forEach { acknowledge(it) }
         // A successful query is authoritative (covers refunds); a purchase event only ever grants.
         if (owned.isNotEmpty() || authoritative) {

@@ -40,6 +40,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.repforge.app.R
+import com.repforge.app.domain.validation.AppError
+import com.repforge.app.presentation.res
 import com.repforge.app.domain.logging.formatKg
 import com.repforge.app.domain.model.BodyWeight
 import com.repforge.app.domain.validation.parseWeightKg
@@ -52,38 +57,38 @@ import java.util.Date
 fun BodyWeightScreen(viewModel: BodyWeightViewModel, onBack: () -> Unit) {
     val weights by viewModel.weights.collectAsStateWithLifecycle()
     var input by rememberSaveable { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<AppError?>(null) }
     val dateFormat = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Peso corporal") }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Voltar") } })
+        TopAppBar(title = { Text(stringResource(R.string.body_weight)) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back)) } })
     }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
                     OutlinedTextField(
-                        input, { input = it; error = null }, Modifier.weight(1f), label = { Text("Peso (kg)") }, singleLine = true,
-                        isError = error != null, supportingText = error?.let { { Text(it) } },
+                        input, { input = it; error = null }, Modifier.weight(1f), label = { Text(stringResource(R.string.weight_kg)) }, singleLine = true,
+                        isError = error != null, supportingText = error?.let { { Text(stringResource(it.res())) } },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                     )
                     Button(
                         onClick = {
                             val kg = parseWeightKg(input)
-                            error = validateBodyWeight(kg)?.message
+                            error = validateBodyWeight(kg)
                             if (error == null) { viewModel.add(kg!!); input = "" }
                         },
                         Modifier.padding(top = 8.dp).height(48.dp)
-                    ) { Text("Registrar") }
+                    ) { Text(stringResource(R.string.log)) }
                 }
             }
             if (weights.size >= 2) item { WeightChart(weights.asReversed(), dateFormat) }
-            if (weights.isEmpty()) item { Text("Nenhum registro ainda.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (weights.isEmpty()) item { Text(stringResource(R.string.no_records_yet), color = MaterialTheme.colorScheme.onSurfaceVariant) }
             items(weights, key = { it.id }) { w ->
                 Card {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(formatKg(w.weightKg), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                         Text(dateFormat.format(Date(w.recordedAt)), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        IconButton(onClick = { viewModel.delete(w.id) }) { Icon(Icons.Rounded.Delete, "Remover registro de ${formatKg(w.weightKg)}") }
+                        IconButton(onClick = { viewModel.delete(w.id) }) { Icon(Icons.Rounded.Delete, stringResource(R.string.remove_record_of, formatKg(w.weightKg))) }
                     }
                 }
             }
@@ -97,9 +102,13 @@ private fun WeightChart(chronological: List<BodyWeight>, dateFormat: DateFormat)
     val line = MaterialTheme.colorScheme.primary
     val first = chronological.first()
     val last = chronological.last()
-    val description = "Gráfico de peso corporal: de ${formatKg(first.weightKg)} em ${dateFormat.format(Date(first.recordedAt))} " +
-        "para ${formatKg(last.weightKg)} em ${dateFormat.format(Date(last.recordedAt))}, ${chronological.size} registros, " +
-        "mínimo ${formatKg(chronological.minOf { it.weightKg })}, máximo ${formatKg(chronological.maxOf { it.weightKg })}."
+    val description = stringResource(
+        R.string.body_chart_description,
+        formatKg(first.weightKg), dateFormat.format(Date(first.recordedAt)),
+        formatKg(last.weightKg), dateFormat.format(Date(last.recordedAt)),
+        pluralStringResource(R.plurals.records_count, chronological.size, chronological.size),
+        formatKg(chronological.minOf { it.weightKg }), formatKg(chronological.maxOf { it.weightKg })
+    )
     Card {
         Canvas(Modifier.fillMaxWidth().height(160.dp).padding(16.dp).semantics { contentDescription = description }) {
             val minKg = chronological.minOf { it.weightKg }

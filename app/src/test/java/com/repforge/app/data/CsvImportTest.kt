@@ -1,5 +1,7 @@
 package com.repforge.app.data
 
+import com.repforge.app.domain.validation.AppError
+import com.repforge.app.domain.validation.AppException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -52,7 +54,7 @@ class CsvImportTest {
     @Test
     fun rejectsUnknownHeader() {
         val error = assertThrows(IllegalArgumentException::class.java) { parseCsvWorkouts("a,b,c\n1,2,3\n", utc) }
-        assertEquals("Formato CSV não reconhecido (use exportação do Strong ou Hevy).", error.message)
+        assertEquals(AppError.CsvFormat, (error as AppException).error)
     }
 
     @Test

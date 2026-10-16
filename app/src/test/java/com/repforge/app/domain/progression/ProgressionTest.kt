@@ -24,7 +24,7 @@ class ProgressionTest {
         assertEquals(ProgressionKind.RaiseLoad, s.kind)
         assertEquals(42.5, s.weightKg, 0.0)
         assertEquals(8, s.reps)
-        assertEquals("Você bateu 12 reps em todas as séries: suba a carga.", s.reason)
+        assertEquals(12, s.topReps)
     }
 
     @Test fun lightLoadRaisesByOneKg() {

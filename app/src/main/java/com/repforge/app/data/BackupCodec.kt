@@ -1,6 +1,8 @@
 package com.repforge.app.data
 
 import com.repforge.app.domain.model.SET_TYPES
+import com.repforge.app.domain.validation.AppError
+import com.repforge.app.domain.validation.AppException
 import com.repforge.app.domain.validation.validateBodyWeight
 import org.json.JSONArray
 import org.json.JSONException
@@ -61,13 +63,13 @@ object BackupCodec {
     }
 
     fun decode(raw: String): List<BackupSheet> {
-        val root = try { JSONObject(raw) } catch (_: JSONException) { throw IllegalArgumentException("Arquivo não é um JSON válido.") }
-        require(root.optInt("version") == VERSION) { "Versão de backup não suportada." }
-        val sheets = root.optJSONArray("sheets") ?: throw IllegalArgumentException("Backup sem fichas.")
+        val root = try { JSONObject(raw) } catch (_: JSONException) { throw AppException(AppError.InvalidJson) }
+        if (root.optInt("version") != VERSION) throw AppException(AppError.UnsupportedVersion)
+        val sheets = root.optJSONArray("sheets") ?: throw AppException(AppError.NoSheets)
         return try {
             if (root.optString("format") == FORMAT) decodeNative(sheets, root) else decodeLegacy(sheets)
         } catch (error: JSONException) {
-            throw IllegalArgumentException("Backup corrompido: ${error.message}")
+            throw AppException(AppError.Corrupt, error.message)
         }
     }
 
@@ -77,10 +79,10 @@ object BackupCodec {
         return try {
             (0 until array.length()).map {
                 val item = array.getJSONObject(it)
-                BackupBodyWeight(item.getDouble("weightKg"), item.getLong("recordedAt")).also { w -> require(validateBodyWeight(w.weightKg) == null) { "Backup contém peso corporal inválido." } }
+                BackupBodyWeight(item.getDouble("weightKg"), item.getLong("recordedAt")).also { w -> if (validateBodyWeight(w.weightKg) != null) throw AppException(AppError.InvalidBodyWeight) }
             }
         } catch (error: JSONException) {
-            throw IllegalArgumentException("Backup corrompido: ${error.message}")
+            throw AppException(AppError.Corrupt, error.message)
         }
     }
 
@@ -91,10 +93,10 @@ object BackupCodec {
         val exerciseIds = (0 until exercises.length()).map { exercises.getJSONObject(it).getLong("id") }.toSet()
 
         val entriesByExercise = (0 until entries.length()).map { entries.getJSONObject(it) }.groupBy { item ->
-            item.getLong("exerciseId").also { require(it in exerciseIds) { "Série aponta para exercício inexistente." } }
+            item.getLong("exerciseId").also { if (it !in exerciseIds) throw AppException(AppError.OrphanEntry) }
         }
         val exercisesBySheet = (0 until exercises.length()).map { exercises.getJSONObject(it) }.groupBy { item ->
-            item.getLong("sheetId").also { require(it in sheetIds) { "Exercício aponta para ficha inexistente." } }
+            item.getLong("sheetId").also { if (it !in sheetIds) throw AppException(AppError.OrphanExercise) }
         }
         return (0 until sheets.length()).map { index ->
             val sheet = sheets.getJSONObject(index)
@@ -120,7 +122,7 @@ object BackupCodec {
 
     private fun decodeLegacy(sheets: JSONArray): List<BackupSheet> = (0 until sheets.length()).map { index ->
         val sheet = sheets.getJSONObject(index)
-        val exercises = sheet.optJSONArray("exercises") ?: throw IllegalArgumentException("Arquivo não é um backup RepForge.")
+        val exercises = sheet.optJSONArray("exercises") ?: throw AppException(AppError.NotRepForgeBackup)
         BackupSheet(
             name = name(sheet),
             updatedAt = isoMillis(either(sheet, "updated_at", "updatedAt")),
@@ -146,13 +148,13 @@ object BackupCodec {
     }
 
     private fun name(item: JSONObject): String =
-        item.getString("name").trim().also { require(it.isNotEmpty()) { "Backup contém nome vazio." } }
+        item.getString("name").trim().also { if (it.isEmpty()) throw AppException(AppError.EmptyName) }
 
     private fun position(item: JSONObject): Int =
-        item.getInt("position").also { require(it >= 0) { "Backup contém posição inválida." } }
+        item.getInt("position").also { if (it < 0) throw AppException(AppError.InvalidPosition) }
 
     private fun entry(sets: Int, reps: Int, weightKg: Double, recordedAt: Long, setType: String = "normal", rpe: Double? = null): BackupEntry {
-        require(sets > 0 && reps > 0 && weightKg >= 0 && weightKg.isFinite()) { "Backup contém série inválida." }
+        if (!(sets > 0 && reps > 0 && weightKg >= 0 && weightKg.isFinite())) throw AppException(AppError.InvalidSet)
         // Unknown set types and out-of-range RPE degrade to defaults instead of rejecting the file.
         return BackupEntry(sets, reps, weightKg, recordedAt, if (setType in SET_TYPES) setType else "normal", rpe?.takeIf { it in 6.0..10.0 })
     }
@@ -164,5 +166,5 @@ object BackupCodec {
         runCatching { Instant.parse(value).toEpochMilli() }
             .recoverCatching { OffsetDateTime.parse(value).toInstant().toEpochMilli() }
             .recoverCatching { LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() }
-            .getOrElse { throw IllegalArgumentException("Data inválida no backup: $value") }
+            .getOrElse { throw AppException(AppError.InvalidDate, value) }
 }

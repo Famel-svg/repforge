@@ -11,8 +11,6 @@ const val DEFAULT_REPS = 10
 const val REPS_STEP = 1
 const val WEIGHT_STEP_KG = 2.5
 
-private val PtBr: Locale = Locale.forLanguageTag("pt-BR")
-
 data class SetPrefill(val reps: Int, val weightKg: Double?)
 
 /** [entries] newest first, as the repository emits them. */
@@ -43,13 +41,14 @@ fun movedOrder(orderedIds: List<Long>, id: Long, up: Boolean): List<Long>? {
     return orderedIds.toMutableList().apply { this[from] = this[to]; this[to] = id }
 }
 
-fun formatKg(weightKg: Double): String = "%.1f kg".format(PtBr, weightKg)
+/** Numbers follow [locale] (device/app locale by default): "80,5" in pt-BR, "80.5" in en. */
+fun formatKg(weightKg: Double, locale: Locale = Locale.getDefault()): String = "%.1f kg".format(locale, weightKg)
 
 /** Text for the load field: "80" or "82,5". */
-fun formatWeightInput(weightKg: Double): String =
-    if (weightKg % 1.0 == 0.0) weightKg.toLong().toString() else "%.1f".format(PtBr, weightKg)
+fun formatWeightInput(weightKg: Double, locale: Locale = Locale.getDefault()): String =
+    if (weightKg % 1.0 == 0.0) weightKg.toLong().toString() else "%.1f".format(locale, weightKg)
 
 /** "10 × 80,0 kg", or "3 × 10 · 80,0 kg" for older aggregated rows. */
-fun formatSet(entry: SetEntry): String =
-    if (entry.sets > 1) "${entry.sets} × ${entry.reps} · ${formatKg(entry.weightKg)}"
-    else "${entry.reps} × ${formatKg(entry.weightKg)}"
+fun formatSet(entry: SetEntry, locale: Locale = Locale.getDefault()): String =
+    if (entry.sets > 1) "${entry.sets} × ${entry.reps} · ${formatKg(entry.weightKg, locale)}"
+    else "${entry.reps} × ${formatKg(entry.weightKg, locale)}"
