@@ -15,6 +15,7 @@ import com.repforge.app.domain.metrics.exercisesWithHistory
 import com.repforge.app.domain.metrics.filterByRange
 import com.repforge.app.domain.metrics.last7DaysVolume
 import com.repforge.app.domain.metrics.localDate
+import com.repforge.app.domain.metrics.locked
 import com.repforge.app.domain.metrics.oneRepMaxSeries
 import com.repforge.app.domain.metrics.recentWorkouts
 import com.repforge.app.domain.model.HistoryEntry
@@ -31,7 +32,8 @@ data class ExerciseDetail(
     val exercise: ExerciseHistory,
     val range: ProgressRange,
     val series: List<OneRepMaxPoint>,
-    val stats: ExerciseStats
+    val stats: ExerciseStats,
+    val locked: Boolean = false
 )
 
 data class ProgressUiState(
@@ -43,12 +45,12 @@ data class ProgressUiState(
     val recent: List<WorkoutDay> = emptyList()
 )
 
-class ProgressViewModel(repository: WorkoutRepository) : ViewModel() {
+class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>) : ViewModel() {
     private val selectedId = MutableStateFlow<Long?>(null)
     private val range = MutableStateFlow(ProgressRange.Days30)
 
-    val state: StateFlow<ProgressUiState> = combine(repository.observeHistory(), selectedId, range) { history, id, r ->
-        buildState(history, id, r, System.currentTimeMillis(), ZoneId.systemDefault())
+    val state: StateFlow<ProgressUiState> = combine(repository.observeHistory(), selectedId, range, isPro) { history, id, r, pro ->
+        buildState(history, id, r, pro, System.currentTimeMillis(), ZoneId.systemDefault())
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUiState())
 
     fun toggleExercise(exerciseId: Long) = selectedId.update { if (it == exerciseId) null else exerciseId }
@@ -57,14 +59,15 @@ class ProgressViewModel(repository: WorkoutRepository) : ViewModel() {
         range.value = value
     }
 
-    private fun buildState(history: List<HistoryEntry>, id: Long?, r: ProgressRange, now: Long, zone: ZoneId): ProgressUiState {
+    private fun buildState(history: List<HistoryEntry>, id: Long?, r: ProgressRange, pro: Boolean, now: Long, zone: ZoneId): ProgressUiState {
         val exercises = exercisesWithHistory(history)
         val week = last7DaysVolume(history, now, zone)
         val weekStart = week.first().date
         val selected = exercises.firstOrNull { it.exerciseId == id }
         val detail = selected?.let {
             val own = history.filter { e -> e.exerciseId == it.exerciseId }
-            ExerciseDetail(it, r, filterByRange(oneRepMaxSeries(own, zone), r, localDate(now, zone)), exerciseStats(own))
+            val locked = r.locked(pro)
+            ExerciseDetail(it, r, if (locked) emptyList() else filterByRange(oneRepMaxSeries(own, zone), r, localDate(now, zone)), exerciseStats(own), locked)
         }
         return ProgressUiState(
             consistency = consistency(history, now, zone),

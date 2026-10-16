@@ -75,6 +75,7 @@ dependencies {
     implementation("androidx.room:room-ktx:2.8.1")
     ksp("androidx.room:room-compiler:2.8.1")
     implementation("androidx.datastore:datastore-preferences:1.1.7")
+    implementation("com.android.billingclient:billing-ktx:9.0.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")

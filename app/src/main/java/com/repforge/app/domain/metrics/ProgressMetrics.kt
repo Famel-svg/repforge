@@ -17,7 +17,9 @@ data class ExerciseHistory(val exerciseId: Long, val name: String, val sheetName
 
 data class ExerciseStats(val prKg: Double, val bestOneRepMaxKg: Double, val totalSets: Int)
 
-enum class ProgressRange(val days: Long?) { Days30(30), Days90(90), All(null) }
+enum class ProgressRange(val days: Long?, val pro: Boolean) { Days30(30, false), Days90(90, true), All(null, true) }
+
+fun ProgressRange.locked(isPro: Boolean) = pro && !isPro
 
 fun localDate(epochMillis: Long, zone: ZoneId): LocalDate = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
 

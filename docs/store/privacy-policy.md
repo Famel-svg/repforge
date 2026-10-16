@@ -11,7 +11,8 @@ O RepForge (pacote `com.repforge.app`) é um aplicativo Android de registro de t
 - O desenvolvedor **não coleta nenhum dado** seu.
 - O app **não pede conta nem login**.
 - O app **não tem anúncios**, não usa ferramentas de análise de uso, nem SDK de relatório de falhas, nem outros SDKs de terceiros que coletem dados.
-- O app **não solicita nenhuma permissão do Android**, inclusive a de internet, e portanto não consegue enviar informações para fora do seu aparelho.
+- Seus dados de treino **nunca saem do aparelho**: o app não tem servidor próprio e não envia nada ao desenvolvedor.
+- O app declara apenas a permissão de compras do Google Play (`com.android.vending.BILLING`). A biblioteca do Google Play Billing usa a rede para falar com o Google Play, somente para processar e verificar a compra do **RepForge Pro**.
 - Seus treinos ficam **somente no seu aparelho**.
 
 ## 3. Quais dados o app trata
@@ -47,7 +48,11 @@ A LGPD garante direitos como confirmação de tratamento, acesso, correção, an
 
 ## 9. Alterações nesta política
 
-Podemos atualizar esta política. Por exemplo, o desenvolvedor planeja oferecer no futuro uma versão paga ("Pro") por compra dentro do app, processada pelo Google Play Billing. Se isso for lançado, esta política será atualizada para refletir a mudança antes ou junto com a nova versão, e a data acima será alterada. A versão atual fica sempre disponível em [URL DA POLÍTICA].
+Podemos atualizar esta política; a data acima será alterada e a versão atual fica sempre em [URL DA POLÍTICA].
+
+## 9.1 Compra do RepForge Pro
+
+O RepForge oferece o desbloqueio vitalício "RepForge Pro" por compra única dentro do app. A compra é processada inteiramente pelo **Google Play Billing**, sob os termos e a política de privacidade do Google. O desenvolvedor **não recebe dados de pagamento** (cartão, endereço etc.); recebe apenas, pelo Play Console, informações agregadas de vendas fornecidas pelo Google. O app consulta o Google Play para saber se a compra existe e guarda no aparelho apenas um indicador "Pro ativo" para funcionar sem internet. O Google Play pode tratar dados do seu aparelho e da sua conta Google conforme as políticas dele. Todos os recursos gratuitos continuam gratuitos.
 
 ## 10. Contato
 
@@ -68,7 +73,8 @@ RepForge (package `com.repforge.app`) is an Android strength-training log app de
 - The developer **collects none of your data**.
 - The app **requires no account or login**.
 - The app has **no ads**, no analytics, no crash-reporting SDK and no other third-party SDKs that collect data.
-- The app **requests no Android permissions at all**, including internet, so it cannot send anything out of your device.
+- Your workout data **never leaves your device**: the app has no server of its own and sends nothing to the developer.
+- The app declares only the Google Play purchase permission (`com.android.vending.BILLING`). The Google Play Billing library uses the network to talk to Google Play, solely to process and verify the **RepForge Pro** purchase.
 - Your workouts stay **only on your device**.
 
 ## 3. What data the app handles
@@ -104,7 +110,11 @@ The LGPD grants rights such as confirmation of processing, access, correction, a
 
 ## 9. Changes to this policy
 
-We may update this policy. For example, the developer plans to offer a paid "Pro" version through in-app purchase in the future, processed by Google Play Billing. If that is released, this policy will be updated to reflect the change before or together with the new version, and the date above will change. The current version is always available at [URL DA POLÍTICA].
+We may update this policy; the date above will change and the current version is always available at [URL DA POLÍTICA].
+
+## 9.1 RepForge Pro purchase
+
+RepForge offers a lifetime "RepForge Pro" unlock as a one-time in-app purchase. The purchase is processed entirely by **Google Play Billing**, under Google's terms and privacy policy. The developer **receives no payment data** (card, address, etc.); the developer only sees aggregated sales information that Google provides in the Play Console. The app queries Google Play to check whether the purchase exists and stores only a "Pro active" flag on your device so it works offline. Google Play may process data from your device and Google account under its own policies. All features that are free remain free.
 
 ## 10. Contact
 

@@ -1,6 +1,8 @@
 package com.repforge.app.presentation.settings
 
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import com.repforge.app.data.ProStore
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,8 +39,12 @@ import java.time.LocalDate
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-fun SettingsScreen(viewModel: SettingsViewModel) {
+fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val isPro by pro.isPro.collectAsStateWithLifecycle()
+    val price by pro.price.collectAsStateWithLifecycle()
+    val proError by pro.error.collectAsStateWithLifecycle()
+    val activity = LocalActivity.current
     val context = LocalContext.current
     val resolver = context.contentResolver
     val versionName = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() }
@@ -61,6 +67,23 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text("RepForge Pro", style = MaterialTheme.typography.headlineSmall)
+            Card {
+                Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (isPro) {
+                        Text("Pro ativo", style = MaterialTheme.typography.titleMedium)
+                        Text("Obrigado por apoiar o RepForge! Histórico de 90 dias e completo liberado, para sempre.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        Text("Desbloqueio vitalício${price?.let { " · $it" }.orEmpty()}", style = MaterialTheme.typography.titleMedium)
+                        Text("Pagamento único, sem assinatura. Libera os gráficos de 1RM de 90 dias e de todo o histórico.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        proError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = { activity?.let(pro::purchase) }, enabled = activity != null) { Text(price?.let { "Comprar por $it" } ?: "Comprar Pro") }
+                            OutlinedButton(onClick = pro::restore) { Text("Restaurar compra") }
+                        }
+                    }
+                }
+            }
             Text("Treino", style = MaterialTheme.typography.headlineSmall)
             Card {
                 Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

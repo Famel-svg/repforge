@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -54,7 +56,7 @@ private fun rangeLabel(range: ProgressRange) = when (range) {
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-fun ProgressScreen(viewModel: ProgressViewModel) {
+fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     Scaffold(topBar = { TopAppBar(title = { Text("Evolução") }) }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -110,10 +112,10 @@ fun ProgressScreen(viewModel: ProgressViewModel) {
                             Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     ProgressRange.entries.forEach { r ->
-                                        FilterChip(selected = d.range == r, onClick = { viewModel.selectRange(r) }, label = { Text(rangeLabel(r)) })
+                                        FilterChip(selected = d.range == r, onClick = { viewModel.selectRange(r) }, label = { Text(rangeLabel(r) + if (r.pro) " · Pro" else "") })
                                     }
                                 }
-                                OneRepMaxChart(d.series, rangeLabel(d.range))
+                                if (d.locked) ProUpsell(onOpenPro) else OneRepMaxChart(d.series, rangeLabel(d.range))
                                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Stat("Maior carga (PR)", kg(d.stats.prKg))
                                     Stat("Melhor 1RM est.", kg(d.stats.bestOneRepMaxKg))
@@ -137,6 +139,17 @@ fun ProgressScreen(viewModel: ProgressViewModel) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ProUpsell(onOpenPro: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Histórico longo é do RepForge Pro", style = MaterialTheme.typography.titleSmall)
+            Text("Veja 90 dias e todo o histórico do 1RM com um pagamento único.", style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = onOpenPro) { Text("Conhecer o Pro") }
         }
     }
 }

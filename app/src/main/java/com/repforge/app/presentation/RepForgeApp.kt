@@ -13,6 +13,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.repforge.app.presentation.onboarding.OnboardingScreen
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -51,6 +55,11 @@ private val sheetArguments = listOf(navArgument(SHEET_ID) { type = NavType.LongT
 fun RepForgeApp() {
     val application = LocalContext.current.applicationContext as RepForgeApplication
     val navController = rememberNavController()
+    // null until DataStore emits, so the start destination is never wrong for a frame.
+    val onboardingDone by application.settings.onboardingDone.collectAsStateWithLifecycle(null)
+    val scope = rememberCoroutineScope()
+    if (onboardingDone == null) return
+    val startRoute = remember { if (onboardingDone == true) Destination.Home.route else "onboarding" } // fixed at first value
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     Scaffold(
         bottomBar = {
@@ -73,7 +82,13 @@ fun RepForgeApp() {
             }
         }
     ) { padding ->
-        NavHost(navController, startDestination = Destination.Home.route, modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
+        NavHost(navController, startDestination = startRoute, modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
+            composable("onboarding") {
+                OnboardingScreen(onFinish = {
+                    scope.launch { application.settings.setOnboardingDone() }
+                    navController.navigate(Destination.Home.route) { popUpTo("onboarding") { inclusive = true } }
+                })
+            }
             composable(Destination.Home.route) {
                 val homeViewModel = viewModel { HomeViewModel(application.repository) }
                 val state by homeViewModel.state.collectAsStateWithLifecycle()
@@ -87,10 +102,13 @@ fun RepForgeApp() {
                 )
             }
             composable(Destination.Progress.route) {
-                ProgressScreen(viewModel { ProgressViewModel(application.repository) })
+                ProgressScreen(
+                    viewModel { ProgressViewModel(application.repository, application.pro.isPro) },
+                    onOpenPro = { navController.navigate(Destination.Settings.route) { launchSingleTop = true } }
+                )
             }
             composable(Destination.Settings.route) {
-                SettingsScreen(viewModel { SettingsViewModel(application.settings, application.backup) })
+                SettingsScreen(viewModel { SettingsViewModel(application.settings, application.backup) }, application.pro)
             }
             composable("sheet/{$SHEET_ID}", arguments = sheetArguments) { entry ->
                 val sheetId = entry.arguments!!.getLong(SHEET_ID)

@@ -35,6 +35,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.templates.StarterTemplates
@@ -69,13 +71,13 @@ fun HomeScreen(
         ) {
             item {
                 Spacer(Modifier.height(8.dp))
-                Text("Bom treino.", style = MaterialTheme.typography.headlineMedium)
+                Text("Bom treino.", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
                 Text("Seu progresso começa no próximo set.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             item { SummaryCard(state) }
             item {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Suas fichas", style = MaterialTheme.typography.titleLarge)
+                    Text("Suas fichas", style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
                     OutlinedButton(onClick = { initialTemplateId = null; showCreate = true }, modifier = Modifier.fillMaxWidth()) { Text("Nova ficha") }
                 }
             }
@@ -155,7 +157,7 @@ private fun EmptySheetsCard(onCreate: () -> Unit, onPickTemplate: () -> Unit) {
         Column(Modifier.fillMaxWidth().padding(24.dp)) {
             Icon(Icons.Rounded.FitnessCenter, contentDescription = null)
             Spacer(Modifier.height(12.dp))
-            Text("Nenhuma ficha ainda", style = MaterialTheme.typography.titleMedium)
+            Text("Nenhuma ficha ainda", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
             Text("Monte sua primeira rotina e registre evolução sem depender de internet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
