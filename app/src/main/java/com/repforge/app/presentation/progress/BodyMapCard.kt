@@ -149,7 +149,7 @@ fun BodyMapCard(bodyMap: Map<BodyRange, Map<String, Double>>, locked: Boolean, o
                 ranked.forEach {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(labels.getValue(it), style = MaterialTheme.typography.labelLarge)
-                        Text(stringResource(R.string.sets_value, n(totals.getValue(it))), style = MaterialTheme.typography.labelLarge)
+                        Text(com.repforge.app.presentation.setsText(totals.getValue(it)), style = MaterialTheme.typography.labelLarge)
                     }
                 }
                 Text(stringResource(R.string.bodymap_untrained), style = MaterialTheme.typography.titleSmall)

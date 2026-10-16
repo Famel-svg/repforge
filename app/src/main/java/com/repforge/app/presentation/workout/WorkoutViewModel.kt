@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.repforge.app.R
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.SetEntry
+import com.repforge.app.domain.model.WorkoutSession
+import com.repforge.app.domain.progression.RULE_DOUBLE
 import com.repforge.app.domain.repository.WorkoutRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +22,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
+/** Wrapper so "still loading" (null outer) differs from "no workout running on this sheet". */
+data class SheetSession(val session: WorkoutSession?)
+
 class WorkoutViewModel(private val repository: WorkoutRepository, private val sheetId: Long) : ViewModel() {
     private val _messages = Channel<Int>(Channel.BUFFERED)
     /** String resource ids; resolved by the screen. */
@@ -31,6 +36,11 @@ class WorkoutViewModel(private val repository: WorkoutRepository, private val sh
 
     val sheetName: StateFlow<String> = repository.observeSheet(sheetId).map { it?.name.orEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
+    val sheetRule: StateFlow<String> = repository.observeSheet(sheetId).map { it?.progressionRule ?: RULE_DOUBLE }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RULE_DOUBLE)
+    /** The running workout on this sheet; its startedAt comes from the database, so the clock survives rotation and process death. */
+    val session: StateFlow<SheetSession?> = repository.observeActiveSession().map { SheetSession(it?.takeIf { s -> s.sheetId == sheetId }) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val exercises: StateFlow<List<Exercise>> = repository.observeExercises(sheetId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -67,8 +77,23 @@ class WorkoutViewModel(private val repository: WorkoutRepository, private val sh
         repository.deleteExercise(exerciseId)
     }
 
-    fun updateExercise(exerciseId: Long, name: String, target: String, kind: String, perSide: Boolean) = viewModelScope.launch(guard) {
+    fun updateExercise(exerciseId: Long, name: String, target: String, kind: String, perSide: Boolean, rule: String?) = viewModelScope.launch(guard) {
         repository.updateExercise(exerciseId, name, target, kind, perSide)
+        repository.setExerciseRule(exerciseId, rule)
+    }
+
+    fun setSheetRule(rule: String) = viewModelScope.launch(guard) { repository.setSheetRule(sheetId, rule) }
+
+    fun startSession() = viewModelScope.launch(guard) { repository.startSession(sheetId) }
+
+    fun finishSession(sessionId: Long, onDone: (Long) -> Unit) = viewModelScope.launch(guard) {
+        repository.finishSession(sessionId)
+        onDone(sessionId)
+    }
+
+    fun discardSession(sessionId: Long, onDone: () -> Unit) = viewModelScope.launch(guard) {
+        repository.discardSession(sessionId)
+        onDone()
     }
 
     fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double, setType: String, rpe: Double?, durationSec: Int? = null, distanceKm: Double? = null) = viewModelScope.launch(guard) {

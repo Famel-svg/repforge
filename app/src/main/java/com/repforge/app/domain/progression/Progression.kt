@@ -5,9 +5,9 @@ import com.repforge.app.domain.metrics.working
 import com.repforge.app.domain.model.HistoryEntry
 import java.time.ZoneId
 
-enum class ProgressionKind { RaiseLoad, KeepLoad, AddRep, Deload }
+enum class ProgressionKind { RaiseLoad, KeepLoad, AddRep, Deload, ExtraLoad, AddTime, KeepTime }
 
-data class ProgressionSuggestion(val reps: Int, val weightKg: Double, val kind: ProgressionKind, val topReps: Int = 0)
+data class ProgressionSuggestion(val reps: Int, val weightKg: Double, val kind: ProgressionKind, val topReps: Int = 0, val durationSec: Int? = null)
 
 /** Epley estimate of the session's best set; used only to compare sessions with each other. */
 private fun sessionScore(sets: List<HistoryEntry>) = sets.maxOf { it.weightKg * (1 + it.reps / 30.0) }

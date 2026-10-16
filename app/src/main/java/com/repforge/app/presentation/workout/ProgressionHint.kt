@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import com.repforge.app.R
+import com.repforge.app.domain.logging.formatDuration
 import com.repforge.app.domain.logging.formatWeightInput
 import com.repforge.app.domain.progression.ProgressionKind
 import com.repforge.app.domain.progression.ProgressionSuggestion
@@ -27,7 +28,7 @@ import com.repforge.app.domain.progression.ProgressionSuggestion
 fun ProgressionHint(
     suggestion: ProgressionSuggestion?,
     isPro: Boolean,
-    onApply: (reps: Int, weightKg: Double) -> Unit,
+    onApply: (reps: Int, weightKg: Double, durationSec: Int?) -> Unit,
     onUpgrade: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -41,15 +42,23 @@ fun ProgressionHint(
     if (suggestion == null) return
     val w = formatWeightInput(suggestion.weightKg)
     val reason = when (suggestion.kind) {
-        ProgressionKind.Deload -> stringResource(R.string.progression_deload, 10)
+        ProgressionKind.Deload -> if (suggestion.topReps > 0) stringResource(R.string.progression_deload_failed, suggestion.topReps) else stringResource(R.string.progression_deload, 10)
         ProgressionKind.RaiseLoad -> stringResource(R.string.progression_raise, suggestion.topReps)
-        ProgressionKind.KeepLoad -> stringResource(R.string.progression_keep, suggestion.reps, w, suggestion.reps)
-        ProgressionKind.AddRep -> stringResource(R.string.progression_add_rep, w, suggestion.reps)
+        ProgressionKind.KeepLoad -> if (suggestion.weightKg == 0.0) stringResource(R.string.progression_keep_bw, suggestion.reps) else stringResource(R.string.progression_keep, suggestion.reps, w, suggestion.reps)
+        ProgressionKind.AddRep -> if (suggestion.weightKg == 0.0) stringResource(R.string.progression_add_rep_bw, suggestion.reps) else stringResource(R.string.progression_add_rep, w, suggestion.reps)
+        ProgressionKind.ExtraLoad -> stringResource(R.string.progression_extra_load, suggestion.topReps, w, suggestion.reps)
+        ProgressionKind.AddTime -> stringResource(R.string.progression_time_add, formatDuration(suggestion.durationSec ?: 0))
+        ProgressionKind.KeepTime -> stringResource(R.string.progression_time_keep, formatDuration(suggestion.durationSec ?: 0))
+    }
+    val line = when {
+        suggestion.durationSec != null -> stringResource(R.string.suggestion_line_time, formatDuration(suggestion.durationSec), reason)
+        suggestion.weightKg == 0.0 -> stringResource(R.string.suggestion_line_reps, suggestion.reps, reason)
+        else -> stringResource(R.string.suggestion_line, w, suggestion.reps, reason)
     }
     Card(modifier.fillMaxWidth(), colors = colors) {
         Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.suggestion_line, w, suggestion.reps, reason), Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            TextButton(onClick = { onApply(suggestion.reps, suggestion.weightKg) }) { Text(stringResource(R.string.apply)) }
+            Text(line, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            TextButton(onClick = { onApply(suggestion.reps, suggestion.weightKg, suggestion.durationSec) }) { Text(stringResource(R.string.apply)) }
         }
     }
 }

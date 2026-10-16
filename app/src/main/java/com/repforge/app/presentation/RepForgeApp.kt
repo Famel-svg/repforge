@@ -56,6 +56,8 @@ import com.repforge.app.presentation.progress.ProgressViewModel
 import com.repforge.app.presentation.search.ExerciseSearchScreen
 import com.repforge.app.presentation.search.ExerciseSearchViewModel
 import com.repforge.app.presentation.settings.SettingsScreen
+import com.repforge.app.presentation.summary.SessionSummaryScreen
+import com.repforge.app.presentation.summary.SessionSummaryViewModel
 import com.repforge.app.presentation.settings.SettingsViewModel
 import com.repforge.app.presentation.workout.WorkoutScreen
 import com.repforge.app.presentation.workout.WorkoutViewModel
@@ -69,6 +71,7 @@ private enum class Destination(val route: String, @StringRes val label: Int, val
 
 private const val SETTINGS_ROUTE = "settings" // opened from the Home gear; not a tab
 
+private const val SESSION_ID = "sessionId"
 private const val SHEET_ID = "sheetId"
 private val sheetArguments = listOf(navArgument(SHEET_ID) { type = NavType.LongType })
 
@@ -131,10 +134,16 @@ fun RepForgeApp(initialSheetId: Long? = null) {
             composable(Destination.Home.route) {
                 val homeViewModel = viewModel { HomeViewModel(application.repository) }
                 val state by homeViewModel.state.collectAsStateWithLifecycle()
+                val homePreferences by application.settings.preferences.collectAsStateWithLifecycle(AppPreferences())
                 HomeScreen(
                     state = state,
+                    askBodyWeight = homePreferences.askBodyWeight,
                     onCreateSheet = homeViewModel::createSheet,
-                    onStartSheet = { navController.navigate("sheet/${it.id}") },
+                    onStartSheet = { sheet, kg ->
+                        homeViewModel.startSession(sheet.id, kg)
+                        navController.navigate("sheet/${sheet.id}")
+                    },
+                    onResumeSheet = { navController.navigate("sheet/${it.id}") },
                     onCreateSheetFromTemplate = homeViewModel::createSheetFromTemplate,
                     onDuplicateSheet = homeViewModel::duplicateSheet,
                     onDeleteSheet = homeViewModel::deleteSheet,
@@ -171,8 +180,17 @@ fun RepForgeApp(initialSheetId: Long? = null) {
                     onSearch = dropUnlessResumed { navController.navigate("sheet/$sheetId/search") },
                     isPro = isPro,
                     onOpenPro = dropUnlessResumed { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } },
-                    onBack = dropUnlessResumed { navController.popBackStack() }
+                    onBack = dropUnlessResumed { navController.popBackStack() },
+                    // Fires after a database write, so a double tap must not push the summary twice.
+                    onFinished = { id ->
+                        if (entry.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) navController.navigate("summary/$id") { popUpTo("sheet/{$SHEET_ID}") { inclusive = true } }
+                    }
                 )
+            }
+            composable("summary/{$SESSION_ID}", arguments = listOf(navArgument(SESSION_ID) { type = NavType.LongType })) { entry ->
+                val sessionId = entry.arguments!!.getLong(SESSION_ID)
+                val done = dropUnlessResumed { navController.popBackStack() }
+                SessionSummaryScreen(viewModel { SessionSummaryViewModel(application.repository, application.catalog, sessionId) }, onDone = done)
             }
             composable("sheet/{$SHEET_ID}/search", arguments = sheetArguments) { entry ->
                 val sheetId = entry.arguments!!.getLong(SHEET_ID)

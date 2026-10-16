@@ -50,13 +50,22 @@ import com.repforge.app.presentation.pluralCount
 import com.repforge.app.domain.logging.formatKg
 import com.repforge.app.domain.templates.StarterTemplates
 import com.repforge.app.domain.templates.WorkoutTemplate
+import com.repforge.app.domain.validation.parseWeightKg
+import com.repforge.app.domain.validation.validateBodyWeight
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.input.KeyboardType
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 fun HomeScreen(
     state: HomeUiState,
     onCreateSheet: (String) -> Unit,
-    onStartSheet: (TrainingSheet) -> Unit,
+    /** Second argument is the body weight typed in the optional start prompt (null when skipped or the prompt is off). */
+    onStartSheet: (TrainingSheet, Double?) -> Unit,
+    onResumeSheet: (TrainingSheet) -> Unit,
     onDuplicateSheet: (Long, String) -> Unit,
     onDeleteSheet: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -65,11 +74,15 @@ fun HomeScreen(
     openTemplatePicker: Boolean = false,
     onTemplatePickerOpened: () -> Unit = {},
     onOpenPlan: () -> Unit = {},
-    onOpenSettings: () -> Unit = {}
+    onOpenSettings: () -> Unit = {},
+    askBodyWeight: Boolean = false
 ) {
     var showCreate by remember { mutableStateOf(false) }
     var initialTemplateId by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<TrainingSheet?>(null) }
+    var pendingStart by remember { mutableStateOf<TrainingSheet?>(null) }
+    // Resuming the same sheet never asks again.
+    fun start(sheet: TrainingSheet) { if (askBodyWeight && state.resume?.id != sheet.id) pendingStart = sheet else onStartSheet(sheet, null) }
     val copyLabel = stringResource(R.string.copy_suffix)
     LaunchedEffect(openTemplatePicker) {
         if (openTemplatePicker) {
@@ -100,8 +113,9 @@ fun HomeScreen(
                 Text(stringResource(R.string.home_greeting), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
                 Text(stringResource(R.string.home_tagline), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            state.resume?.let { sheet -> item { ResumeCard(sheet.name, onResume = { onResumeSheet(sheet) }) } }
             state.today?.let { today ->
-                item { TodayCard(today, onStart = { today.sheet?.let(onStartSheet) }, onOpenPlan = onOpenPlan) }
+                item { TodayCard(today, onStart = { today.sheet?.let(::start) }, onOpenPlan = onOpenPlan) }
             }
             item { SummaryCard(state) }
             item {
@@ -119,7 +133,7 @@ fun HomeScreen(
                 }
             } else {
                 items(state.sheets, key = { it.id }) { sheet ->
-                    SheetCard(sheet, onStart = { onStartSheet(sheet) }, onDuplicate = { onDuplicateSheet(sheet.id, copyLabel) }, onDelete = { deleteTarget = sheet })
+                    SheetCard(sheet, onStart = { start(sheet) }, onDuplicate = { onDuplicateSheet(sheet.id, copyLabel) }, onDelete = { deleteTarget = sheet })
                 }
             }
             item { Spacer(Modifier.height(80.dp)) }
@@ -131,6 +145,13 @@ fun HomeScreen(
         onCreateFromTemplate = { template -> onCreateSheetFromTemplate(template); showCreate = false },
         initialTemplateId = initialTemplateId
     )
+    pendingStart?.let { sheet ->
+        BodyWeightPrompt(
+            onSave = { kg -> pendingStart = null; onStartSheet(sheet, kg) },
+            onSkip = { pendingStart = null; onStartSheet(sheet, null) },
+            onDismiss = { pendingStart = null }
+        )
+    }
     deleteTarget?.let { sheet ->
         AlertDialog(
             onDismissRequest = { deleteTarget = null },
@@ -140,6 +161,39 @@ fun HomeScreen(
             dismissButton = { OutlinedButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.cancel)) } }
         )
     }
+}
+
+@Composable
+private fun ResumeCard(sheetName: String, onResume: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.workout_in_progress), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+            Text(sheetName, style = MaterialTheme.typography.headlineSmall)
+            Button(onClick = onResume, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Rounded.PlayArrow, contentDescription = null)
+                Text(stringResource(R.string.resume_workout))
+            }
+        }
+    }
+}
+
+/** Optional: "Skip" starts the workout without a weight. */
+@Composable
+private fun BodyWeightPrompt(onSave: (Double) -> Unit, onSkip: () -> Unit, onDismiss: () -> Unit) {
+    var input by rememberSaveable { mutableStateOf("") }
+    val kg = parseWeightKg(input)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.body_weight_prompt_title)) },
+        text = {
+            OutlinedTextField(
+                input, { input = it }, label = { Text(stringResource(R.string.weight_kg)) }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+            )
+        },
+        confirmButton = { Button(enabled = validateBodyWeight(kg) == null, onClick = { onSave(kg!!) }) { Text(stringResource(R.string.save)) } },
+        dismissButton = { TextButton(onClick = onSkip) { Text(stringResource(R.string.skip)) } }
+    )
 }
 
 @Composable

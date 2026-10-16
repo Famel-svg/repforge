@@ -158,6 +158,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
                         }
                         Switch(checked = state.restNotification, onCheckedChange = null)
                     }
+                    HorizontalDivider()
+                    Row(
+                        Modifier.fillMaxWidth().toggleable(state.askBodyWeight, role = Role.Switch, onValueChange = { viewModel.setAskBodyWeight(it) }),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.ask_body_weight), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.ask_body_weight_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = state.askBodyWeight, onCheckedChange = null)
+                    }
                 }
             }
             Text(stringResource(R.string.appearance), style = MaterialTheme.typography.headlineSmall)

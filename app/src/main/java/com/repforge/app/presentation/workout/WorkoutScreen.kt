@@ -88,11 +88,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
@@ -133,7 +135,13 @@ import com.repforge.app.domain.metrics.bestEstimatedOneRepMax
 import com.repforge.app.domain.metrics.personalRecordKg
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.HistoryEntry
-import com.repforge.app.domain.progression.suggestProgression
+import com.repforge.app.domain.progression.PROGRESSION_RULES
+import com.repforge.app.domain.progression.RULE_DOUBLE
+import com.repforge.app.domain.progression.RULE_LINEAR
+import com.repforge.app.domain.progression.RULE_NONE
+import com.repforge.app.domain.progression.RULE_TIME
+import com.repforge.app.domain.progression.effectiveRule
+import com.repforge.app.domain.progression.suggestNext
 import com.repforge.app.domain.model.RPE_VALUES
 import com.repforge.app.domain.model.SET_DROP
 import com.repforge.app.domain.model.SET_FAILURE
@@ -161,9 +169,17 @@ fun WorkoutScreen(
     onSearch: () -> Unit,
     onBack: () -> Unit,
     isPro: Boolean = false,
-    onOpenPro: () -> Unit = {}
+    onOpenPro: () -> Unit = {},
+    /** Called with the session id once it is finished; the caller opens the summary. */
+    onFinished: (sessionId: Long) -> Unit = {}
 ) {
     val sheetName by viewModel.sheetName.collectAsStateWithLifecycle()
+    val sheetRule by viewModel.sheetRule.collectAsStateWithLifecycle()
+    val sheetSession by viewModel.session.collectAsStateWithLifecycle()
+    val session = sheetSession?.session
+    var showMenu by remember { mutableStateOf(false) }
+    var showRule by remember { mutableStateOf(false) }
+    var showDiscard by remember { mutableStateOf(false) }
     val exercises by viewModel.exercises.collectAsStateWithLifecycle()
     val entriesByExercise by viewModel.entriesByExercise.collectAsStateWithLifecycle()
     var showAdd by remember { mutableStateOf(false) }
@@ -239,7 +255,32 @@ fun WorkoutScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(sheetName) }, navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back)) } }, actions = { IconButton(onSearch) { Icon(Icons.Rounded.Search, stringResource(R.string.search_exercise)) } }) },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(sheetName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (session != null) ElapsedClock(session.startedAt)
+                    }
+                },
+                navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back)) } },
+                actions = {
+                    IconButton(onSearch) { Icon(Icons.Rounded.Search, stringResource(R.string.search_exercise)) }
+                    // No running workout (e.g. opened from the widget): offer to start one instead of finishing.
+                    if (sheetSession != null) {
+                        if (session != null) TextButton(onClick = { viewModel.finishSession(session.id, onFinished) }) { Text(stringResource(R.string.finish_workout)) }
+                        else TextButton(onClick = { viewModel.startSession() }) { Text(stringResource(R.string.start)) }
+                    }
+                    Box {
+                        IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.more)) }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.progression_rule)) }, onClick = { showMenu = false; showRule = true })
+                            if (session != null) DropdownMenuItem(text = { Text(stringResource(R.string.discard_workout)) }, onClick = { showMenu = false; showDiscard = true })
+                        }
+                    }
+                }
+            )
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, stringResource(R.string.add_exercise)) }
@@ -260,7 +301,7 @@ fun WorkoutScreen(
                 val linkedPrev = exercise.supersetGroup != null && groups.getOrNull(index - 1) == exercise.supersetGroup
                 val linkedNext = exercise.supersetGroup != null && groups.getOrNull(index + 1) == exercise.supersetGroup
                 ExerciseCard(
-                    exercise, entries, isPro = isPro, onUpgrade = onOpenPro,
+                    exercise, entries, sheetRule = sheetRule, isPro = isPro, onUpgrade = onOpenPro,
                     expanded = expandedId == exercise.id,
                     canMoveUp = index > 0,
                     canMoveDown = index < exercises.lastIndex,
@@ -269,7 +310,7 @@ fun WorkoutScreen(
                     onSuperset = { join -> viewModel.setSuperset(exercise.id, join) },
                     onToggle = { expandedId = if (expandedId == exercise.id) null else exercise.id },
                     onMove = { up -> viewModel.moveExercise(exercise.id, up) },
-                    onEdit = { name, target, kind, perSide -> viewModel.updateExercise(exercise.id, name, target, kind, perSide) },
+                    onEdit = { name, target, kind, perSide, rule -> viewModel.updateExercise(exercise.id, name, target, kind, perSide, rule) },
                     onNote = { viewModel.updateNote(exercise.id, it) },
                     onDelete = { viewModel.deleteExercise(exercise.id) },
                     onDeleteEntry = { entry ->
@@ -293,8 +334,36 @@ fun WorkoutScreen(
     }
     if (showAdd) ExerciseDialog(
         onDismiss = { showAdd = false },
-        onConfirm = { name, target, kind, perSide -> viewModel.addExercise(name, target, kind, perSide); showAdd = false }
+        onConfirm = { name, target, kind, perSide, _ -> viewModel.addExercise(name, target, kind, perSide); showAdd = false }
     )
+    if (showRule) AlertDialog(
+        onDismissRequest = { showRule = false },
+        title = { Text(stringResource(R.string.progression_rule)) },
+        text = { RuleChips(sheetRule, allowInherit = false) { viewModel.setSheetRule(it ?: RULE_DOUBLE); showRule = false } },
+        confirmButton = { TextButton(onClick = { showRule = false }) { Text(stringResource(R.string.close)) } }
+    )
+    if (showDiscard && session != null) AlertDialog(
+        onDismissRequest = { showDiscard = false },
+        title = { Text(stringResource(R.string.discard_title)) },
+        text = { Text(stringResource(R.string.discard_body)) },
+        confirmButton = { Button(onClick = { showDiscard = false; viewModel.discardSession(session.id, onBack) }) { Text(stringResource(R.string.discard)) } },
+        dismissButton = { OutlinedButton(onClick = { showDiscard = false }) { Text(stringResource(R.string.cancel)) } }
+    )
+}
+
+/** Own composable so the once-a-second tick only recomposes the clock. Time comes from the stored start, never from a counter. */
+@Composable
+private fun ElapsedClock(startedAt: Long) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(startedAt) {
+        while (true) {
+            now = System.currentTimeMillis()
+            delay(1_000)
+        }
+    }
+    val text = formatDuration(((now - startedAt) / 1000).toInt())
+    val description = stringResource(R.string.elapsed_cd, text)
+    Text(text, Modifier.semantics { contentDescription = description }, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -302,6 +371,7 @@ fun WorkoutScreen(
 private fun ExerciseCard(
     exercise: Exercise,
     entries: List<SetEntry>,
+    sheetRule: String,
     isPro: Boolean,
     onUpgrade: () -> Unit,
     expanded: Boolean,
@@ -312,7 +382,7 @@ private fun ExerciseCard(
     onSuperset: (join: Boolean) -> Unit,
     onToggle: () -> Unit,
     onMove: (Boolean) -> Unit,
-    onEdit: (String, String, String, Boolean) -> Unit,
+    onEdit: (String, String, String, Boolean, String?) -> Unit,
     onNote: (String) -> Unit,
     onDelete: () -> Unit,
     onDeleteEntry: (SetEntry) -> Unit,
@@ -326,8 +396,13 @@ private fun ExerciseCard(
     var showHistory by rememberSaveable { mutableStateOf(false) }
     var historyLimit by rememberSaveable { mutableStateOf(HISTORY_PAGE) }
     val dateFormat = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
-    val suggestion = remember(entries) {
-        suggestProgression(entries.map { HistoryEntry(it.exerciseId, exercise.name, "", it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe, exercise.target) }, ZoneId.systemDefault())
+    val rule = effectiveRule(exercise.progressionRule, sheetRule)
+    val suggestion = remember(entries, rule, exercise.kind) {
+        suggestNext(
+            rule, exercise.kind,
+            entries.map { HistoryEntry(it.exerciseId, exercise.name, "", it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe, exercise.target, exercise.kind, it.durationSec, it.distanceKm) },
+            ZoneId.systemDefault()
+        )
     }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
@@ -458,9 +533,17 @@ private fun ExerciseCard(
                         }
                     }
                 }
-                if (kind == KIND_REPS) ProgressionHint(
+                if (kind != KIND_CARDIO && rule != RULE_NONE) ProgressionHint(
                     suggestion, isPro, onUpgrade = onUpgrade,
-                    onApply = { reps, weightKg -> repsInput = reps.toString(); weightInput = formatWeightInput(weightKg); inputError = null }
+                    onApply = { reps, weightKg, durationSec ->
+                        if (durationSec != null) durationInput = formatDuration(durationSec)
+                        else {
+                            repsInput = reps.toString()
+                            // Bodyweight with no extra load keeps its load field closed.
+                            if (kind == KIND_REPS || weightKg > 0) { weightInput = formatWeightInput(weightKg); if (kind == KIND_BODYWEIGHT) extraOpen = true }
+                        }
+                        inputError = null
+                    }
                 )
                 if (sideLabel != null) Text(stringResource(R.string.per_side), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (kind == KIND_TIMED) {
@@ -587,10 +670,12 @@ private fun ExerciseCard(
             initialTarget = exercise.target,
             initialKind = exercise.kind,
             initialPerSide = exercise.perSide,
+            showRule = true,
+            initialRule = exercise.progressionRule,
             title = stringResource(R.string.edit_exercise),
             actionLabel = stringResource(R.string.save),
             onDismiss = { showEdit = false },
-            onConfirm = { name, target, newKind, perSide -> showEdit = false; onEdit(name, target, newKind, perSide) }
+            onConfirm = { name, target, newKind, perSide, newRule -> showEdit = false; onEdit(name, target, newKind, perSide, newRule) }
         )
     }
 }
@@ -680,6 +765,21 @@ private fun kindLabel(kind: String) = stringResource(when (kind) {
     KIND_BODYWEIGHT -> R.string.kind_bodyweight; KIND_TIMED -> R.string.kind_timed; KIND_CARDIO -> R.string.kind_cardio; else -> R.string.kind_reps
 })
 
+@Composable
+private fun ruleLabel(rule: String) = stringResource(when (rule) {
+    RULE_NONE -> R.string.rule_none; RULE_LINEAR -> R.string.rule_linear; RULE_TIME -> R.string.rule_time; else -> R.string.rule_double
+})
+
+/** [selected] null = follow the sheet (only offered when [allowInherit]). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun RuleChips(selected: String?, allowInherit: Boolean, onSelect: (String?) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (allowInherit) FilterChip(selected == null, { onSelect(null) }, { Text(stringResource(R.string.rule_inherit)) })
+        PROGRESSION_RULES.forEach { r -> FilterChip(selected == r, { onSelect(r) }, { Text(ruleLabel(r)) }) }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ExerciseDialog(
@@ -687,15 +787,18 @@ private fun ExerciseDialog(
     initialTarget: String = "",
     initialKind: String = KIND_REPS,
     initialPerSide: Boolean = false,
+    showRule: Boolean = false,
+    initialRule: String? = null,
     title: String = stringResource(R.string.add_exercise),
     actionLabel: String = stringResource(R.string.add),
     onDismiss: () -> Unit,
-    onConfirm: (name: String, target: String, kind: String, perSide: Boolean) -> Unit
+    onConfirm: (name: String, target: String, kind: String, perSide: Boolean, rule: String?) -> Unit
 ) {
     var name by rememberSaveable { mutableStateOf(initialName) }
     var target by rememberSaveable { mutableStateOf(initialTarget) }
     var kind by rememberSaveable { mutableStateOf(initialKind) }
     var perSide by rememberSaveable { mutableStateOf(initialPerSide) }
+    var rule by rememberSaveable { mutableStateOf(initialRule) }
     // A new exercise guesses its kind from the name until the user picks one.
     var kindPicked by rememberSaveable { mutableStateOf(initialName.isNotEmpty()) }
     AlertDialog(
@@ -715,8 +818,12 @@ private fun ExerciseDialog(
                 Text(stringResource(R.string.per_side))
                 Switch(perSide, onCheckedChange = null)
             }
+            if (showRule) {
+                Text(stringResource(R.string.progression_rule), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                RuleChips(rule, allowInherit = true) { rule = it }
+            }
         } },
-        confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onConfirm(name, target, kind, perSide && kind != KIND_CARDIO) }) { Text(actionLabel) } },
+        confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onConfirm(name, target, kind, perSide && kind != KIND_CARDIO, rule) }) { Text(actionLabel) } },
         dismissButton = { OutlinedButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }

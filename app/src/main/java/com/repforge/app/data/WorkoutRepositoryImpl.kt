@@ -7,6 +7,7 @@ import com.repforge.app.data.local.ExerciseEntity
 import com.repforge.app.data.local.ScheduleEntity
 import com.repforge.app.data.local.ScheduleOverrideEntity
 import com.repforge.app.data.local.SheetEntity
+import com.repforge.app.data.local.SessionEntity
 import com.repforge.app.data.local.SheetWithCount
 import com.repforge.app.data.local.WorkoutDatabase
 import com.repforge.app.domain.logging.joinWithNext
@@ -26,6 +27,8 @@ import com.repforge.app.domain.model.normalizeKind
 import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.TrainingSheet
+import com.repforge.app.domain.model.WorkoutSession
+import com.repforge.app.domain.progression.PROGRESSION_RULES
 import com.repforge.app.domain.repository.WorkoutRepository
 import com.repforge.app.domain.schedule.DayPlan
 import com.repforge.app.domain.schedule.rescheduleChanges
@@ -79,7 +82,10 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val o
     }
 
     override suspend fun deleteSheet(sheetId: Long) {
-        dao.deleteSheet(sheetId)
+        database.withTransaction {
+            dao.deleteActiveSessionsOf(sheetId)
+            dao.deleteSheet(sheetId)
+        }
         onChanged()
     }
 
@@ -232,5 +238,40 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val o
         rows.map { HistoryEntry(it.exerciseId, it.exerciseName, it.sheetName, it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe, it.target, it.kind, it.durationSec, it.distanceKm) }
     }
 
-    private fun SheetWithCount.toDomain() = TrainingSheet(id, name, exerciseCount, updatedAt)
+    override fun observeActiveSession(): Flow<WorkoutSession?> = dao.observeActiveSession().map { it?.toDomain() }
+
+    override fun observeSession(sessionId: Long): Flow<WorkoutSession?> = dao.observeSession(sessionId).map { it?.toDomain() }
+
+    override suspend fun startSession(sheetId: Long, bodyWeightKg: Double?): Long {
+        bodyWeightKg?.let { w -> validateBodyWeight(w)?.let { throw AppException(it) } }
+        return database.withTransaction {
+            val active = dao.activeSession()
+            if (active?.sheetId == sheetId) return@withTransaction active.id
+            active?.let { dao.deleteSession(it.id) }
+            bodyWeightKg?.let { dao.insertBodyWeight(BodyWeightEntity(weightKg = it)) }
+            dao.insertSession(SessionEntity(sheetId = sheetId, startedAt = System.currentTimeMillis(), bodyWeightKg = bodyWeightKg))
+        }
+    }
+
+    override suspend fun finishSession(sessionId: Long) {
+        dao.finishSession(sessionId, System.currentTimeMillis(), null)
+    }
+
+    override suspend fun discardSession(sessionId: Long) {
+        dao.deleteSession(sessionId)
+    }
+
+    override suspend fun setSheetRule(sheetId: Long, rule: String) {
+        require(rule in PROGRESSION_RULES) { "Regra de progressão inválida." }
+        dao.updateSheetRule(sheetId, rule)
+    }
+
+    override suspend fun setExerciseRule(exerciseId: Long, rule: String?) {
+        require(rule == null || rule in PROGRESSION_RULES) { "Regra de progressão inválida." }
+        dao.updateExerciseRule(exerciseId, rule)
+    }
+
+    private fun SessionEntity.toDomain() = WorkoutSession(id, sheetId, startedAt, endedAt, bodyWeightKg)
+
+    private fun SheetWithCount.toDomain() = TrainingSheet(id, name, exerciseCount, updatedAt, progressionRule)
 }

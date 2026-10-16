@@ -325,7 +325,7 @@ private fun MuscleVolumeCard(weeks: List<List<MuscleSets>>, locked: Boolean, onO
                 Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = desc }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(muscleName, style = MaterialTheme.typography.labelLarge)
-                        Text(stringResource(R.string.sets_value, sets(m.sets)), style = MaterialTheme.typography.labelLarge)
+                        Text(com.repforge.app.presentation.setsText(m.sets), style = MaterialTheme.typography.labelLarge)
                     }
                     MuscleBar(m.sets / max)
                     if (before.isNotEmpty()) Text(

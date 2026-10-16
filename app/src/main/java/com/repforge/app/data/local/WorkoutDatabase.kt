@@ -96,7 +96,8 @@ data class SheetWithCount(
     val id: Long,
     val name: String,
     val exerciseCount: Int,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val progressionRule: String
 )
 
 data class ExerciseRow(val id: Long, val sheetId: Long, val name: String, val target: String, val position: Int, val note: String, val supersetGroup: Int?, val kind: String, val perSide: Boolean, val progressionRule: String?)
@@ -123,7 +124,7 @@ data class HistoryRow(
 
 @Dao
 interface WorkoutDao {
-    @Query("SELECT s.id, s.name, COUNT(e.id) AS exerciseCount, s.updatedAt FROM sheets s LEFT JOIN exercises e ON e.sheetId = s.id GROUP BY s.id ORDER BY s.updatedAt DESC")
+    @Query("SELECT s.id, s.name, COUNT(e.id) AS exerciseCount, s.updatedAt, s.progressionRule FROM sheets s LEFT JOIN exercises e ON e.sheetId = s.id GROUP BY s.id ORDER BY s.updatedAt DESC")
     fun observeSheets(): Flow<List<SheetWithCount>>
 
     @Query("SELECT COALESCE(SUM(e.sets * e.reps * e.weightKg), 0.0) FROM entries e WHERE e.recordedAt >= :since AND e.setType != 'warmup'")
@@ -141,7 +142,7 @@ interface WorkoutDao {
     @Query("DELETE FROM sheets WHERE id = :sheetId")
     suspend fun deleteSheet(sheetId: Long)
 
-    @Query("SELECT s.id, s.name, COUNT(e.id) AS exerciseCount, s.updatedAt FROM sheets s LEFT JOIN exercises e ON e.sheetId = s.id WHERE s.id = :sheetId GROUP BY s.id")
+    @Query("SELECT s.id, s.name, COUNT(e.id) AS exerciseCount, s.updatedAt, s.progressionRule FROM sheets s LEFT JOIN exercises e ON e.sheetId = s.id WHERE s.id = :sheetId GROUP BY s.id")
     fun observeSheet(sheetId: Long): Flow<SheetWithCount?>
 
     @Query("SELECT * FROM sheets WHERE id = :sheetId")
@@ -257,6 +258,24 @@ interface WorkoutDao {
 
     @Query("SELECT * FROM sessions WHERE endedAt IS NULL ORDER BY startedAt DESC, id DESC LIMIT 1")
     fun observeActiveSession(): Flow<SessionEntity?>
+
+    @Query("SELECT * FROM sessions WHERE endedAt IS NULL ORDER BY startedAt DESC, id DESC LIMIT 1")
+    suspend fun activeSession(): SessionEntity?
+
+    @Query("SELECT * FROM sessions WHERE id = :sessionId")
+    fun observeSession(sessionId: Long): Flow<SessionEntity?>
+
+    @Query("DELETE FROM sessions WHERE id = :sessionId")
+    suspend fun deleteSession(sessionId: Long)
+
+    @Query("DELETE FROM sessions WHERE sheetId = :sheetId AND endedAt IS NULL")
+    suspend fun deleteActiveSessionsOf(sheetId: Long)
+
+    @Query("UPDATE sheets SET progressionRule = :rule WHERE id = :sheetId")
+    suspend fun updateSheetRule(sheetId: Long, rule: String)
+
+    @Query("UPDATE exercises SET progressionRule = :rule WHERE id = :exerciseId")
+    suspend fun updateExerciseRule(exerciseId: Long, rule: String?)
 }
 
 val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {

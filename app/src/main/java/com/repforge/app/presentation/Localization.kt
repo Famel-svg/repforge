@@ -103,3 +103,10 @@ fun Context.proErrorText(error: ProError): String = when (error) {
 /** Decimal number in the app locale with at most one fraction digit: "1,5" in pt-BR, "1.5" in en. */
 fun formatCount(value: Double, locale: Locale = Locale.getDefault()): String =
     NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1; minimumFractionDigits = 0 }.format(value)
+
+/** "1 série" vs "4,5 séries": fractional muscle counts cannot use plurals, so singular is only exactly 1. */
+@androidx.compose.runtime.Composable
+fun setsText(value: Double): String {
+    val text = formatCount(value, androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
+    return androidx.compose.ui.res.stringResource(if (value == 1.0) com.repforge.app.R.string.sets_value_one else com.repforge.app.R.string.sets_value, text)
+}

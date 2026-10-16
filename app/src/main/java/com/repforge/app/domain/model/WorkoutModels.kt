@@ -4,7 +4,8 @@ data class TrainingSheet(
     val id: Long,
     val name: String,
     val exerciseCount: Int,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val progressionRule: String = "double"
 )
 
 data class Exercise(
@@ -81,3 +82,6 @@ data class HistoryEntry(
 ) {
     val loaded get() = hasLoadMetrics(kind, weightKg)
 }
+
+/** A workout in progress ([endedAt] null) or finished; [sheetId] is null once the sheet is deleted. */
+data class WorkoutSession(val id: Long, val sheetId: Long?, val startedAt: Long, val endedAt: Long?, val bodyWeightKg: Double?)

@@ -21,7 +21,8 @@ enum class Accent(val dark: Long, val light: Long) {
 
 data class AppPreferences(
     val restSeconds: Int = 90, val hapticsEnabled: Boolean = true, val restNotification: Boolean = true,
-    val themeMode: ThemeMode = ThemeMode.System, val accent: Accent = Accent.Ember, val soundsEnabled: Boolean = true
+    val themeMode: ThemeMode = ThemeMode.System, val accent: Accent = Accent.Ember, val soundsEnabled: Boolean = true,
+    val askBodyWeight: Boolean = false
 )
 
 class SettingsStore(private val context: Context) {
@@ -33,13 +34,15 @@ class SettingsStore(private val context: Context) {
         val accent = stringPreferencesKey("accent")
         val soundsEnabled = booleanPreferencesKey("sounds_enabled")
         val onboardingDone = booleanPreferencesKey("onboarding_done")
+        val askBodyWeight = booleanPreferencesKey("ask_body_weight")
     }
 
     val preferences: Flow<AppPreferences> = context.repForgePreferences.data.map { values ->
         AppPreferences(values[Keys.restSeconds] ?: 90, values[Keys.hapticsEnabled] ?: true, values[Keys.restNotification] ?: true,
             ThemeMode.entries.firstOrNull { it.name == values[Keys.themeMode] } ?: ThemeMode.System,
             Accent.entries.firstOrNull { it.name == values[Keys.accent] } ?: Accent.Ember,
-            values[Keys.soundsEnabled] ?: true
+            values[Keys.soundsEnabled] ?: true,
+            values[Keys.askBodyWeight] ?: false
         )
     }
 
@@ -68,6 +71,10 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setAccent(value: Accent) {
         context.repForgePreferences.edit { it[Keys.accent] = value.name }
+    }
+
+    suspend fun setAskBodyWeight(value: Boolean) {
+        context.repForgePreferences.edit { it[Keys.askBodyWeight] = value }
     }
 
     suspend fun setSoundsEnabled(value: Boolean) {

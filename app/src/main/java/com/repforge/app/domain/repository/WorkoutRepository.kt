@@ -3,6 +3,7 @@ package com.repforge.app.domain.repository
 import com.repforge.app.domain.model.BodyWeight
 import com.repforge.app.domain.model.DashboardSummary
 import com.repforge.app.domain.model.TrainingSheet
+import com.repforge.app.domain.model.WorkoutSession
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.KIND_REPS
 import com.repforge.app.domain.model.SET_NORMAL
@@ -49,4 +50,19 @@ interface WorkoutRepository {
     suspend fun todaySheet(now: Instant, zone: ZoneId): DayPlan
     /** Moves the sheet planned on [from] to [to] as overrides (from becomes rest); the weekly plan is untouched. */
     suspend fun reschedule(from: LocalDate, to: LocalDate)
+    /** The workout in progress, if any; survives process death because it lives in the database. */
+    fun observeActiveSession(): Flow<WorkoutSession?>
+    fun observeSession(sessionId: Long): Flow<WorkoutSession?>
+    /**
+     * Starts a workout on [sheetId] and returns its session id. Resumes the active session when it is already on this sheet;
+     * an active session on another sheet is dropped first. [bodyWeightKg], when given, is also saved as a body-weight record.
+     */
+    suspend fun startSession(sheetId: Long, bodyWeightKg: Double? = null): Long
+    /** Ends the session now; its sets are those logged between its start and end. */
+    suspend fun finishSession(sessionId: Long)
+    /** Ends the session without a summary. Logged sets stay. */
+    suspend fun discardSession(sessionId: Long)
+    suspend fun setSheetRule(sheetId: Long, rule: String)
+    /** [rule] null = follow the sheet's rule. */
+    suspend fun setExerciseRule(exerciseId: Long, rule: String?)
 }
