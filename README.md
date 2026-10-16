@@ -67,6 +67,15 @@ Backup: `repforge-backup-YYYY-MM-DD.json`, texto legível; guarde com cuidado.
 A importação valida o arquivo antes de escrever, só adiciona dados (sem apagar),
 roda em transação e aceita também o formato do app Expo 1.0.x.
 
+### Quem usa o app Expo 1.0.x
+
+O APK 1.0.8 foi assinado pela chave do EAS (certificado SHA-256
+`ff032cb5…fe616e`). Com outra chave, o Android recusa instalar a 2.0 por cima,
+então o app antigo e os dados continuam intactos. Caminho: exportar o backup no
+1.0.x, desinstalar, instalar a 2.0 e importar o arquivo. Se publicar na Play
+com a chave do EAS, a atualização acontece no lugar e o histórico do Expo não é
+migrado automaticamente: avise os usuários para exportar antes.
+
 ## Build e testes
 
 Requisitos: JDK 21 (`JAVA_HOME`) e Android SDK com API 36.
@@ -96,6 +105,15 @@ keyPassword=...
 
 Sem esse arquivo o resultado não é assinado. O CI fica em
 `.github/workflows/ci.yml`.
+
+QA do Pro sem Play Store (só build debug):
+
+```powershell
+adb shell run-as com.repforge.app touch files/force_pro   # ativa
+adb shell run-as com.repforge.app rm files/force_pro      # desativa
+```
+
+Reinicie o app depois. Builds release ignoram o arquivo.
 
 ## Estrutura
 

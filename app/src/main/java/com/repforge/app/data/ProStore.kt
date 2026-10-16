@@ -53,7 +53,10 @@ class ProStore(context: Context) {
     private val _isPro = MutableStateFlow(false)
     private val _price = MutableStateFlow<String?>(null)
     private val _error = MutableStateFlow<ProError?>(null)
-    val isPro: StateFlow<Boolean> = _isPro
+    // QA only: debuggable builds unlock Pro when `adb shell run-as com.repforge.app touch files/force_pro` exists.
+    private val forcedPro = app.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 &&
+        java.io.File(app.filesDir, "force_pro").exists()
+    val isPro: StateFlow<Boolean> = if (forcedPro) MutableStateFlow(true) else _isPro
     val price: StateFlow<String?> = _price
     val error: StateFlow<ProError?> = _error
 
