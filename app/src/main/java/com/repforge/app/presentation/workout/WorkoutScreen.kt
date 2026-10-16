@@ -305,7 +305,8 @@ private fun ExerciseCard(
                 Button(
                     onClick = {
                         val parsedReps = repsText.trim().toIntOrNull()
-                        val parsedWeight = parseWeightKg(weightText)
+                        // Blank load means bodyweight; only a malformed number is an error.
+                        val parsedWeight = if (weightText.isBlank()) 0.0 else parseWeightKg(weightText)
                         inputError = validateSetInput(1, parsedReps, parsedWeight)?.message
                         if (inputError == null) onLog(parsedReps!!, parsedWeight!!, beatsPersonalRecord(entries, parsedWeight))
                     },

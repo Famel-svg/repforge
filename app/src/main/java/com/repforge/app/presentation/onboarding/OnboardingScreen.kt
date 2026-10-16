@@ -38,7 +38,7 @@ import kotlinx.coroutines.launch
 private data class Page(val icon: ImageVector, val title: String, val body: String)
 
 private val PAGES = listOf(
-    Page(Icons.Rounded.CloudOff, "Tudo no seu aparelho", "Sem conta, sem internet. Seus treinos ficam só no seu celular."),
+    Page(Icons.Rounded.CloudOff, "Tudo no seu aparelho", "Sem conta e funciona offline. Seus treinos ficam só no seu celular."),
     Page(Icons.Rounded.TouchApp, "Uma série, um toque", "Abra a ficha, ajuste repetições e carga e toque em Registrar série."),
     Page(Icons.Rounded.Timeline, "Evolução e backup", "Acompanhe PRs e volume ao longo do tempo e exporte um backup quando quiser.")
 )
