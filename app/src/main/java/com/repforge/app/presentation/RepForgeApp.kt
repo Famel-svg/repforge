@@ -86,13 +86,15 @@ fun RepForgeApp(initialSheetId: Long? = null) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { application.pro.restore() }
     val isPro by application.pro.isPro.collectAsStateWithLifecycle()
     var openTemplatePicker by remember { mutableStateOf(false) }
+    // Saveable state must be declared before the early return below, with an explicit key: otherwise on
+    // restore its positional key collides with rememberNavController's and the app crashes (ClassCastException).
+    var widgetHandled by rememberSaveable(key = "widgetHandled") { mutableStateOf(false) }
     val catalogNames by produceState(emptyMap<String, String>()) {
         value = application.catalog.all().filter { it.nameEn.isNotBlank() }.associate { ExerciseCatalog.normalize(it.name) to it.nameEn }
     }
     if (onboardingDone == null) return
     val startRoute = remember { if (onboardingDone == true) Destination.Home.route else "onboarding" } // fixed at first value
     // Widget launch: once Home is up, push the sheet on top (only for a cold start, not after rotation).
-    var widgetHandled by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(initialSheetId, onboardingDone) {
         if (initialSheetId != null && !widgetHandled && onboardingDone == true) {
             widgetHandled = true
