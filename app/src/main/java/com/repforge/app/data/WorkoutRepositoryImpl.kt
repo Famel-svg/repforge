@@ -224,7 +224,8 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val o
         database.withTransaction {
             val sheetId = dao.insertSheet(SheetEntity(name = template.sheetName.trim()))
             template.exercises.forEachIndexed { index, e ->
-                dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = e.name, target = e.target, position = index))
+                // Same kind inference as catalog adds, so template holds like "Prancha" are timed.
+                dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = e.name, target = e.target, position = index, kind = ExerciseCatalog.inferKind(e.name, muscle = e.target)))
             }
         }
         onChanged()

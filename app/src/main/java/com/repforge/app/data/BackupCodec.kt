@@ -24,6 +24,9 @@ data class BackupSheet(val name: String, val updatedAt: Long, val exercises: Lis
 const val DEFAULT_RULE = "double"
 private val RULES = setOf("none", "linear", "double", "time")
 
+/** A finished workout; [sheet] is the sheet name (null when unknown or deleted). */
+data class BackupSession(val sheet: String?, val startedAt: Long, val endedAt: Long, val bodyWeightKg: Double? = null)
+
 /** Plan entries reference sheets by name because sheet ids are renumbered on export; a null name is a rest day. */
 data class BackupPlan(val weekly: Map<Int, String?> = emptyMap(), val overrides: Map<String, String?> = emptyMap())
 
@@ -35,7 +38,7 @@ object BackupCodec {
     const val FORMAT = "repforge-backup"
     const val VERSION = 1
 
-    fun encode(sheets: List<BackupSheet>, exportedAt: Long = System.currentTimeMillis(), bodyWeights: List<BackupBodyWeight> = emptyList(), plan: BackupPlan = BackupPlan()): String {
+    fun encode(sheets: List<BackupSheet>, exportedAt: Long = System.currentTimeMillis(), bodyWeights: List<BackupBodyWeight> = emptyList(), plan: BackupPlan = BackupPlan(), sessions: List<BackupSession> = emptyList()): String {
         val sheetArray = JSONArray()
         val exerciseArray = JSONArray()
         val entryArray = JSONArray()
@@ -73,7 +76,25 @@ object BackupCodec {
             put("bodyWeights", JSONArray().apply { bodyWeights.forEach { put(JSONObject().apply { put("weightKg", it.weightKg); put("recordedAt", it.recordedAt) }) } })
             put("schedule", JSONArray().apply { plan.weekly.forEach { (day, sheet) -> put(JSONObject().apply { put("dayOfWeek", day); put("sheet", sheet ?: JSONObject.NULL) }) } })
             put("scheduleOverrides", JSONArray().apply { plan.overrides.forEach { (date, sheet) -> put(JSONObject().apply { put("date", date); put("sheet", sheet ?: JSONObject.NULL) }) } })
+            put("sessions", JSONArray().apply {
+                sessions.forEach { put(JSONObject().apply { put("sheet", it.sheet ?: JSONObject.NULL); put("startedAt", it.startedAt); put("endedAt", it.endedAt); it.bodyWeightKg?.let { w -> put("bodyWeightKg", w) } }) }
+            })
         }.toString(2)
+    }
+
+    /** Optional top-level array; unfinished sessions (endedAt null) are never imported. */
+    fun decodeSessions(raw: String): List<BackupSession> {
+        val array = try { JSONObject(raw).optJSONArray("sessions") } catch (_: JSONException) { null } ?: return emptyList()
+        return try {
+            (0 until array.length()).map { array.getJSONObject(it) }.filterNot { it.isNull("endedAt") }.map {
+                BackupSession(
+                    if (it.isNull("sheet")) null else it.getString("sheet"), it.getLong("startedAt"), it.getLong("endedAt"),
+                    if (it.isNull("bodyWeightKg")) null else it.getDouble("bodyWeightKg").takeIf { w -> validateBodyWeight(w) == null }
+                )
+            }
+        } catch (error: JSONException) {
+            throw AppException(AppError.Corrupt, error.message)
+        }
     }
 
     fun decode(raw: String): List<BackupSheet> {

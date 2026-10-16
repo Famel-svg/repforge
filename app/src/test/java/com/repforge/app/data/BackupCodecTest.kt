@@ -35,6 +35,20 @@ class BackupCodecTest {
         assertEquals(sample, BackupCodec.decode(raw))
     }
 
+    @Test fun roundTripsRulesAndSessions() {
+        val sheets = listOf(BackupSheet("A", 1, listOf(BackupExercise("X", "", 0, emptyList(), progressionRule = "linear")), progressionRule = "none"))
+        val sessions = listOf(BackupSession("A", 100, 200, 80.0), BackupSession(null, 300, 400))
+        val raw = BackupCodec.encode(sheets, sessions = sessions)
+        assertEquals(sheets, BackupCodec.decode(raw))
+        assertEquals(sessions, BackupCodec.decodeSessions(raw))
+    }
+
+    @Test fun unfinishedSessionsAreDroppedAndOldFilesHaveNone() {
+        val raw = """{"sessions":[{"sheet":"A","startedAt":1,"endedAt":null},{"sheet":null,"startedAt":2,"endedAt":3}]}"""
+        assertEquals(listOf(BackupSession(null, 2, 3)), BackupCodec.decodeSessions(raw))
+        assertEquals(emptyList<BackupSession>(), BackupCodec.decodeSessions("""{"format":"repforge-backup","version":1,"sheets":[]}"""))
+    }
+
     @Test fun oldBackupHasEmptyPlan() {
         assertEquals(BackupPlan(), BackupCodec.decodePlan("""{"format":"repforge-backup","version":1,"sheets":[]}"""))
     }

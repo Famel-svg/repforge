@@ -262,6 +262,9 @@ interface WorkoutDao {
     @Query("SELECT * FROM sessions WHERE endedAt IS NULL ORDER BY startedAt DESC, id DESC LIMIT 1")
     suspend fun activeSession(): SessionEntity?
 
+    @Query("SELECT * FROM sessions ORDER BY startedAt, id")
+    suspend fun allSessions(): List<SessionEntity>
+
     @Query("SELECT * FROM sessions WHERE id = :sessionId")
     fun observeSession(sessionId: Long): Flow<SessionEntity?>
 
