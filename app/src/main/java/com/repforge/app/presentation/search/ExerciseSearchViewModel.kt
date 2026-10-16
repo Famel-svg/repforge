@@ -51,12 +51,12 @@ class ExerciseSearchViewModel(
     // Ignores taps while a previous add is still running (a double tap would add the exercise twice).
     private var adding = false
 
-    private fun addOnce(name: String, muscle: String, onAdded: () -> Unit) {
+    private fun addOnce(name: String, muscle: String, kind: String, onAdded: () -> Unit) {
         if (adding) return
         adding = true
         viewModelScope.launch(logExceptions) {
             try {
-                repository.addExercise(sheetId, name, muscle)
+                repository.addExercise(sheetId, name, muscle, kind)
                 onAdded()
             } finally {
                 adding = false
@@ -64,10 +64,10 @@ class ExerciseSearchViewModel(
         }
     }
 
-    fun add(exercise: CatalogExercise, onAdded: () -> Unit) = addOnce(exercise.name, exercise.muscle, onAdded)
+    fun add(exercise: CatalogExercise, onAdded: () -> Unit) = addOnce(exercise.name, exercise.muscle, exercise.defaultKind, onAdded)
 
     fun addCustom(onAdded: () -> Unit) {
         val name = filters.value.query.trim()
-        if (name.isNotEmpty()) addOnce(name, filters.value.muscle.orEmpty(), onAdded)
+        if (name.isNotEmpty()) addOnce(name, filters.value.muscle.orEmpty(), ExerciseCatalog.inferKind(name, muscle = filters.value.muscle.orEmpty()), onAdded)
     }
 }

@@ -24,7 +24,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.pluralStringResource
+import com.repforge.app.presentation.pluralCount
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -53,7 +53,7 @@ fun HeatmapCard(heatmap: Heatmap) {
     val measurer = rememberTextMeasurer()
     val labelStyle = TextStyle(fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     val colors = (0..4).map { heatColor(it) }
-    val description = pluralStringResource(R.plurals.heatmap_description, heatmap.trainedDays, heatmap.trainedDays)
+    val description = pluralCount(R.plurals.heatmap_description, heatmap.trainedDays)
     Card {
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.heatmap_title), style = MaterialTheme.typography.titleMedium)
@@ -103,7 +103,7 @@ fun HeatmapCard(heatmap: Heatmap) {
                 when {
                     s == null -> stringResource(R.string.heatmap_tap_hint)
                     s.sets == 0 -> stringResource(R.string.heatmap_cell_empty, s.date.format(dateFormat))
-                    else -> stringResource(R.string.heatmap_cell, s.date.format(dateFormat), pluralStringResource(R.plurals.sets_count, s.sets, s.sets))
+                    else -> stringResource(R.string.heatmap_cell, s.date.format(dateFormat), pluralCount(R.plurals.sets_count, s.sets))
                 },
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
             )

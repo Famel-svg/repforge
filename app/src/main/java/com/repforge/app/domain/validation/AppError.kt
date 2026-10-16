@@ -5,7 +5,7 @@ enum class AppError {
     SetMissing, SetsNotPositive, RepsNotPositive, WeightNegative, BodyWeightMissing, BodyWeightRange,
     InvalidJson, UnsupportedVersion, NoSheets, NotRepForgeBackup, Corrupt, EmptyName, InvalidPosition,
     InvalidSet, InvalidBodyWeight, OrphanEntry, OrphanExercise, InvalidDate, CsvFormat, SheetNameEmpty,
-    DestinationUnavailable, FileUnavailable, FileTooLarge
+    DestinationUnavailable, FileUnavailable, FileTooLarge, DurationInvalid
 }
 
 /** [arg] carries the technical detail (parser message, offending value) for kinds that show one. */

@@ -38,7 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.pluralStringResource
+import com.repforge.app.presentation.pluralCount
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -119,7 +119,7 @@ private fun SheetRow(sheet: TrainingSheet) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text(sheet.name, style = MaterialTheme.typography.titleMedium)
-            Text(pluralStringResource(R.plurals.exercises_count, sheet.exerciseCount, sheet.exerciseCount), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(pluralCount(R.plurals.exercises_count, sheet.exerciseCount), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -382,4 +382,23 @@
     <string name="library_secondary_muscles">Músculos secundários</string>
     <string name="library_equipment">Equipamento</string>
     <string name="library_none">Nenhum</string>
+    <string name="err_duration_invalid">Informe uma duração (mm:ss) ou distância válida.</string>
+    <string name="per_side">Por lado</string>
+    <string name="per_side_unit">lado</string>
+    <string name="exercise_kind">Tipo</string>
+    <string name="kind_reps">Repetições e carga</string>
+    <string name="kind_bodyweight">Peso corporal</string>
+    <string name="kind_timed">Por tempo</string>
+    <string name="kind_cardio">Cardio</string>
+    <string name="extra_load">Carga extra</string>
+    <string name="duration_label">Duração (mm:ss)</string>
+    <string name="distance_km">Distância (km)</string>
+    <string name="stop">Parar</string>
+    <string name="stat_longest_hold">Maior tempo</string>
+    <string name="stat_longest_distance">Maior distância</string>
+    <string name="record_longest_hold">Maior tempo: %1$s</string>
+    <string name="record_longest_distance">Maior distância: %1$s</string>
+    <string name="chart_value_single">Um registro em %1$s: %2$s</string>
+    <string name="chart_value_range">Evolução de %1$s a %2$s: de %3$s para %4$s, mínimo %5$s, máximo %6$s</string>
+    <string name="value_range">Faixa: %1$s a %2$s</string>
 </resources>

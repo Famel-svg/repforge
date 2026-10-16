@@ -40,7 +40,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.res.pluralStringResource
+import com.repforge.app.presentation.pluralCount
 import androidx.compose.ui.res.stringResource
 import com.repforge.app.R
 import com.repforge.app.domain.validation.AppError
@@ -106,7 +106,7 @@ private fun WeightChart(chronological: List<BodyWeight>, dateFormat: DateFormat)
         R.string.body_chart_description,
         formatKg(first.weightKg), dateFormat.format(Date(first.recordedAt)),
         formatKg(last.weightKg), dateFormat.format(Date(last.recordedAt)),
-        pluralStringResource(R.plurals.records_count, chronological.size, chronological.size),
+        pluralCount(R.plurals.records_count, chronological.size),
         formatKg(chronological.minOf { it.weightKg }), formatKg(chronological.maxOf { it.weightKg })
     )
     Card {

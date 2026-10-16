@@ -27,7 +27,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.pluralStringResource
+import com.repforge.app.presentation.pluralCount
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,7 +63,7 @@ fun LibraryScreen(catalog: ExerciseCatalog, modifier: Modifier = Modifier) {
         ChipRow(MUSCLES, state.muscle, viewModel::muscleChanged) { muscleLabel(it) }
         ChipRow(EQUIPMENT, state.equipment, viewModel::equipmentChanged) { equipmentLabel(it) }
         Text(
-            if (state.loading) stringResource(R.string.loading) else pluralStringResource(R.plurals.exercises_count, state.results.size, state.results.size),
+            if (state.loading) stringResource(R.string.loading) else pluralCount(R.plurals.exercises_count, state.results.size),
             Modifier.padding(GUTTER), color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {

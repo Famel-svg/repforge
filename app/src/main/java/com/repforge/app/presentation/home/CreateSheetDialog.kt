@@ -25,7 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.pluralStringResource
+import com.repforge.app.presentation.pluralCount
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import com.repforge.app.R
@@ -60,7 +60,7 @@ fun CreateSheetDialog(
                     TemplateOption(stringResource(R.string.blank_sheet), null, selected = template == null) { templateId = null }
                     StarterTemplates.forEach { t ->
                         TemplateOption(
-                            stringResource(t.labelRes()), pluralStringResource(R.plurals.exercises_count, t.exercises.size, t.exercises.size),
+                            stringResource(t.labelRes()), pluralCount(R.plurals.exercises_count, t.exercises.size),
                             selected = t.id == templateId
                         ) { templateId = t.id; name = context.getString(t.sheetNameRes()) }
                     }

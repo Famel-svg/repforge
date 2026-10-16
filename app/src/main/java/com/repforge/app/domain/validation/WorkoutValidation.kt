@@ -19,3 +19,14 @@ fun validateBodyWeight(weightKg: Double?): AppError? = when {
     weightKg !in MIN_BODY_WEIGHT_KG..MAX_BODY_WEIGHT_KG -> AppError.BodyWeightRange
     else -> null
 }
+
+/** Duration/distance, when given, must be positive and finite. */
+fun validateEffort(durationSec: Int?, distanceKm: Double?): AppError? =
+    if ((durationSec != null && durationSec <= 0) || (distanceKm != null && !(distanceKm > 0 && distanceKm.isFinite()))) AppError.DurationInvalid else null
+
+/** Timed sets need a duration; cardio needs a duration or a distance. */
+fun validateKindEffort(kind: String, durationSec: Int?, distanceKm: Double?): AppError? = validateEffort(durationSec, distanceKm) ?: when {
+    kind == "timed" && durationSec == null -> AppError.DurationInvalid
+    kind == "cardio" && durationSec == null && distanceKm == null -> AppError.DurationInvalid
+    else -> null
+}

@@ -59,20 +59,20 @@ class WorkoutViewModel(private val repository: WorkoutRepository, private val sh
         repository.setSupersetWithNext(exerciseId, join)
     }
 
-    fun addExercise(name: String, target: String) = viewModelScope.launch(guard) {
-        repository.addExercise(sheetId, name, target)
+    fun addExercise(name: String, target: String, kind: String, perSide: Boolean) = viewModelScope.launch(guard) {
+        repository.addExercise(sheetId, name, target, kind, perSide)
     }
 
     fun deleteExercise(exerciseId: Long) = viewModelScope.launch(guard) {
         repository.deleteExercise(exerciseId)
     }
 
-    fun updateExercise(exerciseId: Long, name: String, target: String) = viewModelScope.launch(guard) {
-        repository.updateExercise(exerciseId, name, target)
+    fun updateExercise(exerciseId: Long, name: String, target: String, kind: String, perSide: Boolean) = viewModelScope.launch(guard) {
+        repository.updateExercise(exerciseId, name, target, kind, perSide)
     }
 
-    fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double, setType: String, rpe: Double?) = viewModelScope.launch(guard) {
-        repository.addEntry(exerciseId, sets, reps, weightKg, setType, rpe)
+    fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double, setType: String, rpe: Double?, durationSec: Int? = null, distanceKm: Double? = null) = viewModelScope.launch(guard) {
+        repository.addEntry(exerciseId, sets, reps, weightKg, setType, rpe, durationSec, distanceKm)
     }
 
     fun updateNote(exerciseId: Long, note: String) = viewModelScope.launch(guard) {

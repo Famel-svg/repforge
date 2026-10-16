@@ -6,7 +6,7 @@ import com.repforge.app.domain.metrics.Consistency
 import com.repforge.app.domain.metrics.DayVolume
 import com.repforge.app.domain.metrics.ExerciseHistory
 import com.repforge.app.domain.metrics.ExerciseStats
-import com.repforge.app.domain.metrics.OneRepMaxPoint
+import com.repforge.app.domain.metrics.ProgressPoint
 import com.repforge.app.domain.metrics.ProgressRange
 import com.repforge.app.domain.metrics.MuscleInfo
 import com.repforge.app.domain.metrics.MuscleSets
@@ -30,7 +30,7 @@ import com.repforge.app.domain.metrics.filterByRange
 import com.repforge.app.domain.metrics.last7DaysVolume
 import com.repforge.app.domain.metrics.localDate
 import com.repforge.app.domain.metrics.locked
-import com.repforge.app.domain.metrics.oneRepMaxSeries
+import com.repforge.app.domain.metrics.progressSeries
 import com.repforge.app.domain.metrics.recentWorkouts
 import com.repforge.app.domain.model.HistoryEntry
 import com.repforge.app.domain.repository.WorkoutRepository
@@ -45,7 +45,7 @@ import java.time.ZoneId
 data class ExerciseDetail(
     val exercise: ExerciseHistory,
     val range: ProgressRange,
-    val series: List<OneRepMaxPoint>,
+    val series: List<ProgressPoint>,
     val stats: ExerciseStats,
     val locked: Boolean = false
 )
@@ -88,7 +88,7 @@ class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>
         val detail = selected?.let {
             val own = history.filter { e -> e.exerciseId == it.exerciseId }
             val locked = r.locked(pro)
-            ExerciseDetail(it, r, if (locked) emptyList() else filterByRange(oneRepMaxSeries(own, zone), r, localDate(now, zone)), exerciseStats(own), locked)
+            ExerciseDetail(it, r, if (locked) emptyList() else filterByRange(progressSeries(own, zone), r, localDate(now, zone)), exerciseStats(own), locked)
         }
         return ProgressUiState(
             consistency = consistency(history, now, zone),

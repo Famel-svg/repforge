@@ -68,4 +68,38 @@ class CsvImportTest {
         assertEquals(listOf("warmup", "normal", "drop", "failure"), result.sheets.single().exercises.single().entries.map { it.setType })
         assertEquals(true, result.maybePounds)
     }
+
+    @Test
+    fun importsSecondsAsTimedAndDistanceAsCardio() {
+        val csv = "Date,Workout Name,Exercise Name,Set Order,Weight,Weight Unit,Reps,Distance,Seconds\n" +
+            "2024-05-01 18:30:00,Core,Plank,1,0,kg,,0,45\n" +
+            "2024-05-01 18:30:00,Core,Plank,2,0,kg,0,0,60\n" +
+            "2024-05-01 18:30:00,Core,Run,1,0,kg,,5000,1500\n" +
+            "2024-05-01 18:30:00,Core,Squat,1,50,kg,5,0,0\n" +
+            "2024-05-01 18:30:00,Core,Empty,1,0,kg,,0,0\n"
+        val result = parseCsvWorkoutsWithStats(csv, utc)
+        assertEquals(1, result.skippedRows)
+        val byName = result.sheets.single().exercises.associateBy { it.name }
+        val plank = byName.getValue("Plank")
+        assertEquals("timed", plank.kind)
+        assertEquals(listOf(45, 60), plank.entries.map { it.durationSec })
+        assertEquals(listOf(1, 1), plank.entries.map { it.reps })
+        val run = byName.getValue("Run")
+        assertEquals("cardio", run.kind)
+        assertEquals(5.0, run.entries.single().distanceKm!!, 1e-9)
+        assertEquals(1500, run.entries.single().durationSec)
+        assertEquals("reps", byName.getValue("Squat").kind)
+        assertEquals(null, byName.getValue("Squat").entries.single().durationSec)
+    }
+
+    @Test
+    fun importsHevyDurationAndDistanceColumns() {
+        val csv = "title,start_time,exercise_title,set_index,set_type,weight_kg,reps,distance_km,duration_seconds\n" +
+            "\"Day\",\"1 May 2024, 18:30\",Plank,0,normal,,,,50\n" +
+            "\"Day\",\"1 May 2024, 18:30\",Bike,0,normal,,,12.5,1800\n"
+        val exercises = parseCsvWorkouts(csv, utc).single().exercises.associateBy { it.name }
+        assertEquals("timed", exercises.getValue("Plank").kind)
+        assertEquals("cardio", exercises.getValue("Bike").kind)
+        assertEquals(12.5, exercises.getValue("Bike").entries.single().distanceKm!!, 1e-9)
+    }
 }

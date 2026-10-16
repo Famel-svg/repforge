@@ -14,8 +14,23 @@ data class Exercise(
     val target: String,
     val position: Int,
     val note: String = "",
-    val supersetGroup: Int? = null
+    val supersetGroup: Int? = null,
+    val kind: String = KIND_REPS,
+    val perSide: Boolean = false,
+    val progressionRule: String? = null
 )
+
+const val KIND_REPS = "reps"
+const val KIND_TIMED = "timed"
+const val KIND_BODYWEIGHT = "bodyweight"
+const val KIND_CARDIO = "cardio"
+val EXERCISE_KINDS = listOf(KIND_REPS, KIND_BODYWEIGHT, KIND_TIMED, KIND_CARDIO)
+
+/** Unknown values (hand-edited backups) fall back to plain reps. */
+fun normalizeKind(kind: String?) = if (kind in EXERCISE_KINDS) kind!! else KIND_REPS
+
+/** Volume, 1RM and load records only make sense for rep work with a load. */
+fun hasLoadMetrics(kind: String, weightKg: Double) = kind == KIND_REPS || (kind == KIND_BODYWEIGHT && weightKg > 0)
 
 data class BodyWeight(val id: Long, val weightKg: Double, val recordedAt: Long)
 
@@ -27,7 +42,9 @@ data class SetEntry(
     val weightKg: Double,
     val recordedAt: Long,
     val setType: String = SET_NORMAL,
-    val rpe: Double? = null
+    val rpe: Double? = null,
+    val durationSec: Int? = null,
+    val distanceKm: Double? = null
 )
 
 const val SET_NORMAL = "normal"
@@ -57,5 +74,10 @@ data class HistoryEntry(
     val setType: String = SET_NORMAL,
     val rpe: Double? = null,
     /** Free-text muscle group of the exercise; blank until the history query joins exercises.target. */
-    val target: String = ""
-)
+    val target: String = "",
+    val kind: String = KIND_REPS,
+    val durationSec: Int? = null,
+    val distanceKm: Double? = null
+) {
+    val loaded get() = hasLoadMetrics(kind, weightKg)
+}

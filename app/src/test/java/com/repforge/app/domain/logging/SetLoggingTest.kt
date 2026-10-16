@@ -80,4 +80,38 @@ class SetLoggingTest {
         val names = (0 until catalog.length()).map { catalog.getJSONObject(it).getString("name") }.toSet()
         assertEquals(emptyList<String>(), StarterTemplates.flatMap { it.exercises }.map { it.name }.filter { it !in names })
     }
+
+    @Test fun durationFormatAndParse() {
+        assertEquals("0:45", formatDuration(45))
+        assertEquals("12:05", formatDuration(725))
+        assertEquals("1:02:03", formatDuration(3723))
+        assertEquals(90, parseDuration("1:30"))
+        assertEquals(90, parseDuration("90"))
+        assertEquals(3723, parseDuration("1:02:03"))
+        assertNull(parseDuration(""))
+        assertNull(parseDuration("a:10"))
+        assertNull(parseDuration("-5"))
+    }
+
+    @Test fun formatSetPerKind() {
+        val en = java.util.Locale.US
+        val base = entry(1, 10, 80.0, at(9))
+        assertEquals("10 × 80.0 kg", formatSet(base, en))
+        assertEquals("10/side × 80.0 kg", formatSet(base, en, "reps", "side"))
+        assertEquals("10×", formatSet(base.copy(weightKg = 0.0), en, "bodyweight"))
+        assertEquals("10/side× + 5.0 kg", formatSet(base.copy(weightKg = 5.0), en, "bodyweight", "side"))
+        assertEquals("0:45", formatSet(base.copy(reps = 1, weightKg = 0.0, durationSec = 45), en, "timed"))
+        assertEquals("0:30/side", formatSet(base.copy(reps = 1, weightKg = 0.0, durationSec = 30), en, "timed", "side"))
+        assertEquals("12:30 · 3.2 km", formatSet(base.copy(reps = 1, weightKg = 0.0, durationSec = 750, distanceKm = 3.2), en, "cardio"))
+    }
+
+    @Test fun kindRecords() {
+        val prev = listOf(entry(1, 1, 0.0, at(9)).copy(durationSec = 40, distanceKm = 3.0))
+        assertTrue(beatsKindRecord("timed", prev, 0.0, 41, null))
+        assertFalse(beatsKindRecord("timed", prev, 0.0, 40, null))
+        assertTrue(beatsKindRecord("cardio", prev, 0.0, 10, 3.5))
+        assertFalse(beatsKindRecord("cardio", prev, 0.0, 999, 2.0))
+        assertFalse(beatsKindRecord("bodyweight", prev, 0.0, null, null))
+        assertFalse(beatsKindRecord("timed", emptyList(), 0.0, 60, null))
+    }
 }

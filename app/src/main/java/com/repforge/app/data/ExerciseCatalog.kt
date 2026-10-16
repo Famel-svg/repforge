@@ -1,6 +1,10 @@
 package com.repforge.app.data
 
 import android.content.Context
+import com.repforge.app.domain.model.KIND_BODYWEIGHT
+import com.repforge.app.domain.model.KIND_CARDIO
+import com.repforge.app.domain.model.KIND_REPS
+import com.repforge.app.domain.model.KIND_TIMED
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -19,6 +23,9 @@ data class CatalogExercise(
 ) {
     internal val nameKey = ExerciseCatalog.normalize(name)
     internal val haystack = ExerciseCatalog.normalize("$name $nameEn $muscle $equipment")
+
+    /** Kind to use when this exercise is added to a sheet. */
+    val defaultKind: String get() = ExerciseCatalog.inferKind(name, nameEn, muscle, equipment)
 }
 
 class ExerciseCatalog(private val context: Context) {
@@ -37,6 +44,20 @@ class ExerciseCatalog(private val context: Context) {
 
         fun normalize(value: String): String =
             MARKS.replace(Normalizer.normalize(value.trim(), Normalizer.Form.NFD), "").lowercase()
+
+        // Isometric holds (normalized, accent-free) logged by time instead of reps.
+        private val HOLDS = listOf("prancha", "plank", "isometri", "hold", "pendurar", "dead hang", "wall sit", "na parede", "sustentacao")
+
+        /** Timed holds first (a plank is bodyweight too), then cardio, then bodyweight; anything else is plain reps. */
+        fun inferKind(name: String, nameEn: String = "", muscle: String = "", equipment: String = ""): String {
+            val names = normalize("$name $nameEn")
+            return when {
+                HOLDS.any { it in names } -> KIND_TIMED
+                muscle == "Cardio" -> KIND_CARDIO
+                equipment == "Peso corporal" -> KIND_BODYWEIGHT
+                else -> KIND_REPS
+            }
+        }
 
         fun parse(raw: String): List<CatalogExercise> {
             val array = try { JSONArray(raw) } catch (_: JSONException) { return emptyList() }

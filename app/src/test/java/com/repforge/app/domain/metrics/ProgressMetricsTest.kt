@@ -25,7 +25,7 @@ class ProgressMetricsTest {
         assertEquals(3, exerciseStats(list).totalSets)
         assertEquals(1500.0, last7DaysVolume(list, at(today), sp).last().volumeKg, 0.001)
         assertEquals(1, consistency(list, at(today), sp).currentStreak)
-        assertEquals(1, oneRepMaxSeries(list, sp).size)
+        assertEquals(1, progressSeries(list, sp).size)
         assertEquals(1, exercisesWithHistory(list).size)
         assertEquals(3, recentWorkouts(list, sp).single().sets)
     }
@@ -69,20 +69,20 @@ class ProgressMetricsTest {
         assertEquals(Consistency(2, 2, 3), c)
     }
 
-    @Test fun oneRepMaxSeriesPicksBestPerDay() {
+    @Test fun progressSeriesPicksBestPerDay() {
         val list = listOf(
             entry(today, hour = 9, reps = 10, kg = 60.0),
             entry(today, hour = 10, reps = 3, kg = 100.0),
             entry(today.minusDays(2), reps = 1, kg = 90.0)
         )
-        val series = oneRepMaxSeries(list, sp)
+        val series = progressSeries(list, sp)
         assertEquals(listOf(today.minusDays(2), today), series.map { it.date })
-        assertEquals(90.0 * (1 + 1 / 30.0), series[0].oneRepMaxKg, 0.001)
-        assertEquals(110.0, series[1].oneRepMaxKg, 0.001)
+        assertEquals(90.0 * (1 + 1 / 30.0), series[0].value, 0.001)
+        assertEquals(110.0, series[1].value, 0.001)
     }
 
     @Test fun rangeFilterKeepsWindow() {
-        val series = listOf(30L, 29L, 5L, 0L).map { OneRepMaxPoint(today.minusDays(it), 1.0) }
+        val series = listOf(30L, 29L, 5L, 0L).map { ProgressPoint(today.minusDays(it), 1.0) }
         assertEquals(3, filterByRange(series, ProgressRange.Days30, today).size)
         assertEquals(4, filterByRange(series, ProgressRange.All, today).size)
         assertTrue(filterByRange(emptyList(), ProgressRange.Days90, today).isEmpty())
@@ -115,5 +115,40 @@ class ProgressMetricsTest {
         assertEquals(listOf("Peito", "Costas"), recent[0].sheetNames)
         assertEquals(6, recent[0].sets)
         assertEquals(501.0, recent[0].volumeKg, 0.001)
+    }
+
+    private fun held(date: LocalDate, sec: Int, kind: String = "timed", km: Double? = null) =
+        HistoryEntry(7, "Prancha", "A", 1, 1, 0.0, at(date), kind = kind, durationSec = sec, distanceKm = km)
+
+    @Test fun timedSeriesAndStatsUseLongestHold() {
+        val list = listOf(held(today, 30), held(today, 45), held(today.minusDays(2), 20))
+        val series = progressSeries(list, sp)
+        assertEquals(listOf(20.0, 45.0), series.map { it.value })
+        val stats = exerciseStats(list)
+        assertEquals("timed", stats.kind)
+        assertEquals(45, stats.bestDurationSec)
+        assertEquals(0.0, stats.prKg, 0.001)
+        assertEquals(0.0, stats.bestOneRepMaxKg, 0.001)
+        assertEquals(0.0, last7DaysVolume(list, at(today), sp).last().volumeKg, 0.001)
+    }
+
+    @Test fun cardioSeriesAndStatsUseLongestDistance() {
+        val list = listOf(held(today, 1500, "cardio", 5.0), held(today.minusDays(1), 900, "cardio", 3.2), held(today.minusDays(3), 600, "cardio", null))
+        assertEquals(listOf(3.2, 5.0), progressSeries(list, sp).map { it.value })
+        val stats = exerciseStats(list)
+        assertEquals(5.0, stats.bestDistanceKm, 0.001)
+        assertEquals(1500, stats.bestDurationSec)
+        assertEquals(1500, exercisesWithHistory(list).single().lastDurationSec)
+    }
+
+    @Test fun bodyweightCountsOnlyWhenLoaded() {
+        fun bw(date: LocalDate, kg: Double) = HistoryEntry(8, "Barra", "A", 1, 10, kg, at(date), kind = "bodyweight")
+        val plain = listOf(bw(today, 0.0))
+        assertTrue(progressSeries(plain, sp).isEmpty())
+        assertEquals(0.0, last7DaysVolume(plain, at(today), sp).last().volumeKg, 0.001)
+        val loaded = listOf(bw(today, 0.0), bw(today.minusDays(1), 10.0))
+        assertEquals(1, progressSeries(loaded, sp).size)
+        assertEquals(10.0, exerciseStats(loaded).prKg, 0.001)
+        assertEquals(100.0, last7DaysVolume(loaded, at(today), sp).sumOf { it.volumeKg }, 0.001)
     }
 }

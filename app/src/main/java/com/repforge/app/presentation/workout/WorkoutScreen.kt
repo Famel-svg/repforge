@@ -96,7 +96,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
+import com.repforge.app.presentation.pluralCount
 import androidx.compose.ui.res.stringResource
 import com.repforge.app.R
 import com.repforge.app.data.AppPreferences
@@ -105,7 +105,22 @@ import com.repforge.app.presentation.exerciseDisplayName
 import com.repforge.app.presentation.muscleLabel
 import com.repforge.app.presentation.res
 import com.repforge.app.domain.logging.WEIGHT_STEP_KG
-import com.repforge.app.domain.logging.beatsPersonalRecord
+import com.repforge.app.domain.logging.beatsKindRecord
+import com.repforge.app.domain.logging.formatDistanceInput
+import com.repforge.app.domain.logging.formatDistanceKm
+import com.repforge.app.domain.logging.formatDuration
+import com.repforge.app.domain.logging.parseDuration
+import com.repforge.app.data.ExerciseCatalog
+import com.repforge.app.domain.metrics.bestDistanceKm
+import com.repforge.app.domain.metrics.bestDurationSec
+import com.repforge.app.domain.model.EXERCISE_KINDS
+import com.repforge.app.domain.model.KIND_BODYWEIGHT
+import com.repforge.app.domain.model.KIND_CARDIO
+import com.repforge.app.domain.model.KIND_REPS
+import com.repforge.app.domain.model.KIND_TIMED
+import com.repforge.app.domain.validation.validateKindEffort
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Switch
 import com.repforge.app.domain.logging.entriesOnDay
 import com.repforge.app.domain.logging.formatKg
 import com.repforge.app.domain.logging.formatSet
@@ -128,6 +143,8 @@ import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.validation.parseWeightKg
 import com.repforge.app.domain.validation.validateSetInput
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -252,22 +269,22 @@ fun WorkoutScreen(
                     onSuperset = { join -> viewModel.setSuperset(exercise.id, join) },
                     onToggle = { expandedId = if (expandedId == exercise.id) null else exercise.id },
                     onMove = { up -> viewModel.moveExercise(exercise.id, up) },
-                    onEdit = { name, target -> viewModel.updateExercise(exercise.id, name, target) },
+                    onEdit = { name, target, kind, perSide -> viewModel.updateExercise(exercise.id, name, target, kind, perSide) },
                     onNote = { viewModel.updateNote(exercise.id, it) },
                     onDelete = { viewModel.deleteExercise(exercise.id) },
                     onDeleteEntry = { entry ->
                         viewModel.deleteEntry(entry.id)
                         announce(context.getString(R.string.set_removed), context.getString(R.string.undo)) { viewModel.restoreEntry(entry) }
                     }
-                ) { reps, weight, newRecord, setType, rpe ->
-                    viewModel.addEntry(exercise.id, 1, reps, weight, setType, rpe)
+                ) { reps, weight, record, setType, rpe, durationSec, distanceKm ->
+                    viewModel.addEntry(exercise.id, 1, reps, weight, setType, rpe, durationSec, distanceKm)
                     if (preferences.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     // Inside a superset the rest only starts after its last exercise; until then the next card opens.
                     if (isGroupEnd(groups, index)) {
                         remaining = restSeconds
                         running = true
                     } else expandedId = exercises[index + 1].id
-                    announce(if (newRecord) context.getString(R.string.new_pr, formatKg(weight)) else context.getString(R.string.set_logged))
+                    announce(if (record != null) context.getString(R.string.new_pr, record) else context.getString(R.string.set_logged))
                 }
             }
             // Keeps the last card clear of the floating action button.
@@ -276,7 +293,7 @@ fun WorkoutScreen(
     }
     if (showAdd) ExerciseDialog(
         onDismiss = { showAdd = false },
-        onConfirm = { name, target -> viewModel.addExercise(name, target); showAdd = false }
+        onConfirm = { name, target, kind, perSide -> viewModel.addExercise(name, target, kind, perSide); showAdd = false }
     )
 }
 
@@ -295,11 +312,12 @@ private fun ExerciseCard(
     onSuperset: (join: Boolean) -> Unit,
     onToggle: () -> Unit,
     onMove: (Boolean) -> Unit,
-    onEdit: (String, String) -> Unit,
+    onEdit: (String, String, String, Boolean) -> Unit,
     onNote: (String) -> Unit,
     onDelete: () -> Unit,
     onDeleteEntry: (SetEntry) -> Unit,
-    onLog: (reps: Int, weightKg: Double, newRecord: Boolean, setType: String, rpe: Double?) -> Unit
+    /** [record] is the formatted new record (load, hold or distance) or null when nothing was beaten. */
+    onLog: (reps: Int, weightKg: Double, record: String?, setType: String, rpe: Double?, durationSec: Int?, distanceKm: Double?) -> Unit
 ) {
     // Null means "untouched": the field follows the last logged set instead of freezing the first prefill.
     var repsInput by rememberSaveable { mutableStateOf<String?>(null) }
@@ -321,11 +339,32 @@ private fun ExerciseCard(
     var showPlates by rememberSaveable { mutableStateOf(false) }
     val today = remember(entries) { entriesOnDay(entries, System.currentTimeMillis(), ZoneId.systemDefault()) }
     val prefill = prefillFor(entries)
+    val kind = exercise.kind
+    val isLoadKind = kind == KIND_REPS || kind == KIND_BODYWEIGHT
+    val sideLabel = if (exercise.perSide) stringResource(R.string.per_side_unit) else null
+    // Timed/cardio inputs follow the last logged set until touched, like reps and load.
+    var durationInput by rememberSaveable { mutableStateOf<String?>(null) }
+    var distanceInput by rememberSaveable { mutableStateOf<String?>(null) }
+    // Bodyweight: the extra-load field stays collapsed unless the last set carried load or the user opened it.
+    var extraOpen by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    // Wall-clock start of the work stopwatch (0 = stopped), so rotation and recomposition keep counting.
+    var stopwatchStart by rememberSaveable { mutableLongStateOf(0L) }
+    var elapsedSec by remember { mutableIntStateOf(0) }
+    LaunchedEffect(stopwatchStart) {
+        while (stopwatchStart > 0) {
+            elapsedSec = ((System.currentTimeMillis() - stopwatchStart) / 1000).toInt().coerceAtLeast(0)
+            delay(250)
+        }
+    }
     val repsText = repsInput ?: prefill.reps.toString()
     val weightText = weightInput ?: prefill.weightKg?.let(::formatWeightInput).orEmpty()
+    val durationText = durationInput ?: prefill.durationSec?.let(::formatDuration).orEmpty()
+    val distanceText = distanceInput ?: prefill.distanceKm?.let { formatDistanceInput(it) }.orEmpty()
+    val extraShown = extraOpen ?: ((prefill.weightKg ?: 0.0) > 0.0)
+    val showLoadField = kind == KIND_REPS || (kind == KIND_BODYWEIGHT && extraShown)
     val summary = when {
-        today.isNotEmpty() -> pluralStringResource(R.plurals.sets_today, today.size, today.size)
-        entries.isNotEmpty() -> stringResource(R.string.last_set, formatSet(entries.first()))
+        today.isNotEmpty() -> pluralCount(R.plurals.sets_today, today.size)
+        entries.isNotEmpty() -> stringResource(R.string.last_set, formatSet(entries.first(), kind = kind, perSideLabel = sideLabel))
         else -> stringResource(R.string.no_records)
     }
     val group = exercise.supersetGroup
@@ -400,24 +439,50 @@ private fun ExerciseCard(
                 }
             }
             if (expanded) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (entries.isNotEmpty()) Text(
-                    stringResource(R.string.pr_and_1rm, formatKg(personalRecordKg(entries)), formatKg(bestEstimatedOneRepMax(entries))),
-                    color = MaterialTheme.colorScheme.primary
-                )
+                if (entries.isNotEmpty()) when (kind) {
+                    KIND_TIMED -> Text(stringResource(R.string.record_longest_hold, formatDuration(bestDurationSec(entries))), color = MaterialTheme.colorScheme.primary)
+                    KIND_CARDIO -> bestDistanceKm(entries).takeIf { it > 0 }?.let {
+                        Text(stringResource(R.string.record_longest_distance, formatDistanceKm(it)), color = MaterialTheme.colorScheme.primary)
+                    }
+                    else -> if (kind == KIND_REPS || personalRecordKg(entries) > 0) Text(
+                        stringResource(R.string.pr_and_1rm, formatKg(personalRecordKg(entries)), formatKg(bestEstimatedOneRepMax(entries))),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 if (today.isNotEmpty()) Column {
                     Text(stringResource(R.string.today), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     today.forEachIndexed { index, entry ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("${index + 1}. ${setMarker(entry.setType)}${formatSet(entry)}${entry.rpe?.let { " @" + formatRpe(it) }.orEmpty()}", Modifier.weight(1f))
+                            Text("${index + 1}. ${setMarker(entry.setType)}${formatSet(entry, kind = kind, perSideLabel = sideLabel)}${entry.rpe?.let { " @" + formatRpe(it) }.orEmpty()}", Modifier.weight(1f))
                             IconButton(onClick = { onDeleteEntry(entry) }) { Icon(Icons.Rounded.Delete, stringResource(R.string.remove_set_n, index + 1)) }
                         }
                     }
                 }
-                ProgressionHint(
+                if (kind == KIND_REPS) ProgressionHint(
                     suggestion, isPro, onUpgrade = onUpgrade,
                     onApply = { reps, weightKg -> repsInput = reps.toString(); weightInput = formatWeightInput(weightKg); inputError = null }
                 )
-                StepperField(
+                if (sideLabel != null) Text(stringResource(R.string.per_side), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (kind == KIND_TIMED) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(formatDuration(if (stopwatchStart > 0) elapsedSec else 0), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+                        Button(onClick = {
+                            if (stopwatchStart > 0) {
+                                durationInput = formatDuration(((System.currentTimeMillis() - stopwatchStart) / 1000).toInt()); stopwatchStart = 0
+                            } else { elapsedSec = 0; stopwatchStart = System.currentTimeMillis() }
+                            inputError = null
+                        }) { Text(stringResource(if (stopwatchStart > 0) R.string.stop else R.string.start)) }
+                    }
+                }
+                if (!isLoadKind) OutlinedTextField(
+                    durationText, { durationInput = it; inputError = null }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.duration_label)) }, singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center), placeholder = { Text("0:00") }
+                )
+                if (kind == KIND_CARDIO) OutlinedTextField(
+                    distanceText, { distanceInput = it; inputError = null }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.distance_km)) }, singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+                if (isLoadKind) StepperField(
                     value = repsText, label = stringResource(R.string.reps), keyboardType = KeyboardType.Number,
                     minusEnabled = (repsText.trim().toIntOrNull() ?: 0) > 1,
                     minusDescription = stringResource(R.string.decrease_reps), plusDescription = stringResource(R.string.increase_reps),
@@ -425,7 +490,14 @@ private fun ExerciseCard(
                     onMinus = { repsInput = stepReps(repsText.trim().toIntOrNull(), -1).toString(); inputError = null },
                     onPlus = { repsInput = stepReps(repsText.trim().toIntOrNull(), 1).toString(); inputError = null }
                 )
-                StepperField(
+                if (kind == KIND_BODYWEIGHT) TextButton(onClick = {
+                    if (extraShown) { weightInput = ""; extraOpen = false } else { weightInput = null; extraOpen = true }
+                    inputError = null
+                }) {
+                    Text(stringResource(R.string.extra_load))
+                    Icon(if (extraShown) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
+                }
+                if (showLoadField) StepperField(
                     value = weightText, label = stringResource(R.string.load_kg), keyboardType = KeyboardType.Decimal,
                     minusEnabled = (parseWeightKg(weightText) ?: 0.0) > 0.0,
                     minusDescription = stringResource(R.string.decrease_load), plusDescription = stringResource(R.string.increase_load),
@@ -446,13 +518,22 @@ private fun ExerciseCard(
                 }
                 Button(
                     onClick = {
-                        val parsedReps = repsText.trim().toIntOrNull()
+                        // Timed/cardio sets log one rep and no load; a malformed duration/distance becomes -1 so validation rejects it.
+                        val parsedReps = if (isLoadKind) repsText.trim().toIntOrNull() else 1
                         // Blank load means bodyweight; only a malformed number is an error.
-                        val parsedWeight = if (weightText.isBlank()) 0.0 else parseWeightKg(weightText)
-                        inputError = validateSetInput(1, parsedReps, parsedWeight)
+                        val parsedWeight = if (showLoadField) (if (weightText.isBlank()) 0.0 else parseWeightKg(weightText)) else 0.0
+                        val duration = if (isLoadKind) null else durationText.trim().let { if (it.isEmpty()) null else parseDuration(it) ?: -1 }
+                        val distance = if (kind != KIND_CARDIO) null else distanceText.trim().let { if (it.isEmpty()) null else parseWeightKg(it) ?: -1.0 }
+                        inputError = validateSetInput(1, parsedReps, parsedWeight) ?: validateKindEffort(kind, duration, distance)
                         if (inputError == null) {
-                            onLog(parsedReps!!, parsedWeight!!, setType != SET_WARMUP && beatsPersonalRecord(entries, parsedWeight), setType, rpe)
-                            setType = SET_NORMAL; rpe = null
+                            val beat = setType != SET_WARMUP && beatsKindRecord(kind, entries, parsedWeight!!, duration, distance)
+                            val record = if (!beat) null else when (kind) {
+                                KIND_TIMED -> formatDuration(duration ?: 0)
+                                KIND_CARDIO -> formatDistanceKm(distance ?: 0.0)
+                                else -> formatKg(parsedWeight!!)
+                            }
+                            onLog(parsedReps!!, parsedWeight!!, record, setType, rpe, duration, distance)
+                            setType = SET_NORMAL; rpe = null; durationInput = null; distanceInput = null
                         }
                     },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
@@ -465,7 +546,7 @@ private fun ExerciseCard(
                     if (showHistory) {
                         entries.take(historyLimit).forEach { entry ->
                             Text(
-                                "${dateFormat.format(Date(entry.recordedAt))} · ${formatSet(entry)}",
+                                "${dateFormat.format(Date(entry.recordedAt))} · ${formatSet(entry, kind = kind, perSideLabel = sideLabel)}",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -504,10 +585,12 @@ private fun ExerciseCard(
         ExerciseDialog(
             initialName = exercise.name,
             initialTarget = exercise.target,
+            initialKind = exercise.kind,
+            initialPerSide = exercise.perSide,
             title = stringResource(R.string.edit_exercise),
             actionLabel = stringResource(R.string.save),
             onDismiss = { showEdit = false },
-            onConfirm = { name, target -> showEdit = false; onEdit(name, target) }
+            onConfirm = { name, target, newKind, perSide -> showEdit = false; onEdit(name, target, newKind, perSide) }
         )
     }
 }
@@ -593,24 +676,47 @@ private fun RestTimerBar(remaining: Int, total: Int, running: Boolean, onToggle:
 }
 
 @Composable
+private fun kindLabel(kind: String) = stringResource(when (kind) {
+    KIND_BODYWEIGHT -> R.string.kind_bodyweight; KIND_TIMED -> R.string.kind_timed; KIND_CARDIO -> R.string.kind_cardio; else -> R.string.kind_reps
+})
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
 private fun ExerciseDialog(
     initialName: String = "",
     initialTarget: String = "",
+    initialKind: String = KIND_REPS,
+    initialPerSide: Boolean = false,
     title: String = stringResource(R.string.add_exercise),
     actionLabel: String = stringResource(R.string.add),
     onDismiss: () -> Unit,
-    onConfirm: (String, String) -> Unit
+    onConfirm: (name: String, target: String, kind: String, perSide: Boolean) -> Unit
 ) {
     var name by rememberSaveable { mutableStateOf(initialName) }
     var target by rememberSaveable { mutableStateOf(initialTarget) }
+    var kind by rememberSaveable { mutableStateOf(initialKind) }
+    var perSide by rememberSaveable { mutableStateOf(initialPerSide) }
+    // A new exercise guesses its kind from the name until the user picks one.
+    var kindPicked by rememberSaveable { mutableStateOf(initialName.isNotEmpty()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.name)) }, singleLine = true)
+            OutlinedTextField(name, { name = it; if (!kindPicked) kind = ExerciseCatalog.inferKind(it, muscle = target) }, label = { Text(stringResource(R.string.name)) }, singleLine = true)
             OutlinedTextField(target, { target = it }, label = { Text(stringResource(R.string.muscle_group)) }, singleLine = true)
+            Text(stringResource(R.string.exercise_kind), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                EXERCISE_KINDS.forEach { k -> FilterChip(kind == k, { kind = k; kindPicked = true }, { Text(kindLabel(k)) }) }
+            }
+            if (kind != KIND_CARDIO) Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).toggleable(perSide, role = Role.Switch, onValueChange = { perSide = it }),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(R.string.per_side))
+                Switch(perSide, onCheckedChange = null)
+            }
         } },
-        confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onConfirm(name, target) }) { Text(actionLabel) } },
+        confirmButton = { Button(enabled = name.isNotBlank(), onClick = { onConfirm(name, target, kind, perSide && kind != KIND_CARDIO) }) { Text(actionLabel) } },
         dismissButton = { OutlinedButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }

@@ -20,3 +20,9 @@ fun personalRecordKg(entries: List<SetEntry>): Double = entries.filter { it.setT
 /** Start of the 7-calendar-day window (today plus the six previous local days). */
 fun recentWindowStart(now: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()): Long =
     Instant.ofEpochMilli(now).atZone(zone).toLocalDate().minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
+
+/** Longest hold or session, in seconds (timed/cardio records). */
+fun bestDurationSec(entries: List<SetEntry>): Int = entries.filter { it.setType != SET_WARMUP }.maxOfOrNull { it.durationSec ?: 0 } ?: 0
+
+/** Longest distance in a single entry (cardio record). */
+fun bestDistanceKm(entries: List<SetEntry>): Double = entries.filter { it.setType != SET_WARMUP }.maxOfOrNull { it.distanceKm ?: 0.0 } ?: 0.0

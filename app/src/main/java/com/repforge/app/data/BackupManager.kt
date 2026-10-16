@@ -18,7 +18,7 @@ data class ImportResult(val sheets: Int, val imported: Int, val skipped: Int)
 internal fun <T, K> partitionNew(incoming: List<T>, existing: Set<K>, key: (T) -> K): Pair<List<T>, List<T>> =
     incoming.partition { key(it) !in existing }
 
-internal fun entryKey(entry: BackupEntry) = Triple(entry.recordedAt, entry.reps, entry.weightKg)
+internal fun entryKey(entry: BackupEntry) = listOf(entry.recordedAt, entry.reps, entry.weightKg, entry.durationSec, entry.distanceKm)
 
 class BackupManager(private val database: WorkoutDatabase) {
     suspend fun exportJson(): String {
@@ -34,9 +34,9 @@ class BackupManager(private val database: WorkoutDatabase) {
             BackupCodec.encode(sheets.map { sheet ->
                 BackupSheet(sheet.name, sheet.updatedAt, exercises[sheet.id].orEmpty().map { exercise ->
                     BackupExercise(exercise.name, exercise.target, exercise.position, entries[exercise.id].orEmpty().map {
-                        BackupEntry(it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe)
-                    }, exercise.note, exercise.supersetGroup)
-                })
+                        BackupEntry(it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe, it.durationSec, it.distanceKm)
+                    }, exercise.note, exercise.supersetGroup, exercise.kind, exercise.perSide, exercise.progressionRule)
+                }, sheet.progressionRule)
             }, bodyWeights = weights.map { BackupBodyWeight(it.weightKg, it.recordedAt) },
                 plan = BackupPlan(schedule.associate { it.dayOfWeek to it.sheetId?.let(names::get) }, overrides.associate { it.date to it.sheetId?.let(names::get) }))
         }
@@ -65,18 +65,18 @@ class BackupManager(private val database: WorkoutDatabase) {
             skipped += oldWeights.size
             val sheetsByName = dao.allSheets().groupBy { it.name }
             val exercisesBySheet = dao.allExercises().groupBy { it.sheetId }
-            val keysByExercise = dao.allEntries().groupBy({ it.exerciseId }, { Triple(it.recordedAt, it.reps, it.weightKg) })
+            val keysByExercise = dao.allEntries().groupBy({ it.exerciseId }, { listOf(it.recordedAt, it.reps, it.weightKg, it.durationSec, it.distanceKm) })
             sheets.forEach { sheet ->
                 val existing = sheetsByName[sheet.name]?.firstOrNull()
-                val sheetId = existing?.id ?: dao.insertSheet(SheetEntity(name = sheet.name, updatedAt = sheet.updatedAt))
+                val sheetId = existing?.id ?: dao.insertSheet(SheetEntity(name = sheet.name, updatedAt = sheet.updatedAt, progressionRule = sheet.progressionRule))
                 val exerciseIds = exercisesBySheet[sheetId].orEmpty().groupBy { it.name }.mapValues { it.value.first().id }.toMutableMap()
                 sheet.exercises.forEach { exercise ->
                     val exerciseId = exerciseIds.getOrPut(exercise.name) {
-                        dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = exercise.name, target = exercise.target, position = exercise.position, note = exercise.note, supersetGroup = exercise.supersetGroup))
+                        dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = exercise.name, target = exercise.target, position = exercise.position, note = exercise.note, supersetGroup = exercise.supersetGroup, kind = exercise.kind, perSide = exercise.perSide, progressionRule = exercise.progressionRule))
                     }
                     val (fresh, old) = partitionNew(exercise.entries, keysByExercise[exerciseId].orEmpty().toSet(), ::entryKey)
                     fresh.forEach { entry ->
-                        dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = entry.sets, reps = entry.reps, weightKg = entry.weightKg, recordedAt = entry.recordedAt, setType = entry.setType, rpe = entry.rpe))
+                        dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = entry.sets, reps = entry.reps, weightKg = entry.weightKg, recordedAt = entry.recordedAt, setType = entry.setType, rpe = entry.rpe, durationSec = entry.durationSec, distanceKm = entry.distanceKm))
                     }
                     imported += fresh.size
                     skipped += old.size

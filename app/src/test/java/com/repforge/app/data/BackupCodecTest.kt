@@ -96,4 +96,25 @@ class BackupCodecTest {
     @Test fun rejectsForeignJson() {
         assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode("""{"version":1,"sheets":[{"name":"A","updated_at":"2026-06-14T10:00:00Z"}]}""") }
     }
+
+    @Test
+    fun kindFieldsRoundTripAndOldFilesDefault() {
+        val sheets = listOf(BackupSheet("A", 1, listOf(
+            BackupExercise("Prancha", "Abdômen", 0, listOf(BackupEntry(1, 1, 0.0, 5, durationSec = 45)), kind = "timed", perSide = true, progressionRule = "time"),
+            BackupExercise("Corrida", "Cardio", 1, listOf(BackupEntry(1, 1, 0.0, 6, durationSec = 1500, distanceKm = 5.2)), kind = "cardio")
+        ), progressionRule = "linear"))
+        val decoded = BackupCodec.decode(BackupCodec.encode(sheets, exportedAt = 9))
+        assertEquals(sheets, decoded)
+        // A file written before kinds existed (no new keys) falls back to defaults; junk values degrade too.
+        val old = """{"format":"repforge-backup","version":1,"sheets":[{"id":1,"name":"S","updatedAt":1,"progressionRule":"bogus"}],
+            "exercises":[{"id":1,"sheetId":1,"name":"E","target":"","position":0,"kind":"weird"}],
+            "entries":[{"id":1,"exerciseId":1,"sets":1,"reps":5,"weightKg":10.0,"recordedAt":3,"durationSec":-4}]}"""
+        val sheet = BackupCodec.decode(old).single()
+        assertEquals("double", sheet.progressionRule)
+        val exercise = sheet.exercises.single()
+        assertEquals("reps", exercise.kind)
+        assertEquals(false, exercise.perSide)
+        assertEquals(null, exercise.progressionRule)
+        assertEquals(null, exercise.entries.single().durationSec)
+    }
 }

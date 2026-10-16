@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.R
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.pluralStringResource
+import com.repforge.app.presentation.pluralCount
 import com.repforge.app.domain.logging.formatKg
 import com.repforge.app.domain.templates.StarterTemplates
 import com.repforge.app.domain.templates.WorkoutTemplate
@@ -188,8 +188,8 @@ private fun SummaryCard(state: HomeUiState) {
             }
             Spacer(Modifier.height(16.dp))
             Text(
-                pluralStringResource(R.plurals.sets_count, state.summary.completedSets, state.summary.completedSets) + " · " +
-                    pluralStringResource(R.plurals.active_sheets_count, state.summary.activeSheets, state.summary.activeSheets)
+                pluralCount(R.plurals.sets_count, state.summary.completedSets) + " · " +
+                    pluralCount(R.plurals.active_sheets_count, state.summary.activeSheets)
             )
         }
     }
@@ -201,7 +201,7 @@ private fun SheetCard(sheet: TrainingSheet, onStart: () -> Unit, onDuplicate: ()
         Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Column {
                 Text(sheet.name, style = MaterialTheme.typography.titleMedium)
-                Text(pluralStringResource(R.plurals.exercises_count, sheet.exerciseCount, sheet.exerciseCount), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(pluralCount(R.plurals.exercises_count, sheet.exerciseCount), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Rounded.PlayArrow, contentDescription = null)

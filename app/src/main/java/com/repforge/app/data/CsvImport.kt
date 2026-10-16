@@ -1,5 +1,8 @@
 package com.repforge.app.data
 
+import com.repforge.app.domain.model.KIND_CARDIO
+import com.repforge.app.domain.model.KIND_REPS
+import com.repforge.app.domain.model.KIND_TIMED
 import com.repforge.app.domain.model.SET_DROP
 import com.repforge.app.domain.model.SET_FAILURE
 import com.repforge.app.domain.model.SET_NORMAL
@@ -11,7 +14,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** Parsed sheets plus the number of rows skipped (no reps, bad date, malformed). */
+/** Parsed sheets plus the number of rows skipped (no reps/seconds/distance, bad date, malformed). */
 data class CsvImportResult(val sheets: List<BackupSheet>, val skippedRows: Int, val maybePounds: Boolean = false)
 
 private const val LBS_TO_KG = 0.45359237
@@ -41,14 +44,18 @@ fun parseCsvWorkoutsWithStats(raw: String, zone: ZoneId): CsvImportResult {
             val exercise = col(row, if (strong) "exercise name" else "exercise_title").ifEmpty { error("sem exercício") }
             val at = LocalDateTime.parse(col(row, if (strong) "date" else "start_time"), if (strong) STRONG_DATE else HEVY_DATE)
                 .atZone(zone).toInstant().toEpochMilli()
-            val reps = number(col(row, "reps"))?.toInt()?.takeIf { it > 0 } ?: error("sem repetições")
+            val reps = number(col(row, "reps"))?.toInt()?.takeIf { it > 0 }
+            // Strong "Seconds"/"Distance" (meters) and Hevy duration_seconds/distance_km: rows without reps are holds or cardio.
+            val seconds = number(col(row, if (strong) "seconds" else "duration_seconds"))?.toInt()?.takeIf { it > 0 }
+            val distanceKm = (if (strong) number(col(row, "distance"))?.div(1000) else number(col(row, "distance_km")))?.takeIf { it > 0 }
+            if (reps == null && seconds == null && distanceKm == null) error("sem repetições")
             val weightKg = if (strong) {
                 val weight = number(col(row, "weight")) ?: 0.0
                 if (col(row, "weight unit").lowercase().startsWith("lb")) weight * LBS_TO_KG else weight
             } else if ("weight_kg" in header) number(col(row, "weight_kg")) ?: 0.0
             else (number(col(row, "weight_lbs")) ?: 0.0) * LBS_TO_KG
             val marker = col(row, if (strong) "set order" else "set_type").lowercase()
-            Triple(title, exercise, BackupEntry(1, reps, weightKg, at, setTypeOf(marker)))
+            Triple(title, exercise, if (reps != null) BackupEntry(1, reps, weightKg, at, setTypeOf(marker)) else BackupEntry(1, 1, weightKg, at, setTypeOf(marker), durationSec = seconds, distanceKm = distanceKm))
         }.getOrNull()
         if (parsed == null) { skipped++; return@forEach }
         val (title, exercise, entry) = parsed
@@ -58,7 +65,12 @@ fun parseCsvWorkoutsWithStats(raw: String, zone: ZoneId): CsvImportResult {
     return CsvImportResult(
         sheets.map { (title, exercises) ->
             BackupSheet(title, updated.getValue(title), exercises.entries.mapIndexed { index, (name, entries) ->
-                BackupExercise(name, "", index, entries)
+                val kind = when {
+                    entries.any { it.distanceKm != null } -> KIND_CARDIO
+                    entries.any { it.durationSec != null } -> KIND_TIMED
+                    else -> KIND_REPS
+                }
+                BackupExercise(name, "", index, entries, kind = kind)
             })
         },
         skipped,

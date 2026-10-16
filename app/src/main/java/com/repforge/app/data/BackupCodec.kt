@@ -1,6 +1,7 @@
 package com.repforge.app.data
 
 import com.repforge.app.domain.model.SET_TYPES
+import com.repforge.app.domain.model.normalizeKind
 import com.repforge.app.domain.validation.AppError
 import com.repforge.app.domain.validation.AppException
 import com.repforge.app.domain.validation.validateBodyWeight
@@ -13,10 +14,16 @@ import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
-data class BackupEntry(val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long, val setType: String = "normal", val rpe: Double? = null)
-data class BackupExercise(val name: String, val target: String, val position: Int, val entries: List<BackupEntry>, val note: String = "", val supersetGroup: Int? = null)
+data class BackupEntry(val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long, val setType: String = "normal", val rpe: Double? = null, val durationSec: Int? = null, val distanceKm: Double? = null)
+data class BackupExercise(
+    val name: String, val target: String, val position: Int, val entries: List<BackupEntry>, val note: String = "", val supersetGroup: Int? = null,
+    val kind: String = "reps", val perSide: Boolean = false, val progressionRule: String? = null
+)
 data class BackupBodyWeight(val weightKg: Double, val recordedAt: Long)
-data class BackupSheet(val name: String, val updatedAt: Long, val exercises: List<BackupExercise>)
+data class BackupSheet(val name: String, val updatedAt: Long, val exercises: List<BackupExercise>, val progressionRule: String = DEFAULT_RULE)
+const val DEFAULT_RULE = "double"
+private val RULES = setOf("none", "linear", "double", "time")
+
 /** Plan entries reference sheets by name because sheet ids are renumbered on export; a null name is a rest day. */
 data class BackupPlan(val weekly: Map<Int, String?> = emptyMap(), val overrides: Map<String, String?> = emptyMap())
 
@@ -36,13 +43,14 @@ object BackupCodec {
         var entryId = 0L
         sheets.forEachIndexed { sheetIndex, sheet ->
             val sheetId = sheetIndex + 1L
-            sheetArray.put(JSONObject().apply { put("id", sheetId); put("name", sheet.name); put("updatedAt", sheet.updatedAt) })
+            sheetArray.put(JSONObject().apply { put("id", sheetId); put("name", sheet.name); put("updatedAt", sheet.updatedAt); put("progressionRule", sheet.progressionRule) })
             sheet.exercises.forEach { exercise ->
                 exerciseId += 1
                 exerciseArray.put(JSONObject().apply {
                     put("id", exerciseId); put("sheetId", sheetId); put("name", exercise.name)
                     put("target", exercise.target); put("position", exercise.position); put("note", exercise.note)
                     exercise.supersetGroup?.let { put("supersetGroup", it) }
+                    put("kind", exercise.kind); put("perSide", exercise.perSide); exercise.progressionRule?.let { put("progressionRule", it) }
                 })
                 exercise.entries.forEach { entry ->
                     entryId += 1
@@ -50,6 +58,7 @@ object BackupCodec {
                         put("id", entryId); put("exerciseId", exerciseId); put("sets", entry.sets); put("reps", entry.reps)
                         put("weightKg", entry.weightKg); put("recordedAt", entry.recordedAt)
                         put("setType", entry.setType); entry.rpe?.let { put("rpe", it) }
+                        entry.durationSec?.let { put("durationSec", it) }; entry.distanceKm?.let { put("distanceKm", it) }
                     })
                 }
             }
@@ -123,6 +132,7 @@ object BackupCodec {
             BackupSheet(
                 name = name(sheet),
                 updatedAt = sheet.optLong("updatedAt", System.currentTimeMillis()),
+                progressionRule = rule(sheet.optString("progressionRule")) ?: DEFAULT_RULE,
                 exercises = exercisesBySheet[sheet.getLong("id")].orEmpty().map { exercise ->
                     BackupExercise(
                         name = name(exercise),
@@ -130,10 +140,14 @@ object BackupCodec {
                         position = position(exercise),
                         entries = entriesByExercise[exercise.getLong("id")].orEmpty().map { entry ->
                             entry(entry.getInt("sets"), entry.getInt("reps"), entry.getDouble("weightKg"), entry.getLong("recordedAt"),
-                                entry.optString("setType", "normal"), if (entry.isNull("rpe")) null else entry.optDouble("rpe"))
+                                entry.optString("setType", "normal"), if (entry.isNull("rpe")) null else entry.optDouble("rpe"),
+                                if (entry.isNull("durationSec")) null else entry.optInt("durationSec"), if (entry.isNull("distanceKm")) null else entry.optDouble("distanceKm"))
                         },
                         note = exercise.optString("note").trim(),
-                        supersetGroup = if (exercise.isNull("supersetGroup")) null else exercise.optInt("supersetGroup")
+                        supersetGroup = if (exercise.isNull("supersetGroup")) null else exercise.optInt("supersetGroup"),
+                        kind = normalizeKind(exercise.optString("kind")),
+                        perSide = exercise.optBoolean("perSide", false),
+                        progressionRule = rule(exercise.optString("progressionRule"))
                     )
                 }
             )
@@ -173,10 +187,13 @@ object BackupCodec {
     private fun position(item: JSONObject): Int =
         item.getInt("position").also { if (it < 0) throw AppException(AppError.InvalidPosition) }
 
-    private fun entry(sets: Int, reps: Int, weightKg: Double, recordedAt: Long, setType: String = "normal", rpe: Double? = null): BackupEntry {
+    private fun rule(value: String): String? = value.takeIf { it in RULES }
+
+    private fun entry(sets: Int, reps: Int, weightKg: Double, recordedAt: Long, setType: String = "normal", rpe: Double? = null, durationSec: Int? = null, distanceKm: Double? = null): BackupEntry {
         if (!(sets > 0 && reps > 0 && weightKg >= 0 && weightKg.isFinite())) throw AppException(AppError.InvalidSet)
         // Unknown set types and out-of-range RPE degrade to defaults instead of rejecting the file.
-        return BackupEntry(sets, reps, weightKg, recordedAt, if (setType in SET_TYPES) setType else "normal", rpe?.takeIf { it in 6.0..10.0 })
+        return BackupEntry(sets, reps, weightKg, recordedAt, if (setType in SET_TYPES) setType else "normal", rpe?.takeIf { it in 6.0..10.0 },
+            durationSec?.takeIf { it > 0 }, distanceKm?.takeIf { it > 0 && it.isFinite() })
     }
 
     private fun either(item: JSONObject, first: String, second: String): String =

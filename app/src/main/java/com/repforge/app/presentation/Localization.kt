@@ -1,10 +1,12 @@
 package com.repforge.app.presentation
 
 import android.content.Context
+import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.repforge.app.R
 import com.repforge.app.data.ExerciseCatalog
@@ -19,6 +21,14 @@ val LocalCatalogNames = staticCompositionLocalOf<Map<String, String>> { emptyMap
 
 @Composable
 fun isPortuguese(): Boolean = LocalConfiguration.current.locales[0].language == "pt"
+
+/**
+ * Plural text where 0 counts as plural in Portuguese ("0 séries"); Android's pt rules treat 0 as "one".
+ * Quantity 2 picks the "other" form in every locale we ship.
+ */
+@Composable
+fun pluralCount(@PluralsRes id: Int, count: Int): String =
+    pluralStringResource(id, if (count == 0 && isPortuguese()) 2 else count, count)
 
 /** Catalog exercises show their English name outside Portuguese locales; custom names are shown as typed. */
 @Composable
@@ -75,6 +85,7 @@ fun AppError.res(): Int = when (this) {
     AppError.DestinationUnavailable -> R.string.err_destination_unavailable
     AppError.FileUnavailable -> R.string.err_file_unavailable
     AppError.FileTooLarge -> R.string.err_file_too_large
+    AppError.DurationInvalid -> R.string.err_duration_invalid
 }
 
 /** Message for any thrown error; [AppException] kinds are translated, anything else shows its technical message. */

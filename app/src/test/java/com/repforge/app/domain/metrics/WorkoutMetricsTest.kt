@@ -37,4 +37,15 @@ class WorkoutMetricsTest {
         val expected = ZonedDateTime.of(2026, 10, 4, 0, 0, 0, 0, zone).toInstant().toEpochMilli()
         assertEquals(expected, recentWindowStart(now, zone))
     }
+
+    @Test fun holdAndDistanceRecordsIgnoreWarmups() {
+        val list = listOf(
+            SetEntry(1, 1, 1, 1, 0.0, 1, durationSec = 40, distanceKm = 2.0),
+            SetEntry(2, 1, 1, 1, 0.0, 2, durationSec = 55, distanceKm = 1.0),
+            SetEntry(3, 1, 1, 1, 0.0, 3, "warmup", durationSec = 99, distanceKm = 9.0)
+        )
+        assertEquals(55, bestDurationSec(list))
+        assertEquals(2.0, bestDistanceKm(list), 0.001)
+        assertEquals(0, bestDurationSec(emptyList()))
+    }
 }

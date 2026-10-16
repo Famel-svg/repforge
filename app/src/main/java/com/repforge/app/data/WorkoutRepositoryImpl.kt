@@ -22,6 +22,7 @@ import com.repforge.app.domain.model.DashboardSummary
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.HistoryEntry
 import com.repforge.app.domain.model.SET_NORMAL
+import com.repforge.app.domain.model.normalizeKind
 import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.TrainingSheet
@@ -33,6 +34,7 @@ import com.repforge.app.domain.templates.WorkoutTemplate
 import com.repforge.app.domain.validation.AppError
 import com.repforge.app.domain.validation.AppException
 import com.repforge.app.domain.validation.validateBodyWeight
+import com.repforge.app.domain.validation.validateEffort
 import com.repforge.app.domain.validation.validateSetInput
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -70,7 +72,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val o
     override suspend fun duplicateSheet(sheetId: Long, copyLabel: String) {
         database.withTransaction {
             val source = dao.findSheet(sheetId) ?: return@withTransaction
-            val copyId = dao.insertSheet(SheetEntity(name = "${source.name} ($copyLabel)"))
+            val copyId = dao.insertSheet(SheetEntity(name = "${source.name} ($copyLabel)", progressionRule = source.progressionRule))
             dao.exercisesOf(sheetId).forEach { dao.insertExercise(it.copy(id = 0, sheetId = copyId)) }
         }
         onChanged()
@@ -82,17 +84,17 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val o
     }
 
     override fun observeExercises(sheetId: Long): Flow<List<Exercise>> = dao.observeExercises(sheetId).map { rows ->
-        rows.map { Exercise(it.id, it.sheetId, it.name, it.target, it.position, it.note, it.supersetGroup) }
+        rows.map { Exercise(it.id, it.sheetId, it.name, it.target, it.position, it.note, it.supersetGroup, it.kind, it.perSide, it.progressionRule) }
     }
 
     override fun observeEntries(exerciseId: Long): Flow<List<SetEntry>> = dao.observeEntries(exerciseId).map { rows ->
-        rows.map { SetEntry(it.id, it.exerciseId, it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe) }
+        rows.map { SetEntry(it.id, it.exerciseId, it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe, it.durationSec, it.distanceKm) }
     }
 
-    override suspend fun addExercise(sheetId: Long, name: String, target: String) {
+    override suspend fun addExercise(sheetId: Long, name: String, target: String, kind: String, perSide: Boolean) {
         require(name.isNotBlank()) { "Nome do exercício não pode ficar vazio." }
         database.withTransaction {
-            dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = name.trim(), target = target.trim(), position = dao.nextExercisePosition(sheetId)))
+            dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = name.trim(), target = target.trim(), position = dao.nextExercisePosition(sheetId), kind = normalizeKind(kind), perSide = perSide))
             dao.touchSheet(sheetId, System.currentTimeMillis())
         }
     }
@@ -106,18 +108,19 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val o
         }
     }
 
-    override suspend fun updateExercise(exerciseId: Long, name: String, target: String) {
+    override suspend fun updateExercise(exerciseId: Long, name: String, target: String, kind: String, perSide: Boolean) {
         require(name.isNotBlank()) { "Nome do exercício não pode ficar vazio." }
         database.withTransaction {
-            dao.updateExercise(exerciseId, name.trim(), target.trim())
+            dao.updateExercise(exerciseId, name.trim(), target.trim(), normalizeKind(kind), perSide)
             dao.touchSheetOfExercise(exerciseId, System.currentTimeMillis())
         }
     }
 
-    override suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double, setType: String, rpe: Double?) {
+    override suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double, setType: String, rpe: Double?, durationSec: Int?, distanceKm: Double?) {
         validateSetInput(sets, reps, weightKg)?.let { throw AppException(it) }
+        validateEffort(durationSec, distanceKm)?.let { throw AppException(it) }
         database.withTransaction {
-            dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg, setType = setType, rpe = rpe))
+            dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg, setType = setType, rpe = rpe, durationSec = durationSec, distanceKm = distanceKm))
             dao.touchSheetOfExercise(exerciseId, System.currentTimeMillis())
         }
         onChanged()
@@ -134,7 +137,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val o
 
     override suspend fun restoreEntry(entry: SetEntry) {
         if (dao.findExercise(entry.exerciseId) == null) return
-        dao.insertEntry(EntryEntity(entry.id, entry.exerciseId, entry.sets, entry.reps, entry.weightKg, entry.recordedAt, entry.setType, entry.rpe))
+        dao.insertEntry(EntryEntity(entry.id, entry.exerciseId, entry.sets, entry.reps, entry.weightKg, entry.recordedAt, entry.setType, entry.rpe, entry.durationSec, entry.distanceKm))
         onChanged()
     }
 
@@ -226,7 +229,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val o
     }
 
     override fun observeHistory(): Flow<List<HistoryEntry>> = dao.observeHistory().map { rows ->
-        rows.map { HistoryEntry(it.exerciseId, it.exerciseName, it.sheetName, it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe, it.target) }
+        rows.map { HistoryEntry(it.exerciseId, it.exerciseName, it.sheetName, it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe, it.target, it.kind, it.durationSec, it.distanceKm) }
     }
 
     private fun SheetWithCount.toDomain() = TrainingSheet(id, name, exerciseCount, updatedAt)

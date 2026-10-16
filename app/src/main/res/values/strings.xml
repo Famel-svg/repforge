@@ -383,4 +383,23 @@
     <string name="library_secondary_muscles">Secondary muscles</string>
     <string name="library_equipment">Equipment</string>
     <string name="library_none">None</string>
+    <string name="err_duration_invalid">Enter a valid duration (mm:ss) or distance.</string>
+    <string name="per_side">Per side</string>
+    <string name="per_side_unit">side</string>
+    <string name="exercise_kind">Type</string>
+    <string name="kind_reps">Reps and load</string>
+    <string name="kind_bodyweight">Bodyweight</string>
+    <string name="kind_timed">Timed</string>
+    <string name="kind_cardio">Cardio</string>
+    <string name="extra_load">Extra load</string>
+    <string name="duration_label">Duration (mm:ss)</string>
+    <string name="distance_km">Distance (km)</string>
+    <string name="stop">Stop</string>
+    <string name="stat_longest_hold">Longest hold</string>
+    <string name="stat_longest_distance">Longest distance</string>
+    <string name="record_longest_hold">Longest hold: %1$s</string>
+    <string name="record_longest_distance">Longest distance: %1$s</string>
+    <string name="chart_value_single">One record on %1$s: %2$s</string>
+    <string name="chart_value_range">Progress from %1$s to %2$s: from %3$s to %4$s, minimum %5$s, maximum %6$s</string>
+    <string name="value_range">Range: %1$s to %2$s</string>
 </resources>

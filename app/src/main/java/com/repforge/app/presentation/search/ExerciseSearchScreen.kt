@@ -29,7 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.res.pluralStringResource
+import com.repforge.app.presentation.pluralCount
 import androidx.compose.ui.res.stringResource
 import com.repforge.app.R
 import com.repforge.app.data.ExerciseCatalog
@@ -57,7 +57,7 @@ fun ExerciseSearchScreen(viewModel: ExerciseSearchViewModel, onBack: () -> Unit)
             ChipRow(MUSCLES, state.muscle, viewModel::muscleChanged) { muscleLabel(it) }
             ChipRow(EQUIPMENT, state.equipment, viewModel::equipmentChanged) { equipmentLabel(it) }
             Text(
-                if (state.loading) stringResource(R.string.loading) else pluralStringResource(R.plurals.exercises_count, state.results.size, state.results.size),
+                if (state.loading) stringResource(R.string.loading) else pluralCount(R.plurals.exercises_count, state.results.size),
                 Modifier.padding(GUTTER), color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             LazyColumn(Modifier.weight(1f), contentPadding = GUTTER, verticalArrangement = Arrangement.spacedBy(10.dp)) {

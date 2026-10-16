@@ -78,4 +78,23 @@ class ExerciseCatalogTest {
         assertTrue(names("zzzz").isEmpty())
         assertTrue(names("supino agachamento").isEmpty())
     }
+
+    @Test fun infersKindFromEquipmentMuscleAndHolds() {
+        assertEquals("timed", ExerciseCatalog.inferKind("Prancha", "Plank", "Abdômen", "Peso corporal"))
+        assertEquals("timed", ExerciseCatalog.inferKind("Hollow hold", "Hollow body hold", "Abdômen", "Peso corporal"))
+        assertEquals("timed", ExerciseCatalog.inferKind("Pendurar na barra", "Dead hang", "Antebraço", "Peso corporal"))
+        assertEquals("cardio", ExerciseCatalog.inferKind("Corrida", "Run", "Cardio", "Peso corporal"))
+        assertEquals("bodyweight", ExerciseCatalog.inferKind("Flexão", "Push-up", "Peito", "Peso corporal"))
+        assertEquals("reps", ExerciseCatalog.inferKind("Supino reto", "Bench press", "Peito", "Barra"))
+        assertEquals("timed", ExerciseCatalog.inferKind("Minha PRANCHA lateral"))
+    }
+
+    @Test fun shippedCatalogDefaultsLookRight() {
+        val catalog = ExerciseCatalog.parse(java.io.File("src/main/assets/exercises.json").readText())
+        val byId = catalog.associateBy { it.id }
+        assertEquals("timed", byId.getValue("prancha").defaultKind)
+        assertEquals("timed", byId.getValue("agachamento-na-parede").defaultKind)
+        assertEquals("reps", byId.getValue("hang-clean").defaultKind)
+        assertTrue(catalog.filter { it.muscle == "Cardio" }.all { it.defaultKind == "cardio" })
+    }
 }

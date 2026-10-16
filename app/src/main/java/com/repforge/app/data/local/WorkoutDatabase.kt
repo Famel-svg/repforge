@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.Flow
 data class SheetEntity(
     @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    /** none | linear | double | time */
+    @androidx.room.ColumnInfo(defaultValue = "double") val progressionRule: String = "double"
 )
 
 @Entity(
@@ -28,7 +30,12 @@ data class ExerciseEntity(
     val target: String,
     val position: Int,
     @androidx.room.ColumnInfo(defaultValue = "") val note: String = "",
-    val supersetGroup: Int? = null
+    val supersetGroup: Int? = null,
+    /** reps | timed | bodyweight | cardio */
+    @androidx.room.ColumnInfo(defaultValue = "reps") val kind: String = "reps",
+    @androidx.room.ColumnInfo(defaultValue = "0") val perSide: Boolean = false,
+    /** Overrides the sheet's rule when set. */
+    val progressionRule: String? = null
 )
 
 @Entity(tableName = "body_weights")
@@ -51,7 +58,23 @@ data class EntryEntity(
     val weightKg: Double,
     val recordedAt: Long = System.currentTimeMillis(),
     @androidx.room.ColumnInfo(defaultValue = "normal") val setType: String = "normal",
-    val rpe: Double? = null
+    val rpe: Double? = null,
+    val durationSec: Int? = null,
+    val distanceKm: Double? = null
+)
+
+/** A workout in progress (endedAt null) or finished; sheetId goes null if the sheet is deleted. */
+@Entity(
+    tableName = "sessions",
+    foreignKeys = [androidx.room.ForeignKey(entity = SheetEntity::class, parentColumns = ["id"], childColumns = ["sheetId"], onDelete = androidx.room.ForeignKey.SET_NULL)],
+    indices = [androidx.room.Index("sheetId")]
+)
+data class SessionEntity(
+    @androidx.room.PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val sheetId: Long?,
+    val startedAt: Long,
+    val endedAt: Long? = null,
+    val bodyWeightKg: Double? = null
 )
 
 @Entity(
@@ -76,9 +99,9 @@ data class SheetWithCount(
     val updatedAt: Long
 )
 
-data class ExerciseRow(val id: Long, val sheetId: Long, val name: String, val target: String, val position: Int, val note: String, val supersetGroup: Int?)
+data class ExerciseRow(val id: Long, val sheetId: Long, val name: String, val target: String, val position: Int, val note: String, val supersetGroup: Int?, val kind: String, val perSide: Boolean, val progressionRule: String?)
 
-data class EntryRow(val id: Long, val exerciseId: Long, val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long, val setType: String, val rpe: Double?)
+data class EntryRow(val id: Long, val exerciseId: Long, val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long, val setType: String, val rpe: Double?, val durationSec: Int?, val distanceKm: Double?)
 
 data class DailyVolumeRow(val day: String, val volumeKg: Double)
 
@@ -92,7 +115,10 @@ data class HistoryRow(
     val recordedAt: Long,
     val setType: String,
     val rpe: Double?,
-    val target: String
+    val target: String,
+    val kind: String,
+    val durationSec: Int?,
+    val distanceKm: Double?
 )
 
 @Dao
@@ -130,10 +156,10 @@ interface WorkoutDao {
     @Query("UPDATE sheets SET updatedAt = :now WHERE id = (SELECT sheetId FROM exercises WHERE id = :exerciseId)")
     suspend fun touchSheetOfExercise(exerciseId: Long, now: Long)
 
-    @Query("SELECT id, sheetId, name, target, position, note, supersetGroup FROM exercises WHERE sheetId = :sheetId ORDER BY position, id")
+    @Query("SELECT id, sheetId, name, target, position, note, supersetGroup, kind, perSide, progressionRule FROM exercises WHERE sheetId = :sheetId ORDER BY position, id")
     fun observeExercises(sheetId: Long): Flow<List<ExerciseRow>>
 
-    @Query("SELECT id, exerciseId, sets, reps, weightKg, recordedAt, setType, rpe FROM entries WHERE exerciseId = :exerciseId ORDER BY recordedAt DESC, id DESC")
+    @Query("SELECT id, exerciseId, sets, reps, weightKg, recordedAt, setType, rpe, durationSec, distanceKm FROM entries WHERE exerciseId = :exerciseId ORDER BY recordedAt DESC, id DESC")
     fun observeEntries(exerciseId: Long): Flow<List<EntryRow>>
 
     @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM exercises WHERE sheetId = :sheetId")
@@ -145,8 +171,8 @@ interface WorkoutDao {
     @Query("DELETE FROM exercises WHERE id = :exerciseId")
     suspend fun deleteExercise(exerciseId: Long)
 
-    @Query("UPDATE exercises SET name = :name, target = :target WHERE id = :exerciseId")
-    suspend fun updateExercise(exerciseId: Long, name: String, target: String)
+    @Query("UPDATE exercises SET name = :name, target = :target, kind = :kind, perSide = :perSide WHERE id = :exerciseId")
+    suspend fun updateExercise(exerciseId: Long, name: String, target: String, kind: String, perSide: Boolean)
 
     @Query("UPDATE exercises SET note = :note WHERE id = :exerciseId")
     suspend fun updateExerciseNote(exerciseId: Long, note: String)
@@ -220,8 +246,17 @@ interface WorkoutDao {
     @Query("SELECT strftime('%Y-%m-%d', recordedAt / 1000, 'unixepoch', 'localtime') AS day, COALESCE(SUM(sets * reps * weightKg), 0.0) AS volumeKg FROM entries WHERE recordedAt >= :since AND setType != 'warmup' GROUP BY day ORDER BY day")
     fun observeDailyVolume(since: Long): Flow<List<DailyVolumeRow>>
 
-    @Query("SELECT ex.id AS exerciseId, ex.name AS exerciseName, s.name AS sheetName, en.sets AS sets, en.reps AS reps, en.weightKg AS weightKg, en.recordedAt AS recordedAt, en.setType AS setType, en.rpe AS rpe, ex.target AS target FROM entries en JOIN exercises ex ON ex.id = en.exerciseId JOIN sheets s ON s.id = ex.sheetId ORDER BY en.recordedAt DESC, en.id DESC")
+    @Query("SELECT ex.id AS exerciseId, ex.name AS exerciseName, s.name AS sheetName, en.sets AS sets, en.reps AS reps, en.weightKg AS weightKg, en.recordedAt AS recordedAt, en.setType AS setType, en.rpe AS rpe, ex.target AS target, ex.kind AS kind, en.durationSec AS durationSec, en.distanceKm AS distanceKm FROM entries en JOIN exercises ex ON ex.id = en.exerciseId JOIN sheets s ON s.id = ex.sheetId ORDER BY en.recordedAt DESC, en.id DESC")
     fun observeHistory(): Flow<List<HistoryRow>>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertSession(session: SessionEntity): Long
+
+    @Query("UPDATE sessions SET endedAt = :endedAt, bodyWeightKg = COALESCE(:bodyWeightKg, bodyWeightKg) WHERE id = :sessionId AND endedAt IS NULL")
+    suspend fun finishSession(sessionId: Long, endedAt: Long, bodyWeightKg: Double?)
+
+    @Query("SELECT * FROM sessions WHERE endedAt IS NULL ORDER BY startedAt DESC, id DESC LIMIT 1")
+    fun observeActiveSession(): Flow<SessionEntity?>
 }
 
 val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
@@ -248,7 +283,20 @@ val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
     }
 }
 
-@Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class, BodyWeightEntity::class, ScheduleEntity::class, ScheduleOverrideEntity::class], version = 4, exportSchema = true)
+val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE exercises ADD COLUMN kind TEXT NOT NULL DEFAULT 'reps'")
+        db.execSQL("ALTER TABLE exercises ADD COLUMN perSide INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE exercises ADD COLUMN progressionRule TEXT")
+        db.execSQL("ALTER TABLE sheets ADD COLUMN progressionRule TEXT NOT NULL DEFAULT 'double'")
+        db.execSQL("ALTER TABLE entries ADD COLUMN durationSec INTEGER")
+        db.execSQL("ALTER TABLE entries ADD COLUMN distanceKm REAL")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `sessions` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sheetId` INTEGER, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER, `bodyWeightKg` REAL, FOREIGN KEY(`sheetId`) REFERENCES `sheets`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_sessions_sheetId` ON `sessions` (`sheetId`)")
+    }
+}
+
+@Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class, BodyWeightEntity::class, ScheduleEntity::class, ScheduleOverrideEntity::class, SessionEntity::class], version = 5, exportSchema = true)
 abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
 }
