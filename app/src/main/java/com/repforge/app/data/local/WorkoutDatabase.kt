@@ -128,6 +128,15 @@ interface WorkoutDao {
     @Query("SELECT * FROM exercises ORDER BY sheetId, position, id")
     suspend fun allExercises(): List<ExerciseEntity>
 
+    @Query("SELECT * FROM exercises WHERE id = :exerciseId")
+    suspend fun findExercise(exerciseId: Long): ExerciseEntity?
+
+    @Query("UPDATE exercises SET position = :position WHERE id = :exerciseId")
+    suspend fun updateExercisePosition(exerciseId: Long, position: Int)
+
+    @Query("DELETE FROM entries WHERE id = :entryId")
+    suspend fun deleteEntry(entryId: Long)
+
     @Query("SELECT * FROM entries ORDER BY exerciseId, recordedAt, id")
     suspend fun allEntries(): List<EntryEntity>
 

@@ -6,6 +6,7 @@ import com.repforge.app.data.local.ExerciseEntity
 import com.repforge.app.data.local.SheetEntity
 import com.repforge.app.data.local.SheetWithCount
 import com.repforge.app.data.local.WorkoutDatabase
+import com.repforge.app.domain.logging.movedOrder
 import com.repforge.app.domain.metrics.currentStreak
 import com.repforge.app.domain.metrics.recentWindowStart
 import com.repforge.app.domain.metrics.trainingDays
@@ -16,6 +17,7 @@ import com.repforge.app.domain.model.HistoryEntry
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.repository.WorkoutRepository
+import com.repforge.app.domain.templates.WorkoutTemplate
 import com.repforge.app.domain.validation.validateSetInput
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -95,6 +97,35 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
         database.withTransaction {
             dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg))
             dao.touchSheetOfExercise(exerciseId, System.currentTimeMillis())
+        }
+    }
+
+    override suspend fun deleteEntry(entryId: Long) {
+        dao.deleteEntry(entryId)
+    }
+
+    override suspend fun restoreEntry(entry: SetEntry) {
+        dao.insertEntry(EntryEntity(entry.id, entry.exerciseId, entry.sets, entry.reps, entry.weightKg, entry.recordedAt))
+    }
+
+    override suspend fun moveExercise(exerciseId: Long, up: Boolean) {
+        database.withTransaction {
+            val sheetId = dao.findExercise(exerciseId)?.sheetId ?: return@withTransaction
+            val ordered = dao.exercisesOf(sheetId)
+            val newOrder = movedOrder(ordered.map { it.id }, exerciseId, up) ?: return@withTransaction
+            val oldIndex = ordered.map { it.id }.withIndex().associate { it.value to it.index }
+            newOrder.forEachIndexed { index, id -> if (oldIndex[id] != index) dao.updateExercisePosition(id, index) }
+            dao.touchSheet(sheetId, System.currentTimeMillis())
+        }
+    }
+
+    override suspend fun createSheetFromTemplate(template: WorkoutTemplate) {
+        require(template.sheetName.isNotBlank()) { "Nome da ficha não pode ficar vazio." }
+        database.withTransaction {
+            val sheetId = dao.insertSheet(SheetEntity(name = template.sheetName.trim()))
+            template.exercises.forEachIndexed { index, e ->
+                dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = e.name, target = e.target, position = index))
+            }
         }
     }
 

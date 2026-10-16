@@ -6,6 +6,7 @@ import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.DailyVolume
 import com.repforge.app.domain.model.HistoryEntry
+import com.repforge.app.domain.templates.WorkoutTemplate
 import kotlinx.coroutines.flow.Flow
 
 interface WorkoutRepository {
@@ -21,6 +22,10 @@ interface WorkoutRepository {
     suspend fun updateExercise(exerciseId: Long, name: String, target: String)
     suspend fun deleteExercise(exerciseId: Long)
     suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double)
+    suspend fun deleteEntry(entryId: Long)
+    suspend fun restoreEntry(entry: SetEntry)
+    suspend fun moveExercise(exerciseId: Long, up: Boolean)
+    suspend fun createSheetFromTemplate(template: WorkoutTemplate)
     fun observeDailyVolume(): Flow<List<DailyVolume>>
     fun observeHistory(): Flow<List<HistoryEntry>>
 }

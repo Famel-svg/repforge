@@ -2,6 +2,8 @@ package com.repforge.app.presentation.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +37,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.repforge.app.domain.model.TrainingSheet
+import com.repforge.app.domain.templates.StarterTemplates
+import com.repforge.app.domain.templates.WorkoutTemplate
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,15 +48,17 @@ fun HomeScreen(
     onStartSheet: (TrainingSheet) -> Unit,
     onDuplicateSheet: (Long) -> Unit,
     onDeleteSheet: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCreateSheetFromTemplate: (WorkoutTemplate) -> Unit = {}
 ) {
     var showCreate by remember { mutableStateOf(false) }
+    var initialTemplateId by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<TrainingSheet?>(null) }
     Scaffold(
         modifier = modifier,
         topBar = { TopAppBar(title = { Text("RepForge") }) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreate = true }) {
+            FloatingActionButton(onClick = { initialTemplateId = null; showCreate = true }) {
                 Icon(Icons.Rounded.Add, contentDescription = "Criar ficha")
             }
         }
@@ -70,11 +76,16 @@ fun HomeScreen(
             item {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Suas fichas", style = MaterialTheme.typography.titleLarge)
-                    OutlinedButton(onClick = { showCreate = true }, modifier = Modifier.fillMaxWidth()) { Text("Nova ficha") }
+                    OutlinedButton(onClick = { initialTemplateId = null; showCreate = true }, modifier = Modifier.fillMaxWidth()) { Text("Nova ficha") }
                 }
             }
             if (state.sheets.isEmpty()) {
-                item { EmptySheetsCard(onCreate = { showCreate = true }) }
+                item {
+                    EmptySheetsCard(
+                        onCreate = { initialTemplateId = null; showCreate = true },
+                        onPickTemplate = { initialTemplateId = StarterTemplates.first().id; showCreate = true }
+                    )
+                }
             } else {
                 items(state.sheets, key = { it.id }) { sheet ->
                     SheetCard(sheet, onStart = { onStartSheet(sheet) }, onDuplicate = { onDuplicateSheet(sheet.id) }, onDelete = { deleteTarget = sheet })
@@ -85,7 +96,9 @@ fun HomeScreen(
     }
     if (showCreate) CreateSheetDialog(
         onDismiss = { showCreate = false },
-        onCreate = { name -> onCreateSheet(name); showCreate = false }
+        onCreate = { name -> onCreateSheet(name); showCreate = false },
+        onCreateFromTemplate = { template -> onCreateSheetFromTemplate(template); showCreate = false },
+        initialTemplateId = initialTemplateId
     )
     deleteTarget?.let { sheet ->
         AlertDialog(
@@ -136,7 +149,8 @@ private fun SheetCard(sheet: TrainingSheet, onStart: () -> Unit, onDuplicate: ()
 }
 
 @Composable
-private fun EmptySheetsCard(onCreate: () -> Unit) {
+@OptIn(ExperimentalLayoutApi::class)
+private fun EmptySheetsCard(onCreate: () -> Unit, onPickTemplate: () -> Unit) {
     Card {
         Column(Modifier.fillMaxWidth().padding(24.dp)) {
             Icon(Icons.Rounded.FitnessCenter, contentDescription = null)
@@ -144,7 +158,10 @@ private fun EmptySheetsCard(onCreate: () -> Unit) {
             Text("Nenhuma ficha ainda", style = MaterialTheme.typography.titleMedium)
             Text("Monte sua primeira rotina e registre evolução sem depender de internet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))
-            Button(onClick = onCreate) { Text("Criar primeira ficha") }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onCreate) { Text("Criar primeira ficha") }
+                OutlinedButton(onClick = onPickTemplate) { Text("Começar com um modelo") }
+            }
         }
     }
 }

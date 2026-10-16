@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.repforge.app.domain.model.DashboardSummary
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.repository.WorkoutRepository
+import com.repforge.app.domain.templates.WorkoutTemplate
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -25,6 +26,10 @@ class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
     fun createSheet(name: String) {
         // The dialog only enables confirmation for a non-blank name, the single rule the repository enforces.
         viewModelScope.launch { runCatching { repository.createSheet(name) } }
+    }
+
+    fun createSheetFromTemplate(template: WorkoutTemplate) {
+        viewModelScope.launch { runCatching { repository.createSheetFromTemplate(template) } }
     }
 
     fun duplicateSheet(sheetId: Long) {

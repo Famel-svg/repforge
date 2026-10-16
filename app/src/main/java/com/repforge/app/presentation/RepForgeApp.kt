@@ -81,6 +81,7 @@ fun RepForgeApp() {
                     state = state,
                     onCreateSheet = homeViewModel::createSheet,
                     onStartSheet = { navController.navigate("sheet/${it.id}") },
+                    onCreateSheetFromTemplate = homeViewModel::createSheetFromTemplate,
                     onDuplicateSheet = homeViewModel::duplicateSheet,
                     onDeleteSheet = homeViewModel::deleteSheet
                 )
@@ -104,7 +105,7 @@ fun RepForgeApp() {
             composable("sheet/{$SHEET_ID}/search", arguments = sheetArguments) { entry ->
                 val sheetId = entry.arguments!!.getLong(SHEET_ID)
                 ExerciseSearchScreen(
-                    viewModel = viewModel { ExerciseSearchViewModel(application.workoutX, application.repository, sheetId) },
+                    viewModel = viewModel { ExerciseSearchViewModel(application.catalog, application.repository, sheetId) },
                     onBack = { navController.popBackStack() }
                 )
             }
