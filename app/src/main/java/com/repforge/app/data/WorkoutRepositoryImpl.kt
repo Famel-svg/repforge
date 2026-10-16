@@ -119,6 +119,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     }
 
     override suspend fun restoreEntry(entry: SetEntry) {
+        if (dao.findExercise(entry.exerciseId) == null) return
         dao.insertEntry(EntryEntity(entry.id, entry.exerciseId, entry.sets, entry.reps, entry.weightKg, entry.recordedAt, entry.setType, entry.rpe))
     }
 
@@ -179,7 +180,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     }
 
     override fun observeHistory(): Flow<List<HistoryEntry>> = dao.observeHistory().map { rows ->
-        rows.map { HistoryEntry(it.exerciseId, it.exerciseName, it.sheetName, it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe) }
+        rows.map { HistoryEntry(it.exerciseId, it.exerciseName, it.sheetName, it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe, it.target) }
     }
 
     private fun SheetWithCount.toDomain() = TrainingSheet(id, name, exerciseCount, updatedAt)

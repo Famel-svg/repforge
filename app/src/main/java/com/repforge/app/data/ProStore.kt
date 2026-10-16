@@ -132,13 +132,26 @@ class ProStore(context: Context) {
         }
     }
 
+    /** Unacknowledged purchases are refunded by Google after 3 days, so retry with backoff until the result is OK. */
+    private suspend fun acknowledge(purchase: Purchase) {
+        repeat(3) { attempt ->
+            val code = try {
+                client?.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build())?.responseCode
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+            if (code == BillingClient.BillingResponseCode.OK) return
+            if (attempt < 2) delay(1_000L shl attempt)
+        }
+    }
+
     private suspend fun handle(purchases: List<Purchase>, authoritative: Boolean = false) {
         val mine = purchases.filter { PRO_PRODUCT_ID in it.products }
         val owned = mine.filter { it.purchaseState == Purchase.PurchaseState.PURCHASED }
         if (mine.any { it.purchaseState == Purchase.PurchaseState.PENDING }) _error.value = "Compra pendente; o Pro será liberado quando o pagamento for confirmado."
-        owned.filter { !it.isAcknowledged }.forEach {
-            runCatching { client?.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder().setPurchaseToken(it.purchaseToken).build()) }
-        }
+        owned.filter { !it.isAcknowledged }.forEach { acknowledge(it) }
         // A successful query is authoritative (covers refunds); a purchase event only ever grants.
         if (owned.isNotEmpty() || authoritative) {
             _isPro.value = owned.isNotEmpty()

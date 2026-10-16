@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -32,8 +34,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.OpenableColumns
 import java.io.IOException
 import java.time.LocalDate
 
@@ -58,13 +64,13 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
     }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.importBackup {
-            (resolver.openInputStream(uri) ?: throw IOException("arquivo indisponível")).use { it.readBytes().decodeToString() }
+            resolver.readTextCapped(uri)
         }
     }
 
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.importCsv {
-            (resolver.openInputStream(uri) ?: throw IOException("arquivo indisponível")).use { it.readBytes().decodeToString() }
+            resolver.readTextCapped(uri)
         }
     }
 
@@ -98,17 +104,19 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
                     Text("${state.restSeconds} segundos entre séries")
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(60, 90, 120, 180).forEach { seconds ->
-                            if (seconds == state.restSeconds) Button(onClick = {}) { Text("${seconds}s") }
-                            else OutlinedButton(onClick = { viewModel.setRestSeconds(seconds) }) { Text("${seconds}s") }
+                            FilterChip(selected = seconds == state.restSeconds, onClick = { viewModel.setRestSeconds(seconds) }, label = { Text("${seconds}s") })
                         }
                     }
                     HorizontalDivider()
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(
+                        Modifier.fillMaxWidth().toggleable(state.hapticsEnabled, role = Role.Switch, onValueChange = { viewModel.setHapticsEnabled(it) }),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Column(Modifier.weight(1f)) {
                             Text("Feedback háptico", style = MaterialTheme.typography.titleMedium)
                             Text("Vibrar ao registrar uma série", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Switch(checked = state.hapticsEnabled, onCheckedChange = { viewModel.setHapticsEnabled(it) })
+                        Switch(checked = state.hapticsEnabled, onCheckedChange = null)
                     }
                 }
             }
@@ -127,4 +135,13 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
             Text("Seus treinos ficam no aparelho e funcionam sem conta.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+private const val MAX_IMPORT_BYTES = 20L * 1024 * 1024
+
+/** Reads a picked file as text, refusing anything over 20 MB before loading it. */
+private fun ContentResolver.readTextCapped(uri: Uri): String {
+    val size = query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { if (it.moveToFirst() && !it.isNull(0)) it.getLong(0) else null }
+    if (size != null && size > MAX_IMPORT_BYTES) throw IOException("arquivo maior que 20 MB")
+    return (openInputStream(uri) ?: throw IOException("arquivo indisponível")).use { it.readBytes().decodeToString() }
 }

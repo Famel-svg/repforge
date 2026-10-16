@@ -1,12 +1,16 @@
 package com.repforge.app.data
 
+import com.repforge.app.domain.model.SET_DROP
+import com.repforge.app.domain.model.SET_FAILURE
+import com.repforge.app.domain.model.SET_NORMAL
+import com.repforge.app.domain.model.SET_WARMUP
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** Parsed sheets plus the number of rows skipped (no reps, bad date, malformed). */
-data class CsvImportResult(val sheets: List<BackupSheet>, val skippedRows: Int)
+data class CsvImportResult(val sheets: List<BackupSheet>, val skippedRows: Int, val maybePounds: Boolean = false)
 
 private const val LBS_TO_KG = 0.45359237
 private val STRONG_DATE = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH)
@@ -26,7 +30,6 @@ fun parseCsvWorkoutsWithStats(raw: String, zone: ZoneId): CsvImportResult {
     // Accepts "12", "12.0" and "12,5" (decimal comma).
     fun number(text: String) = text.replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0 }
 
-    // shortcut: set_type (warmup/failure/...) is ignored, every row becomes a normal set; map it once set types exist.
     val sheets = LinkedHashMap<String, LinkedHashMap<String, MutableList<BackupEntry>>>()
     val updated = HashMap<String, Long>()
     var skipped = 0
@@ -42,7 +45,8 @@ fun parseCsvWorkoutsWithStats(raw: String, zone: ZoneId): CsvImportResult {
                 if (col(row, "weight unit").lowercase().startsWith("lb")) weight * LBS_TO_KG else weight
             } else if ("weight_kg" in header) number(col(row, "weight_kg")) ?: 0.0
             else (number(col(row, "weight_lbs")) ?: 0.0) * LBS_TO_KG
-            Triple(title, exercise, BackupEntry(1, reps, weightKg, at))
+            val marker = col(row, if (strong) "set order" else "set_type").lowercase()
+            Triple(title, exercise, BackupEntry(1, reps, weightKg, at, setTypeOf(marker)))
         }.getOrNull()
         if (parsed == null) { skipped++; return@forEach }
         val (title, exercise, entry) = parsed
@@ -55,7 +59,8 @@ fun parseCsvWorkoutsWithStats(raw: String, zone: ZoneId): CsvImportResult {
                 BackupExercise(name, "", index, entries)
             })
         },
-        skipped
+        skipped,
+        strong && "weight unit" !in header && sheets.values.any { ex -> ex.values.any { l -> l.any { it.weightKg > 300 } } }
     )
 }
 
@@ -87,4 +92,12 @@ private fun readCsv(input: String): List<List<String>> {
     }
     if (field.isNotEmpty() || row.isNotEmpty()) { row.add(field.toString()); rows.add(row) }
     return rows
+}
+
+/** Hevy `set_type` words and Strong `Set Order` letters (W/D/F); anything else, including numbers, is a normal set. */
+private fun setTypeOf(marker: String) = when (marker) {
+    "warmup", "w" -> SET_WARMUP
+    "dropset", "d" -> SET_DROP
+    "failure", "f" -> SET_FAILURE
+    else -> SET_NORMAL
 }

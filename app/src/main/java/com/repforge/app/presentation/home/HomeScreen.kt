@@ -30,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,11 +52,21 @@ fun HomeScreen(
     onDuplicateSheet: (Long) -> Unit,
     onDeleteSheet: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    onCreateSheetFromTemplate: (WorkoutTemplate) -> Unit = {}
+    onCreateSheetFromTemplate: (WorkoutTemplate) -> Unit = {},
+    /** One-shot: opens the create dialog on the template list (set by onboarding); [onTemplatePickerOpened] clears it. */
+    openTemplatePicker: Boolean = false,
+    onTemplatePickerOpened: () -> Unit = {}
 ) {
     var showCreate by remember { mutableStateOf(false) }
     var initialTemplateId by remember { mutableStateOf<String?>(null) }
     var deleteTarget by remember { mutableStateOf<TrainingSheet?>(null) }
+    LaunchedEffect(openTemplatePicker) {
+        if (openTemplatePicker) {
+            initialTemplateId = StarterTemplates.first().id
+            showCreate = true
+            onTemplatePickerOpened()
+        }
+    }
     Scaffold(
         modifier = modifier,
         topBar = { TopAppBar(title = { Text("RepForge") }) },

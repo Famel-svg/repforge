@@ -3,4 +3,5 @@
 <full-backup-content>
     <include domain="database" path="." />
     <include domain="file" path="datastore" />
+    <exclude domain="file" path="datastore/repforge_pro.preferences_pb" />
 </full-backup-content>

@@ -14,7 +14,10 @@ import com.repforge.app.domain.metrics.WorkoutDay
 import com.repforge.app.domain.metrics.muscleLookup
 import com.repforge.app.domain.metrics.weeklyMuscleVolume
 import com.repforge.app.data.ExerciseCatalog
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import com.repforge.app.domain.metrics.working
 import com.repforge.app.domain.metrics.consistency
 import com.repforge.app.domain.metrics.exerciseStats
 import com.repforge.app.domain.metrics.exercisesWithHistory
@@ -61,7 +64,7 @@ class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>
 
     val state: StateFlow<ProgressUiState> = combine(repository.observeHistory(), selectedId, range, isPro, muscles) { history, id, r, pro, lookup ->
         buildState(history, id, r, pro, lookup, System.currentTimeMillis(), ZoneId.systemDefault())
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUiState())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUiState())
 
     fun toggleExercise(exerciseId: Long) = selectedId.update { if (it == exerciseId) null else exerciseId }
 
@@ -82,7 +85,7 @@ class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>
         return ProgressUiState(
             consistency = consistency(history, now, zone),
             week = week,
-            weekSets = history.filter { !localDate(it.recordedAt, zone).isBefore(weekStart) }.sumOf { it.sets },
+            weekSets = history.working().filter { !localDate(it.recordedAt, zone).isBefore(weekStart) }.sumOf { it.sets },
             exercises = exercises,
             detail = detail,
             recent = recentWorkouts(history, zone),

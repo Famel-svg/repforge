@@ -37,6 +37,7 @@ class CsvImportTest {
         assertEquals(listOf("Squat", "Lunge"), sheet.exercises.map { it.name })
         assertEquals(listOf(0, 1), sheet.exercises.map { it.position })
         assertEquals(2, sheet.exercises[0].entries.size)
+        assertEquals(listOf("warmup", "normal"), sheet.exercises[0].entries.map { it.setType })
         assertEquals(100 * 0.45359237, sheet.exercises[0].entries[1].weightKg, 1e-6)
         assertEquals(1714588200000L, sheet.updatedAt)
     }
@@ -52,5 +53,17 @@ class CsvImportTest {
     fun rejectsUnknownHeader() {
         val error = assertThrows(IllegalArgumentException::class.java) { parseCsvWorkouts("a,b,c\n1,2,3\n", utc) }
         assertEquals("Formato CSV não reconhecido (use exportação do Strong ou Hevy).", error.message)
+    }
+
+    @Test
+    fun mapsStrongSetOrderMarkersAndFlagsPossiblePounds() {
+        val csv = "Date,Workout Name,Exercise Name,Set Order,Weight,Reps\n" +
+            "2024-05-01 18:30:00,A,Squat,W,60,10\n" +
+            "2024-05-01 18:30:00,A,Squat,1,350,5\n" +
+            "2024-05-01 18:30:00,A,Squat,D,300,5\n" +
+            "2024-05-01 18:30:00,A,Squat,F,320,2\n"
+        val result = parseCsvWorkoutsWithStats(csv, utc)
+        assertEquals(listOf("warmup", "normal", "drop", "failure"), result.sheets.single().exercises.single().entries.map { it.setType })
+        assertEquals(true, result.maybePounds)
     }
 }

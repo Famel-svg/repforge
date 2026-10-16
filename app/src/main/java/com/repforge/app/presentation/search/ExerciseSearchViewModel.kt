@@ -2,6 +2,7 @@ package com.repforge.app.presentation.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.repforge.app.presentation.logExceptions
 import com.repforge.app.data.CatalogExercise
 import com.repforge.app.data.ExerciseCatalog
 import com.repforge.app.domain.repository.WorkoutRepository
@@ -32,7 +33,7 @@ class ExerciseSearchViewModel(
     private val filters = MutableStateFlow(Filters())
     private val items = MutableStateFlow<List<CatalogExercise>?>(null)
 
-    init { viewModelScope.launch { items.value = catalog.all() } }
+    init { viewModelScope.launch(logExceptions) { items.value = catalog.all() } }
 
     val state: StateFlow<SearchState> = combine(filters, items, repository.observeExercises(sheetId)) { filter, all, exercises ->
         SearchState(
@@ -47,15 +48,26 @@ class ExerciseSearchViewModel(
     fun muscleChanged(value: String?) = filters.update { it.copy(muscle = value) }
     fun equipmentChanged(value: String?) = filters.update { it.copy(equipment = value) }
 
-    fun add(exercise: CatalogExercise, onAdded: () -> Unit) = viewModelScope.launch {
-        repository.addExercise(sheetId, exercise.name, exercise.muscle)
-        onAdded()
+    // Ignores taps while a previous add is still running (a double tap would add the exercise twice).
+    private var adding = false
+
+    private fun addOnce(name: String, muscle: String, onAdded: () -> Unit) {
+        if (adding) return
+        adding = true
+        viewModelScope.launch(logExceptions) {
+            try {
+                repository.addExercise(sheetId, name, muscle)
+                onAdded()
+            } finally {
+                adding = false
+            }
+        }
     }
 
-    fun addCustom(onAdded: () -> Unit) = viewModelScope.launch {
+    fun add(exercise: CatalogExercise, onAdded: () -> Unit) = addOnce(exercise.name, exercise.muscle, onAdded)
+
+    fun addCustom(onAdded: () -> Unit) {
         val name = filters.value.query.trim()
-        if (name.isEmpty()) return@launch
-        repository.addExercise(sheetId, name, filters.value.muscle.orEmpty())
-        onAdded()
+        if (name.isNotEmpty()) addOnce(name, filters.value.muscle.orEmpty(), onAdded)
     }
 }

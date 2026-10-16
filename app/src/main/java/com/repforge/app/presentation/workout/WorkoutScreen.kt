@@ -97,6 +97,8 @@ import com.repforge.app.domain.logging.stepWeightKg
 import com.repforge.app.domain.metrics.bestEstimatedOneRepMax
 import com.repforge.app.domain.metrics.personalRecordKg
 import com.repforge.app.domain.model.Exercise
+import com.repforge.app.domain.model.HistoryEntry
+import com.repforge.app.domain.progression.suggestProgression
 import com.repforge.app.domain.model.RPE_VALUES
 import com.repforge.app.domain.model.SET_DROP
 import com.repforge.app.domain.model.SET_FAILURE
@@ -112,13 +114,17 @@ import java.text.DateFormat
 import java.time.ZoneId
 import java.util.Date
 
+private const val HISTORY_PAGE = 20
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutScreen(
     viewModel: WorkoutViewModel,
     preferences: AppPreferences,
     onSearch: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    isPro: Boolean = false,
+    onOpenPro: () -> Unit = {}
 ) {
     val sheetName by viewModel.sheetName.collectAsStateWithLifecycle()
     val exercises by viewModel.exercises.collectAsStateWithLifecycle()
@@ -127,15 +133,25 @@ fun WorkoutScreen(
     var expandedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var expansionResolved by rememberSaveable { mutableStateOf(false) }
     val restSeconds = preferences.restSeconds
-    var remaining by rememberSaveable(restSeconds) { mutableStateOf(restSeconds) }
+    var remaining by rememberSaveable { mutableStateOf(restSeconds) }
+    var appliedRest by rememberSaveable { mutableStateOf(restSeconds) }
     var running by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) { viewModel.messages.collect { snackbarHostState.showSnackbar(it) } }
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val view = LocalView.current
     DisposableEffect(view) {
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
+    }
+
+    // A new default only applies to an idle timer, and never on rotation (appliedRest survives it).
+    LaunchedEffect(restSeconds) {
+        if (restSeconds != appliedRest) {
+            appliedRest = restSeconds
+            if (!running) remaining = restSeconds
+        }
     }
 
     LaunchedEffect(running) {
@@ -191,7 +207,7 @@ fun WorkoutScreen(
                 val linkedPrev = exercise.supersetGroup != null && groups.getOrNull(index - 1) == exercise.supersetGroup
                 val linkedNext = exercise.supersetGroup != null && groups.getOrNull(index + 1) == exercise.supersetGroup
                 ExerciseCard(
-                    exercise, entries,
+                    exercise, entries, isPro = isPro, onUpgrade = onOpenPro,
                     expanded = expandedId == exercise.id,
                     canMoveUp = index > 0,
                     canMoveDown = index < exercises.lastIndex,
@@ -233,6 +249,8 @@ fun WorkoutScreen(
 private fun ExerciseCard(
     exercise: Exercise,
     entries: List<SetEntry>,
+    isPro: Boolean,
+    onUpgrade: () -> Unit,
     expanded: Boolean,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
@@ -252,6 +270,11 @@ private fun ExerciseCard(
     var weightInput by rememberSaveable { mutableStateOf<String?>(null) }
     var inputError by remember { mutableStateOf<String?>(null) }
     var showHistory by rememberSaveable { mutableStateOf(false) }
+    var historyLimit by rememberSaveable { mutableStateOf(HISTORY_PAGE) }
+    val dateFormat = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
+    val suggestion = remember(entries) {
+        suggestProgression(entries.map { HistoryEntry(it.exerciseId, exercise.name, "", it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe, exercise.target) }, ZoneId.systemDefault())
+    }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
     var showNote by remember { mutableStateOf(false) }
@@ -351,6 +374,10 @@ private fun ExerciseCard(
                         }
                     }
                 }
+                ProgressionHint(
+                    suggestion, isPro, onUpgrade = onUpgrade,
+                    onApply = { reps, weightKg -> repsInput = reps.toString(); weightInput = formatWeightInput(weightKg); inputError = null }
+                )
                 StepperField(
                     value = repsText, label = "Repetições", keyboardType = KeyboardType.Number,
                     minusEnabled = (repsText.trim().toIntOrNull() ?: 0) > 1,
@@ -395,11 +422,14 @@ private fun ExerciseCard(
                     TextButton(onClick = { showHistory = !showHistory }) {
                         Text(if (showHistory) "Ocultar histórico" else "Ver histórico (${entries.size})")
                     }
-                    if (showHistory) entries.forEach { entry ->
-                        Text(
-                            "${DateFormat.getDateInstance(DateFormat.SHORT).format(Date(entry.recordedAt))} · ${formatSet(entry)}",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    if (showHistory) {
+                        entries.take(historyLimit).forEach { entry ->
+                            Text(
+                                "${dateFormat.format(Date(entry.recordedAt))} · ${formatSet(entry)}",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (entries.size > historyLimit) TextButton(onClick = { historyLimit += HISTORY_PAGE }) { Text("Ver mais") }
                     }
                 }
             }

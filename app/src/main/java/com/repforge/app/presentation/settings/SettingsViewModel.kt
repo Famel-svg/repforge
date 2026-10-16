@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.repforge.app.data.AppPreferences
 import com.repforge.app.data.BackupManager
+import com.repforge.app.data.ImportResult
+import com.repforge.app.presentation.logExceptions
 import com.repforge.app.data.SettingsStore
 import com.repforge.app.data.parseCsvWorkoutsWithStats
 import java.time.ZoneId
@@ -25,10 +27,10 @@ class SettingsViewModel(private val store: SettingsStore, private val backup: Ba
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages: Flow<String> = _messages.receiveAsFlow()
 
-    fun setRestSeconds(value: Int) = viewModelScope.launch { store.setRestSeconds(value) }
-    fun setHapticsEnabled(value: Boolean) = viewModelScope.launch { store.setHapticsEnabled(value) }
+    fun setRestSeconds(value: Int) = viewModelScope.launch(logExceptions) { store.setRestSeconds(value) }
+    fun setHapticsEnabled(value: Boolean) = viewModelScope.launch(logExceptions) { store.setHapticsEnabled(value) }
 
-    fun exportBackup(write: (String) -> Unit) = viewModelScope.launch {
+    fun exportBackup(write: (String) -> Unit) = viewModelScope.launch(logExceptions) {
         runCatching {
             val json = backup.exportJson()
             withContext(Dispatchers.IO) { write(json) }
@@ -38,25 +40,27 @@ class SettingsViewModel(private val store: SettingsStore, private val backup: Ba
         )
     }
 
-    fun importCsv(read: () -> String) = viewModelScope.launch {
+    fun importCsv(read: () -> String) = viewModelScope.launch(logExceptions) {
         runCatching {
-            val result = parseCsvWorkoutsWithStats(withContext(Dispatchers.IO) { read() }, ZoneId.systemDefault())
-            backup.importSheets(result.sheets)
-            result
+            val text = withContext(Dispatchers.IO) { read() }
+            val parsed = withContext(Dispatchers.Default) { parseCsvWorkoutsWithStats(text, ZoneId.systemDefault()) }
+            parsed to backup.importSheets(parsed.sheets)
         }.fold(
-            { result ->
-                val sets = result.sheets.sumOf { sheet -> sheet.exercises.sumOf { it.entries.size } }
-                val skipped = if (result.skippedRows > 0) " (${result.skippedRows} linhas ignoradas)" else ""
-                _messages.send("${result.sheets.size} fichas e $sets séries importadas$skipped")
+            { (parsed, result) ->
+                val ignored = if (parsed.skippedRows > 0) " (${parsed.skippedRows} linhas ignoradas)" else ""
+                val pounds = if (parsed.maybePounds) " (verifique se o CSV está em lb)" else ""
+                _messages.send("${parsed.sheets.size} fichas: ${importSummary(result)}$ignored$pounds")
             },
             { _messages.send("Falha ao importar: ${it.message ?: "erro desconhecido"}") }
         )
     }
 
-    fun importBackup(read: () -> String) = viewModelScope.launch {
+    fun importBackup(read: () -> String) = viewModelScope.launch(logExceptions) {
         runCatching { backup.importJson(withContext(Dispatchers.IO) { read() }) }.fold(
-            { count -> _messages.send(if (count == 0) "Backup vazio; nada importado." else "$count ficha(s) importada(s).") },
+            { result -> _messages.send(if (result.imported + result.skipped == 0) "Backup vazio; nada importado." else "${result.sheets} ficha(s): ${importSummary(result)}") },
             { _messages.send("Falha ao importar: ${it.message ?: "erro desconhecido"}") }
         )
     }
+
+    private fun importSummary(result: ImportResult) = "${result.imported} novas, ${result.skipped} já existiam"
 }

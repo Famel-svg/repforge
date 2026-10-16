@@ -45,7 +45,7 @@ private val PAGES = listOf(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun OnboardingScreen(onFinish: () -> Unit) {
+fun OnboardingScreen(onFinish: () -> Unit, onFinishWithTemplate: () -> Unit = onFinish) {
     val pager = rememberPagerState { PAGES.size }
     val scope = rememberCoroutineScope()
     val last = pager.currentPage == PAGES.lastIndex
@@ -70,7 +70,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
         Spacer(Modifier.height(12.dp))
         if (last) FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onFinish) { Text("Começar") }
-            OutlinedButton(onClick = onFinish) { Text("Começar com um modelo") }
+            OutlinedButton(onClick = onFinishWithTemplate) { Text("Começar com um modelo") }
         } else Button(onClick = { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }, modifier = Modifier.fillMaxWidth()) { Text("Próximo") }
     }
 }

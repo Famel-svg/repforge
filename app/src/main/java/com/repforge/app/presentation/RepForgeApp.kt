@@ -13,6 +13,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
@@ -20,9 +22,11 @@ import com.repforge.app.presentation.onboarding.OnboardingScreen
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -60,6 +64,10 @@ fun RepForgeApp() {
     // null until DataStore emits, so the start destination is never wrong for a frame.
     val onboardingDone by application.settings.onboardingDone.collectAsStateWithLifecycle(null)
     val scope = rememberCoroutineScope()
+    // A purchase can change outside the app (refund, Play Store redeem), so re-check every time the app comes back.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { application.pro.restore() }
+    val isPro by application.pro.isPro.collectAsStateWithLifecycle()
+    var openTemplatePicker by remember { mutableStateOf(false) }
     if (onboardingDone == null) return
     val startRoute = remember { if (onboardingDone == true) Destination.Home.route else "onboarding" } // fixed at first value
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -72,7 +80,7 @@ fun RepForgeApp() {
                         selected = currentRoute == destination.route,
                         onClick = {
                             navController.navigate(destination.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                popUpTo(Destination.Home.route) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
@@ -86,10 +94,12 @@ fun RepForgeApp() {
     ) { padding ->
         NavHost(navController, startDestination = startRoute, modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
             composable("onboarding") {
-                OnboardingScreen(onFinish = {
+                fun finish(withTemplate: Boolean) {
+                    openTemplatePicker = withTemplate
                     scope.launch { application.settings.setOnboardingDone() }
                     navController.navigate(Destination.Home.route) { popUpTo("onboarding") { inclusive = true } }
-                })
+                }
+                OnboardingScreen(onFinish = { finish(false) }, onFinishWithTemplate = { finish(true) })
             }
             composable(Destination.Home.route) {
                 val homeViewModel = viewModel { HomeViewModel(application.repository) }
@@ -100,20 +110,22 @@ fun RepForgeApp() {
                     onStartSheet = { navController.navigate("sheet/${it.id}") },
                     onCreateSheetFromTemplate = homeViewModel::createSheetFromTemplate,
                     onDuplicateSheet = homeViewModel::duplicateSheet,
-                    onDeleteSheet = homeViewModel::deleteSheet
+                    onDeleteSheet = homeViewModel::deleteSheet,
+                    openTemplatePicker = openTemplatePicker,
+                    onTemplatePickerOpened = { openTemplatePicker = false }
                 )
             }
             composable(Destination.Progress.route) {
                 ProgressScreen(
                     viewModel { ProgressViewModel(application.repository, application.pro.isPro, application.catalog) },
-                    onOpenPro = { navController.navigate(Destination.Settings.route) { launchSingleTop = true } }
+                    onOpenPro = dropUnlessResumed { navController.navigate(Destination.Settings.route) { launchSingleTop = true } }
                 )
             }
             composable(Destination.Settings.route) {
-                SettingsScreen(viewModel { SettingsViewModel(application.settings, application.backup) }, application.pro, onOpenBodyWeight = { navController.navigate("body") })
+                SettingsScreen(viewModel { SettingsViewModel(application.settings, application.backup) }, application.pro, onOpenBodyWeight = dropUnlessResumed { navController.navigate("body") })
             }
             composable("body") {
-                BodyWeightScreen(viewModel { BodyWeightViewModel(application.repository) }, onBack = { navController.popBackStack() })
+                BodyWeightScreen(viewModel { BodyWeightViewModel(application.repository) }, onBack = dropUnlessResumed { navController.popBackStack() })
             }
             composable("sheet/{$SHEET_ID}", arguments = sheetArguments) { entry ->
                 val sheetId = entry.arguments!!.getLong(SHEET_ID)
@@ -121,15 +133,17 @@ fun RepForgeApp() {
                 WorkoutScreen(
                     viewModel = viewModel { WorkoutViewModel(application.repository, sheetId) },
                     preferences = preferences,
-                    onSearch = { navController.navigate("sheet/$sheetId/search") },
-                    onBack = { navController.popBackStack() }
+                    onSearch = dropUnlessResumed { navController.navigate("sheet/$sheetId/search") },
+                    isPro = isPro,
+                    onOpenPro = dropUnlessResumed { navController.navigate(Destination.Settings.route) { launchSingleTop = true } },
+                    onBack = dropUnlessResumed { navController.popBackStack() }
                 )
             }
             composable("sheet/{$SHEET_ID}/search", arguments = sheetArguments) { entry ->
                 val sheetId = entry.arguments!!.getLong(SHEET_ID)
                 ExerciseSearchScreen(
                     viewModel = viewModel { ExerciseSearchViewModel(application.catalog, application.repository, sheetId) },
-                    onBack = { navController.popBackStack() }
+                    onBack = dropUnlessResumed { navController.popBackStack() }
                 )
             }
         }
