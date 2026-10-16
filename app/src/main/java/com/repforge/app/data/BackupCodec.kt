@@ -1,5 +1,6 @@
 package com.repforge.app.data
 
+import com.repforge.app.domain.model.SET_TYPES
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -8,8 +9,8 @@ import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 
-data class BackupEntry(val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long)
-data class BackupExercise(val name: String, val target: String, val position: Int, val entries: List<BackupEntry>)
+data class BackupEntry(val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long, val setType: String = "normal", val rpe: Double? = null)
+data class BackupExercise(val name: String, val target: String, val position: Int, val entries: List<BackupEntry>, val note: String = "")
 data class BackupSheet(val name: String, val updatedAt: Long, val exercises: List<BackupExercise>)
 
 /**
@@ -33,13 +34,14 @@ object BackupCodec {
                 exerciseId += 1
                 exerciseArray.put(JSONObject().apply {
                     put("id", exerciseId); put("sheetId", sheetId); put("name", exercise.name)
-                    put("target", exercise.target); put("position", exercise.position)
+                    put("target", exercise.target); put("position", exercise.position); put("note", exercise.note)
                 })
                 exercise.entries.forEach { entry ->
                     entryId += 1
                     entryArray.put(JSONObject().apply {
                         put("id", entryId); put("exerciseId", exerciseId); put("sets", entry.sets); put("reps", entry.reps)
                         put("weightKg", entry.weightKg); put("recordedAt", entry.recordedAt)
+                        put("setType", entry.setType); entry.rpe?.let { put("rpe", it) }
                     })
                 }
             }
@@ -88,8 +90,10 @@ object BackupCodec {
                         target = exercise.optString("target").trim(),
                         position = position(exercise),
                         entries = entriesByExercise[exercise.getLong("id")].orEmpty().map { entry ->
-                            entry(entry.getInt("sets"), entry.getInt("reps"), entry.getDouble("weightKg"), entry.getLong("recordedAt"))
-                        }
+                            entry(entry.getInt("sets"), entry.getInt("reps"), entry.getDouble("weightKg"), entry.getLong("recordedAt"),
+                                entry.optString("setType", "normal"), if (entry.isNull("rpe")) null else entry.optDouble("rpe"))
+                        },
+                        note = exercise.optString("note").trim()
                     )
                 }
             )
@@ -129,9 +133,10 @@ object BackupCodec {
     private fun position(item: JSONObject): Int =
         item.getInt("position").also { require(it >= 0) { "Backup contém posição inválida." } }
 
-    private fun entry(sets: Int, reps: Int, weightKg: Double, recordedAt: Long): BackupEntry {
+    private fun entry(sets: Int, reps: Int, weightKg: Double, recordedAt: Long, setType: String = "normal", rpe: Double? = null): BackupEntry {
         require(sets > 0 && reps > 0 && weightKg >= 0 && weightKg.isFinite()) { "Backup contém série inválida." }
-        return BackupEntry(sets, reps, weightKg, recordedAt)
+        // Unknown set types and out-of-range RPE degrade to defaults instead of rejecting the file.
+        return BackupEntry(sets, reps, weightKg, recordedAt, if (setType in SET_TYPES) setType else "normal", rpe?.takeIf { it in 6.0..10.0 })
     }
 
     private fun either(item: JSONObject, first: String, second: String): String =

@@ -14,6 +14,8 @@ import com.repforge.app.domain.model.DailyVolume
 import com.repforge.app.domain.model.DashboardSummary
 import com.repforge.app.domain.model.Exercise
 import com.repforge.app.domain.model.HistoryEntry
+import com.repforge.app.domain.model.SET_NORMAL
+import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.repository.WorkoutRepository
@@ -40,7 +42,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
         val zone = ZoneId.systemDefault()
         val today = Instant.now().atZone(zone).toLocalDate()
         emitAll(combine(dao.observeWeeklyVolume(since), dao.observeWeeklySets(since), dao.observeSheetCount(), dao.observeHistory()) { volume, sets, sheetCount, history ->
-            DashboardSummary(volume, sets, sheetCount, currentStreak(trainingDays(history.map { it.recordedAt }, zone), today))
+            DashboardSummary(volume, sets, sheetCount, currentStreak(trainingDays(history.filter { it.setType != SET_WARMUP }.map { it.recordedAt }, zone), today))
         })
     }
 
@@ -62,11 +64,11 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     }
 
     override fun observeExercises(sheetId: Long): Flow<List<Exercise>> = dao.observeExercises(sheetId).map { rows ->
-        rows.map { Exercise(it.id, it.sheetId, it.name, it.target, it.position) }
+        rows.map { Exercise(it.id, it.sheetId, it.name, it.target, it.position, it.note) }
     }
 
     override fun observeEntries(exerciseId: Long): Flow<List<SetEntry>> = dao.observeEntries(exerciseId).map { rows ->
-        rows.map { SetEntry(it.id, it.exerciseId, it.sets, it.reps, it.weightKg, it.recordedAt) }
+        rows.map { SetEntry(it.id, it.exerciseId, it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe) }
     }
 
     override suspend fun addExercise(sheetId: Long, name: String, target: String) {
@@ -92,12 +94,16 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
         }
     }
 
-    override suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double) {
+    override suspend fun addEntry(exerciseId: Long, sets: Int, reps: Int, weightKg: Double, setType: String, rpe: Double?) {
         validateSetInput(sets, reps, weightKg)?.let { throw IllegalArgumentException(it.message) }
         database.withTransaction {
-            dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg))
+            dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = sets, reps = reps, weightKg = weightKg, setType = setType, rpe = rpe))
             dao.touchSheetOfExercise(exerciseId, System.currentTimeMillis())
         }
+    }
+
+    override suspend fun updateExerciseNote(exerciseId: Long, note: String) {
+        dao.updateExerciseNote(exerciseId, note.trim())
     }
 
     override suspend fun deleteEntry(entryId: Long) {
@@ -105,7 +111,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     }
 
     override suspend fun restoreEntry(entry: SetEntry) {
-        dao.insertEntry(EntryEntity(entry.id, entry.exerciseId, entry.sets, entry.reps, entry.weightKg, entry.recordedAt))
+        dao.insertEntry(EntryEntity(entry.id, entry.exerciseId, entry.sets, entry.reps, entry.weightKg, entry.recordedAt, entry.setType, entry.rpe))
     }
 
     override suspend fun moveExercise(exerciseId: Long, up: Boolean) {
@@ -134,7 +140,7 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase) : WorkoutRepo
     }
 
     override fun observeHistory(): Flow<List<HistoryEntry>> = dao.observeHistory().map { rows ->
-        rows.map { HistoryEntry(it.exerciseId, it.exerciseName, it.sheetName, it.sets, it.reps, it.weightKg, it.recordedAt) }
+        rows.map { HistoryEntry(it.exerciseId, it.exerciseName, it.sheetName, it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe) }
     }
 
     private fun SheetWithCount.toDomain() = TrainingSheet(id, name, exerciseCount, updatedAt)

@@ -25,6 +25,12 @@ class WorkoutMetricsTest {
         assertEquals(0.0, personalRecordKg(emptyList()), 0.001)
     }
 
+    @Test fun warmupIsIgnoredByPrAndOneRepMax() {
+        val withWarmup = entries + SetEntry(3, 1, 1, 1, 200.0, 3, "warmup")
+        assertEquals(70.0, personalRecordKg(withWarmup), 0.001)
+        assertEquals(81.666, bestEstimatedOneRepMax(withWarmup), 0.001)
+    }
+
     @Test fun recentWindowStartsAtLocalMidnightSixDaysBack() {
         val zone = ZoneId.of("America/Sao_Paulo")
         val now = ZonedDateTime.of(2026, 10, 10, 15, 30, 0, 0, zone).toInstant().toEpochMilli()

@@ -12,7 +12,8 @@ data class Exercise(
     val sheetId: Long,
     val name: String,
     val target: String,
-    val position: Int
+    val position: Int,
+    val note: String = ""
 )
 
 data class SetEntry(
@@ -21,8 +22,17 @@ data class SetEntry(
     val sets: Int,
     val reps: Int,
     val weightKg: Double,
-    val recordedAt: Long
+    val recordedAt: Long,
+    val setType: String = SET_NORMAL,
+    val rpe: Double? = null
 )
+
+const val SET_NORMAL = "normal"
+const val SET_WARMUP = "warmup"
+const val SET_DROP = "drop"
+const val SET_FAILURE = "failure"
+val SET_TYPES = listOf(SET_NORMAL, SET_WARMUP, SET_DROP, SET_FAILURE)
+val RPE_VALUES = (12..20).map { it / 2.0 }
 
 data class DashboardSummary(
     val weeklyVolumeKg: Double = 0.0,
@@ -40,5 +50,7 @@ data class HistoryEntry(
     val sets: Int,
     val reps: Int,
     val weightKg: Double,
-    val recordedAt: Long
+    val recordedAt: Long,
+    val setType: String = SET_NORMAL,
+    val rpe: Double? = null
 )

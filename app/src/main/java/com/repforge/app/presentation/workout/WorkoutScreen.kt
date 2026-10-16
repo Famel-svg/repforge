@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -55,6 +56,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +68,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -87,6 +90,12 @@ import com.repforge.app.domain.logging.stepWeightKg
 import com.repforge.app.domain.metrics.bestEstimatedOneRepMax
 import com.repforge.app.domain.metrics.personalRecordKg
 import com.repforge.app.domain.model.Exercise
+import com.repforge.app.domain.model.RPE_VALUES
+import com.repforge.app.domain.model.SET_DROP
+import com.repforge.app.domain.model.SET_FAILURE
+import com.repforge.app.domain.model.SET_NORMAL
+import com.repforge.app.domain.model.SET_TYPES
+import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.validation.parseWeightKg
 import com.repforge.app.domain.validation.validateSetInput
@@ -116,6 +125,11 @@ fun WorkoutScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    val view = LocalView.current
+    DisposableEffect(view) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
 
     LaunchedEffect(running) {
         while (running && remaining > 0) {
@@ -174,13 +188,14 @@ fun WorkoutScreen(
                     onToggle = { expandedId = if (expandedId == exercise.id) null else exercise.id },
                     onMove = { up -> viewModel.moveExercise(exercise.id, up) },
                     onEdit = { name, target -> viewModel.updateExercise(exercise.id, name, target) },
+                    onNote = { viewModel.updateNote(exercise.id, it) },
                     onDelete = { viewModel.deleteExercise(exercise.id) },
                     onDeleteEntry = { entry ->
                         viewModel.deleteEntry(entry.id)
                         announce("Série removida", "Desfazer") { viewModel.restoreEntry(entry) }
                     }
-                ) { reps, weight, newRecord ->
-                    viewModel.addEntry(exercise.id, 1, reps, weight)
+                ) { reps, weight, newRecord, setType, rpe ->
+                    viewModel.addEntry(exercise.id, 1, reps, weight, setType, rpe)
                     if (preferences.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     // Logging a set starts the rest countdown from the configured default.
                     remaining = restSeconds
@@ -198,6 +213,7 @@ fun WorkoutScreen(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ExerciseCard(
     exercise: Exercise,
@@ -208,9 +224,10 @@ private fun ExerciseCard(
     onToggle: () -> Unit,
     onMove: (Boolean) -> Unit,
     onEdit: (String, String) -> Unit,
+    onNote: (String) -> Unit,
     onDelete: () -> Unit,
     onDeleteEntry: (SetEntry) -> Unit,
-    onLog: (reps: Int, weightKg: Double, newRecord: Boolean) -> Unit
+    onLog: (reps: Int, weightKg: Double, newRecord: Boolean, setType: String, rpe: Double?) -> Unit
 ) {
     // Null means "untouched": the field follows the last logged set instead of freezing the first prefill.
     var repsInput by rememberSaveable { mutableStateOf<String?>(null) }
@@ -219,6 +236,10 @@ private fun ExerciseCard(
     var showHistory by rememberSaveable { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var showEdit by remember { mutableStateOf(false) }
+    var showNote by remember { mutableStateOf(false) }
+    var showMore by rememberSaveable { mutableStateOf(false) }
+    var setType by rememberSaveable { mutableStateOf(SET_NORMAL) }
+    var rpe by rememberSaveable { mutableStateOf<Double?>(null) }
     var showMenu by remember { mutableStateOf(false) }
     val today = remember(entries) { entriesOnDay(entries, System.currentTimeMillis(), ZoneId.systemDefault()) }
     val prefill = prefillFor(entries)
@@ -242,6 +263,7 @@ private fun ExerciseCard(
                     Column(Modifier.weight(1f)) {
                         Text(exercise.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
                         Text(exercise.target.ifBlank { "Alvo não definido" }, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (exercise.note.isNotBlank()) Text(exercise.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (!expanded) Text(summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                     }
                     Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
@@ -265,6 +287,11 @@ private fun ExerciseCard(
                             onClick = { showMenu = false; showEdit = true }
                         )
                         DropdownMenuItem(
+                            text = { Text("Nota do exercício") },
+                            leadingIcon = { Icon(Icons.Rounded.Edit, null) },
+                            onClick = { showMenu = false; showNote = true }
+                        )
+                        DropdownMenuItem(
                             text = { Text("Remover exercício") },
                             leadingIcon = { Icon(Icons.Rounded.Delete, null) },
                             onClick = { showMenu = false; showDeleteConfirmation = true }
@@ -281,7 +308,7 @@ private fun ExerciseCard(
                     Text("Hoje", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     today.forEachIndexed { index, entry ->
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("${index + 1}. ${formatSet(entry)}", Modifier.weight(1f))
+                            Text("${index + 1}. ${setMarker(entry.setType)}${formatSet(entry)}${entry.rpe?.let { " @" + formatRpe(it) }.orEmpty()}", Modifier.weight(1f))
                             IconButton(onClick = { onDeleteEntry(entry) }) { Icon(Icons.Rounded.Delete, "Remover série ${index + 1}") }
                         }
                     }
@@ -302,13 +329,26 @@ private fun ExerciseCard(
                     onMinus = { weightInput = formatWeightInput(stepWeightKg(parseWeightKg(weightText), -WEIGHT_STEP_KG)); inputError = null },
                     onPlus = { weightInput = formatWeightInput(stepWeightKg(parseWeightKg(weightText), WEIGHT_STEP_KG)); inputError = null }
                 )
+                TextButton(onClick = { showMore = !showMore }) { Text(if (showMore) "Menos" else "Mais") }
+                if (showMore) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SET_TYPES.forEach { t -> FilterChip(setType == t, { setType = t }, { Text(setTypeLabel(t)) }) }
+                    }
+                    Text("RPE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RPE_VALUES.forEach { r -> FilterChip(rpe == r, { rpe = if (rpe == r) null else r }, { Text(formatRpe(r)) }) }
+                    }
+                }
                 Button(
                     onClick = {
                         val parsedReps = repsText.trim().toIntOrNull()
                         // Blank load means bodyweight; only a malformed number is an error.
                         val parsedWeight = if (weightText.isBlank()) 0.0 else parseWeightKg(weightText)
                         inputError = validateSetInput(1, parsedReps, parsedWeight)?.message
-                        if (inputError == null) onLog(parsedReps!!, parsedWeight!!, beatsPersonalRecord(entries, parsedWeight))
+                        if (inputError == null) {
+                            onLog(parsedReps!!, parsedWeight!!, setType != SET_WARMUP && beatsPersonalRecord(entries, parsedWeight), setType, rpe)
+                            setType = SET_NORMAL; rpe = null
+                        }
                     },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
                 ) { Text("Registrar série") }
@@ -340,6 +380,16 @@ private fun ExerciseCard(
             }
         )
     }
+    if (showNote) {
+        var note by rememberSaveable { mutableStateOf(exercise.note) }
+        AlertDialog(
+            onDismissRequest = { showNote = false },
+            title = { Text("Nota do exercício") },
+            text = { OutlinedTextField(note, { note = it }, label = { Text("Nota") }, minLines = 2) },
+            confirmButton = { Button(onClick = { showNote = false; onNote(note) }) { Text("Salvar") } },
+            dismissButton = { OutlinedButton(onClick = { showNote = false }) { Text("Cancelar") } }
+        )
+    }
     if (showEdit) {
         ExerciseDialog(
             initialName = exercise.name,
@@ -351,6 +401,12 @@ private fun ExerciseCard(
         )
     }
 }
+
+private fun setTypeLabel(t: String) = when (t) { SET_WARMUP -> "Aquecimento"; SET_DROP -> "Drop"; SET_FAILURE -> "Falha"; else -> "Normal" }
+
+private fun setMarker(t: String) = when (t) { SET_WARMUP -> "A "; SET_DROP -> "D "; SET_FAILURE -> "F "; else -> "" }
+
+private fun formatRpe(r: Double) = if (r % 1.0 == 0.0) r.toInt().toString() else "%.1f".format(java.util.Locale.forLanguageTag("pt-BR"), r)
 
 @Composable
 private fun StepperField(

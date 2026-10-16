@@ -10,7 +10,7 @@ class BackupCodecTest {
         BackupSheet(
             "Ficha A", 1_000,
             listOf(
-                BackupExercise("Supino", "Peito", 0, listOf(BackupEntry(3, 10, 80.5, 2_000))),
+                BackupExercise("Supino", "Peito", 0, listOf(BackupEntry(3, 10, 80.5, 2_000), BackupEntry(1, 5, 40.0, 2_100, "warmup", 7.5)), "Pegada aberta"),
                 BackupExercise("Crucifixo", "", 1, emptyList())
             )
         ),
@@ -19,6 +19,15 @@ class BackupCodecTest {
 
     @Test fun roundTripsNativeFormat() {
         assertEquals(sample, BackupCodec.decode(BackupCodec.encode(sample)))
+    }
+
+    @Test fun oldNativeBackupWithoutNewFieldsGetsDefaults() {
+        val raw = """{"format":"repforge-backup","version":1,"sheets":[{"id":1,"name":"A","updatedAt":1}],
+            "exercises":[{"id":1,"sheetId":1,"name":"X","target":"","position":0}],
+            "entries":[{"id":1,"exerciseId":1,"sets":1,"reps":5,"weightKg":10,"recordedAt":5}]}"""
+        val exercise = BackupCodec.decode(raw).single().exercises.single()
+        assertEquals("", exercise.note)
+        assertEquals(BackupEntry(1, 5, 10.0, 5, "normal", null), exercise.entries.single())
     }
 
     @Test fun readsLegacyExpoBackup() {

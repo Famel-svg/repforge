@@ -1,6 +1,7 @@
 package com.repforge.app.domain.metrics
 
 import com.repforge.app.domain.model.HistoryEntry
+import com.repforge.app.domain.model.SET_WARMUP
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -21,6 +22,9 @@ enum class ProgressRange(val days: Long?, val pro: Boolean) { Days30(30, false),
 
 fun ProgressRange.locked(isPro: Boolean) = pro && !isPro
 
+/** Warmup sets never count toward stats. */
+fun List<HistoryEntry>.working() = filter { it.setType != SET_WARMUP }
+
 fun localDate(epochMillis: Long, zone: ZoneId): LocalDate = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
 
 fun trainingDays(timestamps: Collection<Long>, zone: ZoneId): Set<LocalDate> = timestamps.mapTo(HashSet()) { localDate(it, zone) }
@@ -37,7 +41,7 @@ fun currentStreak(days: Set<LocalDate>, today: LocalDate): Int {
 }
 
 fun consistency(entries: List<HistoryEntry>, now: Long, zone: ZoneId): Consistency {
-    val days = trainingDays(entries.map { it.recordedAt }, zone)
+    val days = trainingDays(entries.working().map { it.recordedAt }, zone)
     val today = localDate(now, zone)
     val windowStart = today.minusDays(6)
     return Consistency(currentStreak(days, today), days.count { !it.isBefore(windowStart) && !it.isAfter(today) }, days.size)
@@ -46,20 +50,20 @@ fun consistency(entries: List<HistoryEntry>, now: Long, zone: ZoneId): Consisten
 /** Always seven items, oldest first, zero-volume days included. */
 fun last7DaysVolume(entries: List<HistoryEntry>, now: Long, zone: ZoneId): List<DayVolume> {
     val today = localDate(now, zone)
-    val byDay = entries.groupBy { localDate(it.recordedAt, zone) }
+    val byDay = entries.working().groupBy { localDate(it.recordedAt, zone) }
     return (6 downTo 0).map { offset ->
         val date = today.minusDays(offset.toLong())
         DayVolume(date, byDay[date].orEmpty().sumOf { it.sets * it.reps * it.weightKg })
     }
 }
 
-fun exercisesWithHistory(entries: List<HistoryEntry>): List<ExerciseHistory> = entries.groupBy { it.exerciseId }.values.map { group ->
+fun exercisesWithHistory(entries: List<HistoryEntry>): List<ExerciseHistory> = entries.working().groupBy { it.exerciseId }.values.map { group ->
     val last = group.maxByOrNull { it.recordedAt }!!
     ExerciseHistory(last.exerciseId, last.exerciseName, last.sheetName, last.weightKg, last.recordedAt)
 }.sortedByDescending { it.lastRecordedAt }
 
 /** Best estimated 1RM per local day, oldest first. */
-fun oneRepMaxSeries(entries: List<HistoryEntry>, zone: ZoneId): List<OneRepMaxPoint> = entries
+fun oneRepMaxSeries(entries: List<HistoryEntry>, zone: ZoneId): List<OneRepMaxPoint> = entries.working()
     .filter { it.reps > 0 && it.weightKg >= 0 }
     .groupBy { localDate(it.recordedAt, zone) }
     .map { (date, day) -> OneRepMaxPoint(date, day.maxOf { estimatedOneRepMax(it.weightKg, it.reps) }) }
@@ -71,14 +75,17 @@ fun filterByRange(series: List<OneRepMaxPoint>, range: ProgressRange, today: Loc
     return series.filter { !it.date.isBefore(start) }
 }
 
-fun exerciseStats(entries: List<HistoryEntry>): ExerciseStats = ExerciseStats(
-    prKg = entries.maxOfOrNull { it.weightKg } ?: 0.0,
-    bestOneRepMaxKg = entries.filter { it.reps > 0 }.maxOfOrNull { estimatedOneRepMax(it.weightKg, it.reps) } ?: 0.0,
-    totalSets = entries.sumOf { it.sets }
-)
+fun exerciseStats(all: List<HistoryEntry>): ExerciseStats {
+    val entries = all.working()
+    return ExerciseStats(
+        prKg = entries.maxOfOrNull { it.weightKg } ?: 0.0,
+        bestOneRepMaxKg = entries.filter { it.reps > 0 }.maxOfOrNull { estimatedOneRepMax(it.weightKg, it.reps) } ?: 0.0,
+        totalSets = entries.sumOf { it.sets }
+    )
+}
 
 /** Most recent training days first. */
-fun recentWorkouts(entries: List<HistoryEntry>, zone: ZoneId, limit: Int = 10): List<WorkoutDay> = entries
+fun recentWorkouts(entries: List<HistoryEntry>, zone: ZoneId, limit: Int = 10): List<WorkoutDay> = entries.working()
     .sortedBy { it.recordedAt }
     .groupBy { localDate(it.recordedAt, zone) }
     .map { (date, day) ->

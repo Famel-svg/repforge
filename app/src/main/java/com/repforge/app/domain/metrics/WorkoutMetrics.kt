@@ -1,5 +1,6 @@
 package com.repforge.app.domain.metrics
 
+import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
 import java.time.Instant
 import java.time.ZoneId
@@ -10,11 +11,11 @@ fun estimatedOneRepMax(weightKg: Double, reps: Int): Double {
     return weightKg * (1.0 + reps / 30.0)
 }
 
-fun bestEstimatedOneRepMax(entries: List<SetEntry>): Double = entries.maxOfOrNull {
+fun bestEstimatedOneRepMax(entries: List<SetEntry>): Double = entries.filter { it.setType != SET_WARMUP }.maxOfOrNull {
     estimatedOneRepMax(it.weightKg, it.reps)
 } ?: 0.0
 
-fun personalRecordKg(entries: List<SetEntry>): Double = entries.maxOfOrNull { it.weightKg } ?: 0.0
+fun personalRecordKg(entries: List<SetEntry>): Double = entries.filter { it.setType != SET_WARMUP }.maxOfOrNull { it.weightKg } ?: 0.0
 
 /** Start of the 7-calendar-day window (today plus the six previous local days). */
 fun recentWindowStart(now: Long = System.currentTimeMillis(), zone: ZoneId = ZoneId.systemDefault()): Long =

@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.repforge.app.data.AppPreferences
 import com.repforge.app.data.BackupManager
 import com.repforge.app.data.SettingsStore
+import com.repforge.app.data.parseCsvWorkoutsWithStats
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -33,6 +35,21 @@ class SettingsViewModel(private val store: SettingsStore, private val backup: Ba
         }.fold(
             { _messages.send("Backup exportado.") },
             { _messages.send("Falha ao exportar: ${it.message ?: "erro desconhecido"}") }
+        )
+    }
+
+    fun importCsv(read: () -> String) = viewModelScope.launch {
+        runCatching {
+            val result = parseCsvWorkoutsWithStats(withContext(Dispatchers.IO) { read() }, ZoneId.systemDefault())
+            backup.importSheets(result.sheets)
+            result
+        }.fold(
+            { result ->
+                val sets = result.sheets.sumOf { sheet -> sheet.exercises.sumOf { it.entries.size } }
+                val skipped = if (result.skippedRows > 0) " (${result.skippedRows} linhas ignoradas)" else ""
+                _messages.send("${result.sheets.size} fichas e $sets séries importadas$skipped")
+            },
+            { _messages.send("Falha ao importar: ${it.message ?: "erro desconhecido"}") }
         )
     }
 

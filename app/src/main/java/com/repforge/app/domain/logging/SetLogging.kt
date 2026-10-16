@@ -1,6 +1,7 @@
 package com.repforge.app.domain.logging
 
 import com.repforge.app.domain.metrics.personalRecordKg
+import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
 import java.time.Instant
 import java.time.ZoneId
@@ -16,7 +17,8 @@ data class SetPrefill(val reps: Int, val weightKg: Double?)
 
 /** [entries] newest first, as the repository emits them. */
 fun prefillFor(entries: List<SetEntry>): SetPrefill =
-    entries.firstOrNull()?.let { SetPrefill(it.reps, it.weightKg) } ?: SetPrefill(DEFAULT_REPS, null)
+    (entries.firstOrNull { it.setType != SET_WARMUP } ?: entries.firstOrNull())
+        ?.let { SetPrefill(it.reps, it.weightKg) } ?: SetPrefill(DEFAULT_REPS, null)
 
 /** A first-ever set has nothing to beat, so it is not announced as a record. */
 fun beatsPersonalRecord(previous: List<SetEntry>, weightKg: Double): Boolean =

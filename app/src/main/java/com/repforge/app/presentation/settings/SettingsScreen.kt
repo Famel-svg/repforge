@@ -62,6 +62,12 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore) {
         }
     }
 
+    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importCsv {
+            (resolver.openInputStream(uri) ?: throw IOException("arquivo indisponível")).use { it.readBytes().decodeToString() }
+        }
+    }
+
     Scaffold(topBar = { TopAppBar(title = { Text("Ajustes") }) }, snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
@@ -112,6 +118,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { exportLauncher.launch("repforge-backup-${LocalDate.now()}.json") }) { Text("Exportar backup") }
                         OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) { Text("Importar backup") }
+                        OutlinedButton(onClick = { csvLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain")) }) { Text("Importar do Strong/Hevy (CSV)") }
                     }
                 }
             }

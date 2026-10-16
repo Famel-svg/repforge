@@ -18,6 +18,18 @@ class ProgressMetricsTest {
     private fun entry(date: LocalDate, hour: Int = 12, ex: Long = 1, sets: Int = 3, reps: Int = 10, kg: Double = 50.0, sheet: String = "A") =
         HistoryEntry(ex, "Ex$ex", sheet, sets, reps, kg, at(date, hour))
 
+    @Test fun warmupSetsAreExcludedFromStats() {
+        val warm = HistoryEntry(1, "Ex1", "A", 1, 1, 300.0, at(today), "warmup")
+        val list = listOf(entry(today), warm, HistoryEntry(2, "Ex2", "A", 1, 5, 20.0, at(today.minusDays(1)), "warmup"))
+        assertEquals(50.0, exerciseStats(list).prKg, 0.001)
+        assertEquals(3, exerciseStats(list).totalSets)
+        assertEquals(1500.0, last7DaysVolume(list, at(today), sp).last().volumeKg, 0.001)
+        assertEquals(1, consistency(list, at(today), sp).currentStreak)
+        assertEquals(1, oneRepMaxSeries(list, sp).size)
+        assertEquals(1, exercisesWithHistory(list).size)
+        assertEquals(3, recentWorkouts(list, sp).single().sets)
+    }
+
     @Test fun streakEmptyIsZero() = assertEquals(0, currentStreak(emptySet(), today))
 
     @Test fun streakCountsFromToday() {

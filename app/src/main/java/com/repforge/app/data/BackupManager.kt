@@ -14,23 +14,27 @@ class BackupManager(private val database: WorkoutDatabase) {
         return BackupCodec.encode(dao.allSheets().map { sheet ->
             BackupSheet(sheet.name, sheet.updatedAt, exercises[sheet.id].orEmpty().map { exercise ->
                 BackupExercise(exercise.name, exercise.target, exercise.position, entries[exercise.id].orEmpty().map {
-                    BackupEntry(it.sets, it.reps, it.weightKg, it.recordedAt)
-                })
+                    BackupEntry(it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe)
+                }, exercise.note)
             })
         })
     }
 
     /** Appends the backup to the current data and returns the number of imported sheets. */
     suspend fun importJson(raw: String): Int {
-        val sheets = BackupCodec.decode(raw)
+        return importSheets(BackupCodec.decode(raw))
+    }
+
+    /** Appends the sheets in a single transaction and returns how many were inserted. */
+    suspend fun importSheets(sheets: List<BackupSheet>): Int {
         database.withTransaction {
             val dao = database.workoutDao()
             sheets.forEach { sheet ->
                 val sheetId = dao.insertSheet(SheetEntity(name = sheet.name, updatedAt = sheet.updatedAt))
                 sheet.exercises.forEach { exercise ->
-                    val exerciseId = dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = exercise.name, target = exercise.target, position = exercise.position))
+                    val exerciseId = dao.insertExercise(ExerciseEntity(sheetId = sheetId, name = exercise.name, target = exercise.target, position = exercise.position, note = exercise.note))
                     exercise.entries.forEach { entry ->
-                        dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = entry.sets, reps = entry.reps, weightKg = entry.weightKg, recordedAt = entry.recordedAt))
+                        dao.insertEntry(EntryEntity(exerciseId = exerciseId, sets = entry.sets, reps = entry.reps, weightKg = entry.weightKg, recordedAt = entry.recordedAt, setType = entry.setType, rpe = entry.rpe))
                     }
                 }
             }

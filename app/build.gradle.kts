@@ -24,6 +24,7 @@ android {
         // The Expo app shipped versionCode 9 under this applicationId; stay above it.
         versionCode = 10
         versionName = "2.0.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -49,6 +50,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
+    sourceSets { getByName("androidTest").assets.srcDir("$projectDir/schemas") }
     buildFeatures { compose = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
@@ -78,6 +80,11 @@ dependencies {
     implementation("com.android.billingclient:billing-ktx:9.0.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+    androidTestImplementation("androidx.room:room-testing:2.8.1")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    // room-testing needs serialization >= 1.8, but the debug app ships 1.7.3 transitively and the test APK reuses it.
+    debugImplementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.9.0")
     testImplementation("junit:junit:4.13.2")
     // android.jar ships org.json as throwing stubs; unit tests need the real one.
     testImplementation("org.json:json:20240303")

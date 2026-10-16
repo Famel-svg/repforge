@@ -26,7 +26,8 @@ data class ExerciseEntity(
     val sheetId: Long,
     val name: String,
     val target: String,
-    val position: Int
+    val position: Int,
+    @androidx.room.ColumnInfo(defaultValue = "") val note: String = ""
 )
 
 @Entity(
@@ -40,7 +41,9 @@ data class EntryEntity(
     val sets: Int,
     val reps: Int,
     val weightKg: Double,
-    val recordedAt: Long = System.currentTimeMillis()
+    val recordedAt: Long = System.currentTimeMillis(),
+    @androidx.room.ColumnInfo(defaultValue = "normal") val setType: String = "normal",
+    val rpe: Double? = null
 )
 
 data class SheetWithCount(
@@ -50,9 +53,9 @@ data class SheetWithCount(
     val updatedAt: Long
 )
 
-data class ExerciseRow(val id: Long, val sheetId: Long, val name: String, val target: String, val position: Int)
+data class ExerciseRow(val id: Long, val sheetId: Long, val name: String, val target: String, val position: Int, val note: String)
 
-data class EntryRow(val id: Long, val exerciseId: Long, val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long)
+data class EntryRow(val id: Long, val exerciseId: Long, val sets: Int, val reps: Int, val weightKg: Double, val recordedAt: Long, val setType: String, val rpe: Double?)
 
 data class DailyVolumeRow(val day: String, val volumeKg: Double)
 
@@ -63,7 +66,9 @@ data class HistoryRow(
     val sets: Int,
     val reps: Int,
     val weightKg: Double,
-    val recordedAt: Long
+    val recordedAt: Long,
+    val setType: String,
+    val rpe: Double?
 )
 
 @Dao
@@ -71,10 +76,10 @@ interface WorkoutDao {
     @Query("SELECT s.id, s.name, COUNT(e.id) AS exerciseCount, s.updatedAt FROM sheets s LEFT JOIN exercises e ON e.sheetId = s.id GROUP BY s.id ORDER BY s.updatedAt DESC")
     fun observeSheets(): Flow<List<SheetWithCount>>
 
-    @Query("SELECT COALESCE(SUM(e.sets * e.reps * e.weightKg), 0.0) FROM entries e WHERE e.recordedAt >= :since")
+    @Query("SELECT COALESCE(SUM(e.sets * e.reps * e.weightKg), 0.0) FROM entries e WHERE e.recordedAt >= :since AND e.setType != 'warmup'")
     fun observeWeeklyVolume(since: Long): Flow<Double>
 
-    @Query("SELECT COALESCE(SUM(e.sets), 0) FROM entries e WHERE e.recordedAt >= :since")
+    @Query("SELECT COALESCE(SUM(e.sets), 0) FROM entries e WHERE e.recordedAt >= :since AND e.setType != 'warmup'")
     fun observeWeeklySets(since: Long): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM sheets")
@@ -101,10 +106,10 @@ interface WorkoutDao {
     @Query("UPDATE sheets SET updatedAt = :now WHERE id = (SELECT sheetId FROM exercises WHERE id = :exerciseId)")
     suspend fun touchSheetOfExercise(exerciseId: Long, now: Long)
 
-    @Query("SELECT id, sheetId, name, target, position FROM exercises WHERE sheetId = :sheetId ORDER BY position, id")
+    @Query("SELECT id, sheetId, name, target, position, note FROM exercises WHERE sheetId = :sheetId ORDER BY position, id")
     fun observeExercises(sheetId: Long): Flow<List<ExerciseRow>>
 
-    @Query("SELECT id, exerciseId, sets, reps, weightKg, recordedAt FROM entries WHERE exerciseId = :exerciseId ORDER BY recordedAt DESC, id DESC")
+    @Query("SELECT id, exerciseId, sets, reps, weightKg, recordedAt, setType, rpe FROM entries WHERE exerciseId = :exerciseId ORDER BY recordedAt DESC, id DESC")
     fun observeEntries(exerciseId: Long): Flow<List<EntryRow>>
 
     @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM exercises WHERE sheetId = :sheetId")
@@ -118,6 +123,9 @@ interface WorkoutDao {
 
     @Query("UPDATE exercises SET name = :name, target = :target WHERE id = :exerciseId")
     suspend fun updateExercise(exerciseId: Long, name: String, target: String)
+
+    @Query("UPDATE exercises SET note = :note WHERE id = :exerciseId")
+    suspend fun updateExerciseNote(exerciseId: Long, note: String)
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertEntry(entry: EntryEntity): Long
@@ -140,14 +148,22 @@ interface WorkoutDao {
     @Query("SELECT * FROM entries ORDER BY exerciseId, recordedAt, id")
     suspend fun allEntries(): List<EntryEntity>
 
-    @Query("SELECT strftime('%Y-%m-%d', recordedAt / 1000, 'unixepoch', 'localtime') AS day, COALESCE(SUM(sets * reps * weightKg), 0.0) AS volumeKg FROM entries WHERE recordedAt >= :since GROUP BY day ORDER BY day")
+    @Query("SELECT strftime('%Y-%m-%d', recordedAt / 1000, 'unixepoch', 'localtime') AS day, COALESCE(SUM(sets * reps * weightKg), 0.0) AS volumeKg FROM entries WHERE recordedAt >= :since AND setType != 'warmup' GROUP BY day ORDER BY day")
     fun observeDailyVolume(since: Long): Flow<List<DailyVolumeRow>>
 
-    @Query("SELECT ex.id AS exerciseId, ex.name AS exerciseName, s.name AS sheetName, en.sets AS sets, en.reps AS reps, en.weightKg AS weightKg, en.recordedAt AS recordedAt FROM entries en JOIN exercises ex ON ex.id = en.exerciseId JOIN sheets s ON s.id = ex.sheetId ORDER BY en.recordedAt DESC, en.id DESC")
+    @Query("SELECT ex.id AS exerciseId, ex.name AS exerciseName, s.name AS sheetName, en.sets AS sets, en.reps AS reps, en.weightKg AS weightKg, en.recordedAt AS recordedAt, en.setType AS setType, en.rpe AS rpe FROM entries en JOIN exercises ex ON ex.id = en.exerciseId JOIN sheets s ON s.id = ex.sheetId ORDER BY en.recordedAt DESC, en.id DESC")
     fun observeHistory(): Flow<List<HistoryRow>>
 }
 
-@Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class], version = 1, exportSchema = true)
+val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE entries ADD COLUMN setType TEXT NOT NULL DEFAULT 'normal'")
+        db.execSQL("ALTER TABLE entries ADD COLUMN rpe REAL")
+        db.execSQL("ALTER TABLE exercises ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+@Database(entities = [SheetEntity::class, ExerciseEntity::class, EntryEntity::class], version = 2, exportSchema = true)
 abstract class WorkoutDatabase : RoomDatabase() {
     abstract fun workoutDao(): WorkoutDao
 }

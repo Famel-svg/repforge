@@ -1,5 +1,6 @@
 package com.repforge.app.domain.logging
 
+import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.templates.StarterTemplates
 import org.junit.Assert.assertEquals
@@ -18,6 +19,8 @@ class SetLoggingTest {
     @Test fun prefillUsesNewestEntryOrDefaults() {
         assertEquals(SetPrefill(8, 82.5), prefillFor(listOf(entry(2, 8, 82.5, at(10)), entry(1, 10, 80.0, at(9)))))
         assertEquals(SetPrefill(10, null), prefillFor(emptyList()))
+        val warmupFirst = listOf(entry(1, 12, 40.0, at(11)).copy(setType = SET_WARMUP), entry(1, 8, 82.5, at(10)))
+        assertEquals(SetPrefill(8, 82.5), prefillFor(warmupFirst))
     }
 
     @Test fun prDetectionNeedsHistoryAndStrictlyHigherLoad() {
