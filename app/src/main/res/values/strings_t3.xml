@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="t3_plan_subtitle">Your week and your routines</string>
+    <string name="t3_week">Week</string>
+    <string name="t3_routines">Routines</string>
+    <string name="t3_new">New</string>
+    <string name="t3_open_routine_cd">Open %1$s</string>
+    <string name="t3_routine_options_cd">Options for %1$s</string>
+    <string name="t3_no_routines_title">No routines yet</string>
+    <string name="t3_no_routines_body">Create a routine to build your week.</string>
+    <string name="t3_library_search">Search exercises</string>
+    <string name="t3_add_to_sheet">Sheet</string>
+    <string name="t3_add_to_sheet_cd">Add %1$s to a sheet</string>
+    <string name="t3_choose_sheet_title">Add to which sheet?</string>
+    <string name="t3_added_to">Added to %1$s</string>
+    <string name="t3_no_sheets_library">Create a routine in Plan first.</string>
+    <string name="t3_no_exercises_hint">Try a different search or clear the filters.</string>
+</resources>

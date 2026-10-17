@@ -16,7 +16,7 @@ import androidx.compose.material3.ColorScheme
 @Composable
 fun RepForgeTheme(
     themeMode: ThemeMode = ThemeMode.System,
-    accent: Accent = Accent.Ember,
+    accent: Accent = Accent.Green,
     darkTheme: Boolean = when (themeMode) { ThemeMode.System -> isSystemInDarkTheme(); ThemeMode.Light -> false; ThemeMode.Dark -> true },
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
@@ -39,9 +39,9 @@ fun RepForgeTheme(
 
 private fun Color.mix(other: Color, t: Float) = lerp(this, other, t)
 
-/** Replaces the primary roles with accent-derived ones; Ember keeps the hand-tuned brand values. */
+/** Replaces the primary roles with accent-derived ones; Green keeps the hand-tuned base values. */
 fun ColorScheme.withAccent(accent: Accent, dark: Boolean): ColorScheme {
-    if (accent == Accent.Ember) return this
+    if (accent == Accent.Green) return this
     return if (dark) {
         val p = Color(accent.dark)
         copy(

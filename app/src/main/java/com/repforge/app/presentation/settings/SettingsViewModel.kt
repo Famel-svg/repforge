@@ -46,6 +46,8 @@ class SettingsViewModel(private val store: SettingsStore, private val backup: Ba
     fun setThemeMode(value: ThemeMode) = viewModelScope.launch(logExceptions) { store.setThemeMode(value) }
     fun setAccent(value: Accent) = viewModelScope.launch(logExceptions) { store.setAccent(value) }
     fun setAskBodyWeight(value: Boolean) = viewModelScope.launch(logExceptions) { store.setAskBodyWeight(value) }
+    fun setWeeklyTarget(value: Int) = viewModelScope.launch(logExceptions) { store.setWeeklyTarget(value) }
+    fun setWeightGoalKg(value: Double?) = viewModelScope.launch(logExceptions) { store.setWeightGoalKg(value) }
     fun setSoundsEnabled(value: Boolean) = viewModelScope.launch(logExceptions) { store.setSoundsEnabled(value) }
 
     fun exportBackup(write: (String) -> Unit) = viewModelScope.launch(logExceptions) {

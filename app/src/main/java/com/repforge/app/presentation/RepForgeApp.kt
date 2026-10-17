@@ -1,38 +1,27 @@
 package com.repforge.app.presentation
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.res.stringResource
 import com.repforge.app.R
 import com.repforge.app.data.ExerciseCatalog
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.FitnessCenter
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import com.repforge.app.presentation.library.LibraryScreen
 import com.repforge.app.presentation.plan.PlanScreen
 import com.repforge.app.presentation.plan.PlanViewModel
-import androidx.compose.material.icons.rounded.Timeline
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import com.repforge.app.presentation.onboarding.OnboardingScreen
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -49,7 +38,12 @@ import com.repforge.app.RepForgeApplication
 import com.repforge.app.data.AppPreferences
 import com.repforge.app.presentation.body.BodyWeightScreen
 import com.repforge.app.presentation.body.BodyWeightViewModel
+import com.repforge.app.presentation.history.HistoryScreen
+import com.repforge.app.presentation.history.HistoryViewModel
 import com.repforge.app.presentation.home.HomeScreen
+import com.repforge.app.presentation.start.BodyWeightPrompt
+import com.repforge.app.presentation.start.StartChooserSheet
+import com.repforge.app.domain.templates.StarterTemplates
 import com.repforge.app.presentation.home.HomeViewModel
 import com.repforge.app.presentation.progress.ProgressScreen
 import com.repforge.app.presentation.progress.ProgressViewModel
@@ -61,13 +55,6 @@ import com.repforge.app.presentation.summary.SessionSummaryViewModel
 import com.repforge.app.presentation.settings.SettingsViewModel
 import com.repforge.app.presentation.workout.WorkoutScreen
 import com.repforge.app.presentation.workout.WorkoutViewModel
-
-private enum class Destination(val route: String, @StringRes val label: Int, val icon: ImageVector) {
-    Home("home", R.string.nav_workout, Icons.Rounded.FitnessCenter),
-    Plan("plan", R.string.nav_plan, Icons.Rounded.CalendarMonth),
-    Progress("progress", R.string.nav_progress, Icons.Rounded.Timeline),
-    Library("library", R.string.nav_library, Icons.AutoMirrored.Rounded.MenuBook)
-}
 
 private const val SETTINGS_ROUTE = "settings" // opened from the Home gear; not a tab
 
@@ -85,7 +72,12 @@ fun RepForgeApp(initialSheetId: Long? = null) {
     // A purchase can change outside the app (refund, Play Store redeem), so re-check every time the app comes back.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { application.pro.restore() }
     val isPro by application.pro.isPro.collectAsStateWithLifecycle()
-    var openTemplatePicker by remember { mutableStateOf(false) }
+    // One instance for the whole app: the bottom bar's Start button and Home share it.
+    val homeViewModel = viewModel { HomeViewModel(application.repository) }
+    val homeState by homeViewModel.state.collectAsStateWithLifecycle()
+    val preferences by application.settings.preferences.collectAsStateWithLifecycle(AppPreferences())
+    var pendingStart by remember { mutableStateOf<Long?>(null) }
+    var showChooser by remember { mutableStateOf(false) }
     // Saveable state must be declared before the early return below, with an explicit key: otherwise on
     // restore its positional key collides with rememberNavController's and the app crashes (ClassCastException).
     var widgetHandled by rememberSaveable(key = "widgetHandled") { mutableStateOf(false) }
@@ -102,68 +94,82 @@ fun RepForgeApp(initialSheetId: Long? = null) {
         }
     }
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    fun openSheet(id: Long) = navController.navigate("sheet/$id")
+    fun startSheet(id: Long, kg: Double?) { homeViewModel.startSession(id, kg); openSheet(id) }
+    // Resuming the same sheet never asks for body weight again.
+    fun requestStart(id: Long) = when {
+        homeState.resume?.id == id -> openSheet(id)
+        preferences.askBodyWeight -> pendingStart = id
+        else -> startSheet(id, null)
+    }
+    fun onStartTap() {
+        val planned = homeState.today?.sheet
+        when {
+            homeState.resume != null -> openSheet(homeState.resume!!.id)
+            planned != null -> requestStart(planned.id)
+            else -> showChooser = true
+        }
+    }
     CompositionLocalProvider(LocalCatalogNames provides catalogNames) {
     Scaffold(
         bottomBar = {
             // Sheet and search are full-screen flows; the tab bar only belongs to top-level destinations (and Settings, which has no back button).
-            if (currentRoute == SETTINGS_ROUTE || Destination.entries.any { it.route == currentRoute }) NavigationBar {
-                Destination.entries.forEach { destination ->
-                    NavigationBarItem(
-                        selected = currentRoute == destination.route,
-                        onClick = {
-                            navController.navigate(destination.route) {
-                                popUpTo(Destination.Home.route) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(destination.icon, contentDescription = null) },
-                        label = { Text(stringResource(destination.label)) }
-                    )
+            if (currentRoute == SETTINGS_ROUTE || Destination.entries.any { it.route == currentRoute }) RepForgeBottomBar(
+                currentRoute, resuming = homeState.resume != null, onStart = ::onStartTap,
+                onTab = { destination ->
+                    navController.navigate(destination.route) {
+                        popUpTo(Destination.Home.route) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 }
-            }
+            )
         }
     ) { padding ->
         NavHost(navController, startDestination = startRoute, modifier = Modifier.padding(padding).consumeWindowInsets(padding)) {
             composable("onboarding") {
                 fun finish(withTemplate: Boolean) {
-                    openTemplatePicker = withTemplate
+                    // Sheet creation lives in Plan now, so the starter template is created directly.
+                    if (withTemplate) homeViewModel.createSheetFromTemplate(StarterTemplates.first())
                     scope.launch { application.settings.setOnboardingDone() }
                     navController.navigate(Destination.Home.route) { popUpTo("onboarding") { inclusive = true } }
                 }
                 OnboardingScreen(onFinish = { finish(false) }, onFinishWithTemplate = { finish(true) })
             }
             composable(Destination.Home.route) {
-                val homeViewModel = viewModel { HomeViewModel(application.repository) }
-                val state by homeViewModel.state.collectAsStateWithLifecycle()
-                val homePreferences by application.settings.preferences.collectAsStateWithLifecycle(AppPreferences())
                 HomeScreen(
-                    state = state,
-                    askBodyWeight = homePreferences.askBodyWeight,
-                    onCreateSheet = homeViewModel::createSheet,
-                    onStartSheet = { sheet, kg ->
-                        homeViewModel.startSession(sheet.id, kg)
-                        navController.navigate("sheet/${sheet.id}")
-                    },
-                    onResumeSheet = { navController.navigate("sheet/${it.id}") },
-                    onCreateSheetFromTemplate = homeViewModel::createSheetFromTemplate,
-                    onDuplicateSheet = homeViewModel::duplicateSheet,
-                    onDeleteSheet = homeViewModel::deleteSheet,
-                    openTemplatePicker = openTemplatePicker,
-                    onTemplatePickerOpened = { openTemplatePicker = false },
+                    state = homeState,
+                    weightGoalKg = preferences.weightGoalKg,
+                    weeklyTarget = preferences.weeklyTarget,
+                    onStartSheet = { requestStart(it.id) },
+                    onResumeSheet = { openSheet(it.id) },
+                    onShiftWeek = homeViewModel::shiftWeek,
                     onOpenPlan = dropUnlessResumed { navController.navigate(Destination.Plan.route) { launchSingleTop = true } },
-                    onOpenSettings = dropUnlessResumed { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } }
+                    onOpenSettings = dropUnlessResumed { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } },
+                    onOpenBody = dropUnlessResumed { navController.navigate("body") },
+                    onOpenHistory = dropUnlessResumed { navController.navigate("history") }
                 )
             }
             composable(Destination.Plan.route) {
                 val planViewModel = viewModel { PlanViewModel(application.repository) }
                 val state by planViewModel.state.collectAsStateWithLifecycle()
-                PlanScreen(state, planViewModel::setWeekday, planViewModel::reschedule, planViewModel::createSheet, planViewModel::createSheetFromTemplate)
+                PlanScreen(
+                    state, planViewModel::setWeekday, planViewModel::reschedule, planViewModel::createSheet, planViewModel::createSheetFromTemplate,
+                    onStartSheet = ::requestStart, onOpenSheet = ::openSheet
+                )
+            }
+            composable("history") {
+                HistoryScreen(
+                    viewModel { HistoryViewModel(application.repository) },
+                    onOpenSession = { navController.navigate("summary/$it") },
+                    onBack = dropUnlessResumed { navController.popBackStack() }
+                )
             }
             composable(Destination.Progress.route) {
                 ProgressScreen(
-                    viewModel { ProgressViewModel(application.repository, application.pro.isPro, application.catalog) },
-                    onOpenPro = dropUnlessResumed { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } }
+                    viewModel { ProgressViewModel(application.repository, application.pro.isPro, application.catalog, application.settings.preferences.map { it.weightGoalKg }) },
+                    onOpenPro = dropUnlessResumed { navController.navigate(SETTINGS_ROUTE) { launchSingleTop = true } },
+                    onOpenHistory = dropUnlessResumed { navController.navigate("history") }
                 )
             }
             composable(Destination.Library.route) { LibraryScreen(application.catalog) }
@@ -171,11 +177,10 @@ fun RepForgeApp(initialSheetId: Long? = null) {
                 SettingsScreen(viewModel { SettingsViewModel(application.settings, application.backup) }, application.pro, onOpenBodyWeight = dropUnlessResumed { navController.navigate("body") })
             }
             composable("body") {
-                BodyWeightScreen(viewModel { BodyWeightViewModel(application.repository) }, onBack = dropUnlessResumed { navController.popBackStack() })
+                BodyWeightScreen(viewModel { BodyWeightViewModel(application.repository, application.settings.preferences.map { it.weightGoalKg }) }, onBack = dropUnlessResumed { navController.popBackStack() })
             }
             composable("sheet/{$SHEET_ID}", arguments = sheetArguments) { entry ->
                 val sheetId = entry.arguments!!.getLong(SHEET_ID)
-                val preferences by application.settings.preferences.collectAsStateWithLifecycle(AppPreferences())
                 WorkoutScreen(
                     viewModel = viewModel { WorkoutViewModel(application.repository, sheetId) },
                     preferences = preferences,
@@ -203,5 +208,18 @@ fun RepForgeApp(initialSheetId: Long? = null) {
             }
         }
     }
+    pendingStart?.let { id ->
+        BodyWeightPrompt(
+            onSave = { kg -> pendingStart = null; startSheet(id, kg) },
+            onSkip = { pendingStart = null; startSheet(id, null) },
+            onDismiss = { pendingStart = null }
+        )
+    }
+    if (showChooser) StartChooserSheet(
+        sheets = homeState.sheets,
+        onPick = { showChooser = false; requestStart(it.id) },
+        onOpenPlan = { showChooser = false; navController.navigate(Destination.Plan.route) { launchSingleTop = true } },
+        onDismiss = { showChooser = false }
+    )
     }
 }

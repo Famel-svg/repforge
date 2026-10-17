@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="t6_section_data">Dados</string>
+    <string name="t6_section_about">Sobre</string>
+    <string name="t6_section_sounds">Sons</string>
+    <string name="t6_weekly_target">Meta semanal</string>
+    <string name="t6_weekly_target_hint">Treinos por semana para sua sequência</string>
+    <string name="t6_weight_goal">Meta de peso corporal</string>
+    <string name="t6_weight_goal_unset">Não definida</string>
+    <string name="t6_weight_goal_value">%1$s kg</string>
+    <string name="t6_weight_goal_label">Meta (kg)</string>
+    <string name="t6_weight_goal_invalid">Informe um peso entre 20 e 500 kg</string>
+    <string name="t6_clear">Limpar</string>
+</resources>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="t2_tab_home">Home</string>
+    <string name="t2_tab_plan">Plan</string>
+    <string name="t2_tab_start">Start</string>
+    <string name="t2_tab_resume">Resume</string>
+    <string name="t2_tab_progress">Progress</string>
+    <string name="t2_tab_library">Library</string>
+    <string name="t2_this_week">This week</string>
+    <string name="t2_prev_week">Previous week</string>
+    <string name="t2_next_week">Next week</string>
+    <string name="t2_today">Today</string>
+    <string name="t2_rest">Rest</string>
+    <string name="t2_day_trained">%1$s, trained</string>
+    <string name="t2_day_planned">%1$s, planned</string>
+    <string name="t2_body_weight">Body weight</string>
+    <string name="t2_goal_chip">Goal %1$s kg</string>
+    <string name="t2_log_weight">Log</string>
+    <string name="t2_no_weight">No weight logged yet.</string>
+    <string name="t2_goal_line">Goal: %1$s kg</string>
+    <string name="t2_week_progress">%1$d/%2$d this week · %3$d workouts</string>
+    <string name="t2_history">History</string>
+    <string name="t2_choose_sheet">Choose a workout</string>
+    <string name="t2_no_sheets_title">No sheets yet</string>
+    <string name="t2_no_sheets_body">Create a sheet in the Plan tab to start training.</string>
+    <plurals name="t2_streak_weeks">
+        <item quantity="one">%d week streak</item>
+        <item quantity="other">%d weeks streak</item>
+    </plurals>
+</resources>

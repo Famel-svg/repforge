@@ -1,5 +1,6 @@
 package com.repforge.app.domain.repository
 
+import com.repforge.app.domain.metrics.FinishedSession
 import com.repforge.app.domain.model.BodyWeight
 import com.repforge.app.domain.model.DashboardSummary
 import com.repforge.app.domain.model.TrainingSheet
@@ -52,6 +53,8 @@ interface WorkoutRepository {
     suspend fun reschedule(from: LocalDate, to: LocalDate)
     /** The workout in progress, if any; survives process death because it lives in the database. */
     fun observeActiveSession(): Flow<WorkoutSession?>
+    /** Finished workouts, newest first. */
+    fun observeFinishedSessions(): Flow<List<FinishedSession>>
     fun observeSession(sessionId: Long): Flow<WorkoutSession?>
     /**
      * Starts a workout on [sheetId] and returns its session id. Resumes the active session when it is already on this sheet;

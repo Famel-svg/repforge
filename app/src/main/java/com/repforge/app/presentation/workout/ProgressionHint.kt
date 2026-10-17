@@ -3,10 +3,14 @@ package com.repforge.app.presentation.workout
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -32,10 +36,9 @@ fun ProgressionHint(
     onUpgrade: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
     if (!isPro) {
-        Card(modifier.fillMaxWidth().clickable(onClickLabel = stringResource(R.string.learn_pro), role = Role.Button, onClick = onUpgrade), colors = colors) {
-            Text(stringResource(R.string.suggestion_pro_teaser), Modifier.padding(horizontal = 12.dp, vertical = 10.dp), style = MaterialTheme.typography.labelLarge)
+        HintPill(modifier.clickable(onClickLabel = stringResource(R.string.learn_pro), role = Role.Button, onClick = onUpgrade)) {
+            Text(stringResource(R.string.suggestion_pro_teaser), Modifier.weight(1f).padding(vertical = 10.dp), style = MaterialTheme.typography.labelLarge)
         }
         return
     }
@@ -55,10 +58,19 @@ fun ProgressionHint(
         suggestion.weightKg == 0.0 -> stringResource(R.string.suggestion_line_reps, suggestion.reps, reason)
         else -> stringResource(R.string.suggestion_line, w, suggestion.reps, reason)
     }
-    Card(modifier.fillMaxWidth(), colors = colors) {
+    HintPill(modifier) {
+        Text(line, Modifier.weight(1f).padding(vertical = 8.dp), style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        TextButton(onClick = { onApply(suggestion.reps, suggestion.weightKg, suggestion.durationSec) }) { Text(stringResource(R.string.apply)) }
+    }
+}
+
+/** Soft accent pill with a bulb icon; [content] is laid out in a row after the icon. */
+@Composable
+private fun HintPill(modifier: Modifier, content: @Composable RowScope.() -> Unit) {
+    Surface(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
         Row(Modifier.padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(line, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            TextButton(onClick = { onApply(suggestion.reps, suggestion.weightKg, suggestion.durationSec) }) { Text(stringResource(R.string.apply)) }
+            Icon(Icons.Outlined.Lightbulb, null, Modifier.size(18.dp))
+            content()
         }
     }
 }

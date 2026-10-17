@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="t6_section_data">Data</string>
+    <string name="t6_section_about">About</string>
+    <string name="t6_section_sounds">Sounds</string>
+    <string name="t6_weekly_target">Weekly target</string>
+    <string name="t6_weekly_target_hint">Workouts per week for your streak</string>
+    <string name="t6_weight_goal">Body weight goal</string>
+    <string name="t6_weight_goal_unset">Not set</string>
+    <string name="t6_weight_goal_value">%1$s kg</string>
+    <string name="t6_weight_goal_label">Goal (kg)</string>
+    <string name="t6_weight_goal_invalid">Enter a weight between 20 and 500 kg</string>
+    <string name="t6_clear">Clear</string>
+</resources>

@@ -1,5 +1,5 @@
 <resources>
     <color name="ic_launcher_background">#0B0F14</color>
-    <color name="brand_window_background">#F7F8FA</color>
-    <color name="brand_splash_background">#0B0F14</color>
+    <color name="brand_window_background">#F2F2F7</color>
+    <color name="brand_splash_background">#000000</color>
 </resources>

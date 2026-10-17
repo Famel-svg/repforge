@@ -122,6 +122,8 @@ data class HistoryRow(
     val distanceKm: Double?
 )
 
+data class FinishedSessionRow(val id: Long, val sheetName: String?, val startedAt: Long, val endedAt: Long)
+
 @Dao
 interface WorkoutDao {
     @Query("SELECT s.id, s.name, COUNT(e.id) AS exerciseCount, s.updatedAt, s.progressionRule FROM sheets s LEFT JOIN exercises e ON e.sheetId = s.id GROUP BY s.id ORDER BY s.updatedAt DESC")
@@ -249,6 +251,9 @@ interface WorkoutDao {
 
     @Query("SELECT ex.id AS exerciseId, ex.name AS exerciseName, s.name AS sheetName, en.sets AS sets, en.reps AS reps, en.weightKg AS weightKg, en.recordedAt AS recordedAt, en.setType AS setType, en.rpe AS rpe, ex.target AS target, ex.kind AS kind, en.durationSec AS durationSec, en.distanceKm AS distanceKm FROM entries en JOIN exercises ex ON ex.id = en.exerciseId JOIN sheets s ON s.id = ex.sheetId ORDER BY en.recordedAt DESC, en.id DESC")
     fun observeHistory(): Flow<List<HistoryRow>>
+
+    @Query("SELECT se.id AS id, sh.name AS sheetName, se.startedAt AS startedAt, se.endedAt AS endedAt FROM sessions se LEFT JOIN sheets sh ON sh.id = se.sheetId WHERE se.endedAt IS NOT NULL ORDER BY se.startedAt DESC, se.id DESC")
+    fun observeFinishedSessions(): Flow<List<FinishedSessionRow>>
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertSession(session: SessionEntity): Long

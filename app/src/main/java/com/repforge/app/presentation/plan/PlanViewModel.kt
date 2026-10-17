@@ -49,4 +49,12 @@ class PlanViewModel(private val repository: WorkoutRepository) : ViewModel() {
     fun createSheetFromTemplate(template: WorkoutTemplate) {
         viewModelScope.launch(logExceptions) { runCatching { repository.createSheetFromTemplate(template) } }
     }
+
+    fun duplicateSheet(sheetId: Long, copyLabel: String) {
+        viewModelScope.launch(logExceptions) { repository.duplicateSheet(sheetId, copyLabel) }
+    }
+
+    fun deleteSheet(sheetId: Long) {
+        viewModelScope.launch(logExceptions) { repository.deleteSheet(sheetId) }
+    }
 }

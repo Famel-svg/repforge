@@ -1,0 +1,53 @@
+package com.repforge.app.domain.metrics
+
+import com.repforge.app.domain.model.BodyWeight
+import com.repforge.app.domain.model.HistoryEntry
+import com.repforge.app.domain.model.SET_WARMUP
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneOffset
+
+class HistoryListTest {
+    private val zone = ZoneOffset.UTC
+    private fun ms(d: LocalDate, h: Int = 9) = d.atTime(h, 0).toInstant(ZoneOffset.UTC).toEpochMilli()
+    private fun entry(at: Long, type: String = "normal") = HistoryEntry(1, "X", "A", 3, 10, 50.0, at, type)
+
+    @Test fun itemsCountOnlyWorkingSetsInsideSession() {
+        val d = LocalDate.of(2026, 3, 10)
+        val s = FinishedSession(1, "A", ms(d, 9), ms(d, 10))
+        val items = historyItems(listOf(s), listOf(entry(ms(d, 9)), entry(ms(d, 10), SET_WARMUP), entry(ms(d, 12))))
+        assertEquals(3, items[0].sets)
+        assertEquals(1500.0, items[0].volumeKg, 0.0)
+        assertEquals(3_600_000L, items[0].durationMs)
+    }
+
+    @Test fun groupsNewestMonthFirst() {
+        val a = HistoryItem(1, "A", ms(LocalDate.of(2026, 2, 28)), 0, 0, 0.0)
+        val b = HistoryItem(2, "A", ms(LocalDate.of(2026, 3, 1)), 0, 0, 0.0)
+        val c = HistoryItem(3, "A", ms(LocalDate.of(2026, 3, 20)), 0, 0, 0.0)
+        val g = groupByMonth(listOf(a, b, c), zone)
+        assertEquals(listOf(YearMonth.of(2026, 3), YearMonth.of(2026, 2)), g.map { it.first })
+        assertEquals(listOf(3L, 2L), g[0].second.map { it.id })
+    }
+
+    @Test fun weightRangeFilterAndDelta() {
+        val today = LocalDate.of(2026, 3, 18)
+        val w = listOf(100 to 90.0, 40 to 85.0, 5 to 82.0).map { (ago, kg) -> BodyWeight(0, kg, ms(today.minusDays(ago.toLong()))) }
+        val now = ms(today, 12)
+        assertEquals(1, filterWeights(w, WeightRange.Days30, now, zone).size)
+        assertEquals(2, filterWeights(w, WeightRange.Days90, now, zone).size)
+        assertEquals(3, filterWeights(w, WeightRange.All, now, zone).size)
+        assertEquals(-8.0, weightDelta(w)!!, 0.0)
+        assertNull(weightDelta(w.take(1)))
+    }
+
+    @Test fun labelIndicesSpread() {
+        assertEquals(emptyList<Int>(), labelIndices(0))
+        assertEquals(listOf(0), labelIndices(1))
+        assertEquals(listOf(0, 1), labelIndices(2))
+        assertEquals(listOf(0, 2, 4), labelIndices(5))
+    }
+}

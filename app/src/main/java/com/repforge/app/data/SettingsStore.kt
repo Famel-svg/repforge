@@ -2,6 +2,7 @@ package com.repforge.app.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -15,14 +16,14 @@ enum class ThemeMode { System, Light, Dark }
 
 /** Brand accents as ARGB: [dark] is used on dark surfaces, [light] on light ones (both checked for WCAG AA in AccentContrastTest). */
 enum class Accent(val dark: Long, val light: Long) {
-    Ember(0xFFFF8A3D, 0xFFA63600), Rose(0xFFFF7A93, 0xFFB3123F), Violet(0xFFB9A2FF, 0xFF6340C9), Indigo(0xFF9DB0FF, 0xFF3949B8),
-    Sky(0xFF5CC8FF, 0xFF006494), Teal(0xFF3FD9C6, 0xFF006B60), Green(0xFF7ADB6E, 0xFF2B6B1F), Gold(0xFFF2C14E, 0xFF7A5600)
+    Green(0xFF30D158, 0xFF1F7A35), Ember(0xFFFF8A3D, 0xFFA63600), Rose(0xFFFF7A93, 0xFFB3123F), Violet(0xFFB9A2FF, 0xFF6340C9),
+    Indigo(0xFF9DB0FF, 0xFF3949B8), Sky(0xFF5CC8FF, 0xFF006494), Teal(0xFF3FD9C6, 0xFF006B60), Gold(0xFFF2C14E, 0xFF7A5600)
 }
 
 data class AppPreferences(
     val restSeconds: Int = 90, val hapticsEnabled: Boolean = true, val restNotification: Boolean = true,
-    val themeMode: ThemeMode = ThemeMode.System, val accent: Accent = Accent.Ember, val soundsEnabled: Boolean = true,
-    val askBodyWeight: Boolean = false
+    val themeMode: ThemeMode = ThemeMode.System, val accent: Accent = Accent.Green, val soundsEnabled: Boolean = true,
+    val askBodyWeight: Boolean = false, val weightGoalKg: Double? = null, val weeklyTarget: Int = 3
 )
 
 class SettingsStore(private val context: Context) {
@@ -35,14 +36,17 @@ class SettingsStore(private val context: Context) {
         val soundsEnabled = booleanPreferencesKey("sounds_enabled")
         val onboardingDone = booleanPreferencesKey("onboarding_done")
         val askBodyWeight = booleanPreferencesKey("ask_body_weight")
+        val weightGoalKg = doublePreferencesKey("weight_goal_kg")
+        val weeklyTarget = intPreferencesKey("weekly_target")
     }
 
     val preferences: Flow<AppPreferences> = context.repForgePreferences.data.map { values ->
         AppPreferences(values[Keys.restSeconds] ?: 90, values[Keys.hapticsEnabled] ?: true, values[Keys.restNotification] ?: true,
             ThemeMode.entries.firstOrNull { it.name == values[Keys.themeMode] } ?: ThemeMode.System,
-            Accent.entries.firstOrNull { it.name == values[Keys.accent] } ?: Accent.Ember,
+            Accent.entries.firstOrNull { it.name == values[Keys.accent] } ?: Accent.Green,
             values[Keys.soundsEnabled] ?: true,
-            values[Keys.askBodyWeight] ?: false
+            values[Keys.askBodyWeight] ?: false,
+            values[Keys.weightGoalKg], values[Keys.weeklyTarget] ?: 3
         )
     }
 
@@ -79,5 +83,14 @@ class SettingsStore(private val context: Context) {
 
     suspend fun setSoundsEnabled(value: Boolean) {
         context.repForgePreferences.edit { it[Keys.soundsEnabled] = value }
+    }
+
+    /** Null clears the goal. */
+    suspend fun setWeightGoalKg(value: Double?) {
+        context.repForgePreferences.edit { if (value == null) it.remove(Keys.weightGoalKg) else it[Keys.weightGoalKg] = value }
+    }
+
+    suspend fun setWeeklyTarget(value: Int) {
+        context.repForgePreferences.edit { it[Keys.weeklyTarget] = value.coerceIn(1, 7) }
     }
 }

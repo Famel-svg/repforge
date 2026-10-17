@@ -7,22 +7,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 private val Sans = FontFamily.SansSerif
-private const val Tnum = "tnum"
 
+private fun t(w: FontWeight, size: Int, line: Int, track: Float = 0f) =
+    TextStyle(fontFamily = Sans, fontWeight = w, fontSize = size.sp, lineHeight = line.sp, letterSpacing = track.sp, fontFeatureSettings = "tnum")
+
+/** Bold only for titles/hero numbers, SemiBold for row titles and buttons, Normal elsewhere. */
 val RepForgeTypography = Typography(
-    displayLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 48.sp, lineHeight = 52.sp, letterSpacing = (-0.5).sp, fontFeatureSettings = Tnum),
-    displayMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 40.sp, lineHeight = 44.sp, letterSpacing = (-0.25).sp, fontFeatureSettings = Tnum),
-    displaySmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = 0.sp, fontFeatureSettings = Tnum),
-    headlineLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.25).sp, fontFeatureSettings = Tnum),
-    headlineMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = 0.sp, fontFeatureSettings = Tnum),
-    headlineSmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, lineHeight = 26.sp, letterSpacing = 0.sp, fontFeatureSettings = Tnum),
-    titleLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, lineHeight = 24.sp, letterSpacing = 0.sp, fontFeatureSettings = Tnum),
-    titleMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
-    titleSmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, lineHeight = 18.sp, letterSpacing = 0.1.sp),
-    bodyLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = 0.25.sp),
-    bodyMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.2.sp),
-    bodySmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.3.sp),
-    labelLarge = TextStyle(fontFamily = Sans, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
-    labelMedium = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.4.sp),
-    labelSmall = TextStyle(fontFamily = Sans, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.4.sp),
+    displayLarge = t(FontWeight.Bold, 56, 60, -1f),
+    displayMedium = t(FontWeight.Bold, 40, 44, -0.5f),
+    displaySmall = t(FontWeight.Bold, 34, 38, -0.8f),
+    headlineLarge = t(FontWeight.Bold, 30, 36, -0.5f),
+    headlineMedium = t(FontWeight.Bold, 28, 34, -0.3f),
+    headlineSmall = t(FontWeight.Bold, 22, 28),
+    titleLarge = t(FontWeight.SemiBold, 17, 22),
+    titleMedium = t(FontWeight.SemiBold, 16, 22),
+    titleSmall = t(FontWeight.SemiBold, 14, 20),
+    bodyLarge = t(FontWeight.Normal, 17, 22),
+    bodyMedium = t(FontWeight.Normal, 15, 20),
+    bodySmall = t(FontWeight.Normal, 13, 18),
+    labelLarge = t(FontWeight.SemiBold, 16, 22),
+    labelMedium = t(FontWeight.Normal, 12, 16, 0.5f),
+    labelSmall = t(FontWeight.Normal, 11, 14),
 )

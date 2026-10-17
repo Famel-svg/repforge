@@ -28,6 +28,7 @@ import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
 import com.repforge.app.domain.model.TrainingSheet
 import com.repforge.app.domain.model.WorkoutSession
+import com.repforge.app.domain.metrics.FinishedSession
 import com.repforge.app.domain.progression.PROGRESSION_RULES
 import com.repforge.app.domain.repository.WorkoutRepository
 import com.repforge.app.domain.schedule.DayPlan
@@ -238,6 +239,9 @@ class WorkoutRepositoryImpl(private val database: WorkoutDatabase, private val o
     override fun observeHistory(): Flow<List<HistoryEntry>> = dao.observeHistory().map { rows ->
         rows.map { HistoryEntry(it.exerciseId, it.exerciseName, it.sheetName, it.sets, it.reps, it.weightKg, it.recordedAt, it.setType, it.rpe, it.target, it.kind, it.durationSec, it.distanceKm) }
     }
+
+    override fun observeFinishedSessions(): Flow<List<FinishedSession>> =
+        dao.observeFinishedSessions().map { rows -> rows.map { FinishedSession(it.id, it.sheetName, it.startedAt, it.endedAt) } }
 
     override fun observeActiveSession(): Flow<WorkoutSession?> = dao.observeActiveSession().map { it?.toDomain() }
 

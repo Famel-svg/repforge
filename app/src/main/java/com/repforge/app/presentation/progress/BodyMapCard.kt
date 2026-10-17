@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
+import com.repforge.app.presentation.components.RfCard
+import com.repforge.app.presentation.components.SegmentedPill
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -85,7 +85,7 @@ private val BACK = listOf(
 
 @Composable
 private fun Figure(regions: List<Region>, totals: Map<String, Double>, max: Double, modifier: Modifier) {
-    val base = MaterialTheme.colorScheme.surfaceVariant
+    val base = MaterialTheme.colorScheme.surfaceContainerHighest
     val fill = MaterialTheme.colorScheme.primary
     val line = MaterialTheme.colorScheme.outline
     val body = remember { silhouette() }
@@ -115,12 +115,12 @@ fun BodyMapCard(bodyMap: Map<BodyRange, Map<String, Double>>, locked: Boolean, o
     val labels = BODY_MUSCLES.map { it to muscleLabel(it) }.toMap()
     val summary = ranked.joinToString(", ") { "${labels.getValue(it)} ${n(totals.getValue(it))}" }
         .ifEmpty { stringResource(R.string.bodymap_none) }
-    Card {
-        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    RfCard(Modifier.fillMaxWidth(), padding = 18.dp) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.bodymap_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.bodymap_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BodyRange.entries.forEach { r ->
+            SegmentedPill(
+                BodyRange.entries.map { r ->
                     val name = stringResource(
                         when (r) {
                             BodyRange.Week -> R.string.bodymap_week
@@ -128,9 +128,10 @@ fun BodyMapCard(bodyMap: Map<BodyRange, Map<String, Double>>, locked: Boolean, o
                             BodyRange.All -> R.string.range_all
                         }
                     )
-                    FilterChip(selected = range == r, onClick = { range = r }, label = { Text(if (r.pro) stringResource(R.string.range_pro, name) else name) })
-                }
-            }
+                    if (r.pro) stringResource(R.string.range_pro, name) else name
+                },
+                BodyRange.entries.indexOf(range), { range = BodyRange.entries[it] }, Modifier.fillMaxWidth()
+            )
             if (rangeLocked) {
                 ProUpsell(onOpenPro)
             } else {

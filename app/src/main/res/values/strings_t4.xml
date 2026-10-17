@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="t4_col_weight">WEIGHT (KG)</string>
+    <string name="t4_col_extra">EXTRA (KG)</string>
+    <string name="t4_col_reps">REPS</string>
+    <string name="t4_col_time">TIME</string>
+    <string name="t4_col_distance">DISTANCE (KM)</string>
+    <string name="t4_add_set">Set</string>
+    <string name="t4_exercise_of">Exercise %1$d / %2$d</string>
+    <string name="t4_meta_clock">%1$s · %2$d/%3$d sets</string>
+    <string name="t4_meta_plain">%1$d/%2$d sets</string>
+    <string name="t4_prev">Previous</string>
+    <string name="t4_next">Next</string>
+    <string name="t4_last_time">Last time: %1$s</string>
+    <string name="t4_first_time">First time doing this one</string>
+    <string name="t4_record">Record: %1$s</string>
+    <string name="t4_log_set">Log set %1$d</string>
+    <string name="t4_unlog_set">Undo set %1$d</string>
+    <string name="t4_list_mode">Switch to list view</string>
+    <string name="t4_focus_mode">Switch to focus view</string>
+    <string name="t4_rest_add">+15s</string>
+    <string name="t4_rest_skip">Skip</string>
+    <string name="t4_rest_toggle_cd">Rest %1$s, tap to pause or resume</string>
+    <string name="t4_set_options">Set %1$d options</string>
+    <string name="t4_set_type">Set type</string>
+    <string name="t4_exercise_info">Exercise details</string>
+    <string name="t4_close_workout">Leave workout</string>
+    <string name="t4_decrease">Decrease</string>
+    <string name="t4_increase">Increase</string>
+    <string name="t4_equipment">Equipment</string>
+    <string name="t4_muscle">Muscle</string>
+    <string name="t4_summary_pr_badge">PR</string>
+</resources>

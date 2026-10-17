@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="t4_col_weight">PESO (KG)</string>
+    <string name="t4_col_extra">CARGA EXTRA (KG)</string>
+    <string name="t4_col_reps">REPS</string>
+    <string name="t4_col_time">TEMPO</string>
+    <string name="t4_col_distance">DISTÂNCIA (KM)</string>
+    <string name="t4_add_set">Série</string>
+    <string name="t4_exercise_of">Exercício %1$d / %2$d</string>
+    <string name="t4_meta_clock">%1$s · %2$d/%3$d séries</string>
+    <string name="t4_meta_plain">%1$d/%2$d séries</string>
+    <string name="t4_prev">Anterior</string>
+    <string name="t4_next">Próximo</string>
+    <string name="t4_last_time">Última vez: %1$s</string>
+    <string name="t4_first_time">Primeira vez neste exercício</string>
+    <string name="t4_record">Recorde: %1$s</string>
+    <string name="t4_log_set">Registrar série %1$d</string>
+    <string name="t4_unlog_set">Desfazer série %1$d</string>
+    <string name="t4_list_mode">Mudar para lista</string>
+    <string name="t4_focus_mode">Mudar para modo foco</string>
+    <string name="t4_rest_add">+15s</string>
+    <string name="t4_rest_skip">Pular</string>
+    <string name="t4_rest_toggle_cd">Descanso %1$s, toque para pausar ou retomar</string>
+    <string name="t4_set_options">Opções da série %1$d</string>
+    <string name="t4_set_type">Tipo de série</string>
+    <string name="t4_exercise_info">Detalhes do exercício</string>
+    <string name="t4_close_workout">Sair do treino</string>
+    <string name="t4_decrease">Diminuir</string>
+    <string name="t4_increase">Aumentar</string>
+    <string name="t4_equipment">Equipamento</string>
+    <string name="t4_muscle">Músculo</string>
+    <string name="t4_summary_pr_badge">PR</string>
+</resources>

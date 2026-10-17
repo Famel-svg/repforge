@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="t2_tab_home">Início</string>
+    <string name="t2_tab_plan">Plano</string>
+    <string name="t2_tab_start">Iniciar</string>
+    <string name="t2_tab_resume">Retomar</string>
+    <string name="t2_tab_progress">Evolução</string>
+    <string name="t2_tab_library">Biblioteca</string>
+    <string name="t2_this_week">Esta semana</string>
+    <string name="t2_prev_week">Semana anterior</string>
+    <string name="t2_next_week">Próxima semana</string>
+    <string name="t2_today">Hoje</string>
+    <string name="t2_rest">Descanso</string>
+    <string name="t2_day_trained">%1$s, treinou</string>
+    <string name="t2_day_planned">%1$s, planejado</string>
+    <string name="t2_body_weight">Peso corporal</string>
+    <string name="t2_goal_chip">Meta %1$s kg</string>
+    <string name="t2_log_weight">Registrar</string>
+    <string name="t2_no_weight">Nenhum peso registrado ainda.</string>
+    <string name="t2_goal_line">Meta: %1$s kg</string>
+    <string name="t2_week_progress">%1$d/%2$d nesta semana · %3$d treinos</string>
+    <string name="t2_history">Histórico</string>
+    <string name="t2_choose_sheet">Escolha um treino</string>
+    <string name="t2_no_sheets_title">Nenhuma ficha ainda</string>
+    <string name="t2_no_sheets_body">Crie uma ficha na aba Plano para começar a treinar.</string>
+    <plurals name="t2_streak_weeks">
+        <item quantity="one">%d semana seguida</item>
+        <item quantity="other">%d semanas seguidas</item>
+    </plurals>
+</resources>

@@ -1,288 +1,209 @@
 package com.repforge.app.presentation.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.AutoGraph
-import androidx.compose.material.icons.rounded.FitnessCenter
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.Alignment
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
-import com.repforge.app.domain.model.TrainingSheet
-import com.repforge.app.R
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.repforge.app.R
+import com.repforge.app.domain.model.TrainingSheet
+import com.repforge.app.presentation.components.AreaLineChart
+import com.repforge.app.presentation.components.CircleIconButton
+import com.repforge.app.presentation.components.GlyphSquare
+import com.repforge.app.presentation.components.LargeTitleHeader
+import com.repforge.app.presentation.components.RfCard
+import com.repforge.app.presentation.components.SoftPillButton
+import com.repforge.app.presentation.components.Tag
+import com.repforge.app.presentation.components.TagTone
+import com.repforge.app.presentation.formatCount
 import com.repforge.app.presentation.pluralCount
-import com.repforge.app.domain.logging.formatKg
-import com.repforge.app.domain.templates.StarterTemplates
-import com.repforge.app.domain.templates.WorkoutTemplate
-import com.repforge.app.domain.validation.parseWeightKg
-import com.repforge.app.domain.validation.validateBodyWeight
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.TextButton
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.text.input.KeyboardType
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun HomeScreen(
     state: HomeUiState,
-    onCreateSheet: (String) -> Unit,
-    /** Second argument is the body weight typed in the optional start prompt (null when skipped or the prompt is off). */
-    onStartSheet: (TrainingSheet, Double?) -> Unit,
+    weightGoalKg: Double?,
+    weeklyTarget: Int,
+    onStartSheet: (TrainingSheet) -> Unit,
     onResumeSheet: (TrainingSheet) -> Unit,
-    onDuplicateSheet: (Long, String) -> Unit,
-    onDeleteSheet: (Long) -> Unit,
-    modifier: Modifier = Modifier,
-    onCreateSheetFromTemplate: (WorkoutTemplate) -> Unit = {},
-    /** One-shot: opens the create dialog on the template list (set by onboarding); [onTemplatePickerOpened] clears it. */
-    openTemplatePicker: Boolean = false,
-    onTemplatePickerOpened: () -> Unit = {},
-    onOpenPlan: () -> Unit = {},
-    onOpenSettings: () -> Unit = {},
-    askBodyWeight: Boolean = false
+    onShiftWeek: (Int) -> Unit,
+    onOpenPlan: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenBody: () -> Unit,
+    onOpenHistory: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    var showCreate by remember { mutableStateOf(false) }
-    var initialTemplateId by remember { mutableStateOf<String?>(null) }
-    var deleteTarget by remember { mutableStateOf<TrainingSheet?>(null) }
-    var pendingStart by remember { mutableStateOf<TrainingSheet?>(null) }
-    // Resuming the same sheet never asks again.
-    fun start(sheet: TrainingSheet) { if (askBodyWeight && state.resume?.id != sheet.id) pendingStart = sheet else onStartSheet(sheet, null) }
-    val copyLabel = stringResource(R.string.copy_suffix)
-    LaunchedEffect(openTemplatePicker) {
-        if (openTemplatePicker) {
-            initialTemplateId = StarterTemplates.first().id
-            showCreate = true
-            onTemplatePickerOpened()
-        }
-    }
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(title = { Text(stringResource(R.string.app_name)) }, actions = {
-                IconButton(onClick = onOpenSettings) { Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.nav_settings)) }
-            })
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { initialTemplateId = null; showCreate = true }) {
-                Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.create_sheet))
-            }
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.home_greeting), style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
-                Text(stringResource(R.string.home_tagline), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            state.resume?.let { sheet -> item { ResumeCard(sheet.name, onResume = { onResumeSheet(sheet) }) } }
-            state.today?.let { today ->
-                item { TodayCard(today, onStart = { today.sheet?.let(::start) }, onOpenPlan = onOpenPlan) }
-            }
-            item { SummaryCard(state) }
-            item {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.your_sheets), style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
-                    OutlinedButton(onClick = { initialTemplateId = null; showCreate = true }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.new_sheet)) }
-                }
-            }
-            if (state.sheets.isEmpty()) {
-                item {
-                    EmptySheetsCard(
-                        onCreate = { initialTemplateId = null; showCreate = true },
-                        onPickTemplate = { initialTemplateId = StarterTemplates.first().id; showCreate = true }
-                    )
-                }
-            } else {
-                items(state.sheets, key = { it.id }) { sheet ->
-                    SheetCard(sheet, onStart = { start(sheet) }, onDuplicate = { onDuplicateSheet(sheet.id, copyLabel) }, onDelete = { deleteTarget = sheet })
-                }
-            }
-            item { Spacer(Modifier.height(80.dp)) }
-        }
-    }
-    if (showCreate) CreateSheetDialog(
-        onDismiss = { showCreate = false },
-        onCreate = { name -> onCreateSheet(name); showCreate = false },
-        onCreateFromTemplate = { template -> onCreateSheetFromTemplate(template); showCreate = false },
-        initialTemplateId = initialTemplateId
-    )
-    pendingStart?.let { sheet ->
-        BodyWeightPrompt(
-            onSave = { kg -> pendingStart = null; onStartSheet(sheet, kg) },
-            onSkip = { pendingStart = null; onStartSheet(sheet, null) },
-            onDismiss = { pendingStart = null }
+    val locale = LocalConfiguration.current.locales[0]
+    val today = LocalDate.now()
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        LargeTitleHeader(
+            stringResource(R.string.app_name),
+            today.format(DateTimeFormatter.ofPattern("EEEE, d MMM", locale)).replaceFirstChar { it.titlecase(locale) },
+            action = { CircleIconButton(Icons.Outlined.Settings, stringResource(R.string.nav_settings), onOpenSettings) }
         )
-    }
-    deleteTarget?.let { sheet ->
-        AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            title = { Text(stringResource(R.string.delete_sheet_title)) },
-            text = { Text(stringResource(R.string.delete_sheet_body, sheet.name)) },
-            confirmButton = { Button(onClick = { onDeleteSheet(sheet.id); deleteTarget = null }) { Text(stringResource(R.string.delete)) } },
-            dismissButton = { OutlinedButton(onClick = { deleteTarget = null }) { Text(stringResource(R.string.cancel)) } }
-        )
-    }
-}
-
-@Composable
-private fun ResumeCard(sheetName: String, onResume: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
-        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(stringResource(R.string.workout_in_progress), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-            Text(sheetName, style = MaterialTheme.typography.headlineSmall)
-            Button(onClick = onResume, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                Text(stringResource(R.string.resume_workout))
-            }
+        Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            WeekCard(state, today, locale, onStartSheet, onResumeSheet, onShiftWeek, onOpenPlan)
+            BodyWeightCard(state, weightGoalKg, locale, onOpenBody)
+            StreakCard(state, weeklyTarget, today, onOpenHistory)
         }
     }
 }
 
-/** Optional: "Skip" starts the workout without a weight. */
 @Composable
-private fun BodyWeightPrompt(onSave: (Double) -> Unit, onSkip: () -> Unit, onDismiss: () -> Unit) {
-    var input by rememberSaveable { mutableStateOf("") }
-    val kg = parseWeightKg(input)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.body_weight_prompt_title)) },
-        text = {
-            OutlinedTextField(
-                input, { input = it }, label = { Text(stringResource(R.string.weight_kg)) }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-            )
-        },
-        confirmButton = { Button(enabled = validateBodyWeight(kg) == null, onClick = { onSave(kg!!) }) { Text(stringResource(R.string.save)) } },
-        dismissButton = { TextButton(onClick = onSkip) { Text(stringResource(R.string.skip)) } }
-    )
+private fun WeekCard(
+    state: HomeUiState, today: LocalDate, locale: Locale,
+    onStart: (TrainingSheet) -> Unit, onResume: (TrainingSheet) -> Unit, onShiftWeek: (Int) -> Unit, onOpenPlan: () -> Unit
+) {
+    RfCard(Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { onShiftWeek(-1) }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.t2_prev_week)) }
+                Text(stringResource(R.string.t2_this_week), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+                IconButton(onClick = { onShiftWeek(1) }) { Icon(Icons.AutoMirrored.Outlined.ArrowForward, stringResource(R.string.t2_next_week)) }
+            }
+            Row(Modifier.fillMaxWidth()) { state.week.forEach { DayColumn(it, today, locale, Modifier.weight(1f)) } }
+            TodayRow(state, onStart, onResume, onOpenPlan)
+        }
+    }
 }
 
 @Composable
-private fun TodayCard(today: TodayState, onStart: () -> Unit, onOpenPlan: () -> Unit) {
-    Card {
-        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(R.string.today_workout), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-                if (today.moved) AssistChip(onClick = {}, label = { Text(stringResource(R.string.moved_badge)) })
+private fun DayColumn(day: WeekDay, today: LocalDate, locale: Locale, modifier: Modifier) {
+    val cs = MaterialTheme.colorScheme
+    val isToday = day.date == today
+    val name = day.date.dayOfWeek.getDisplayName(TextStyle.NARROW, locale)
+    val full = day.date.dayOfWeek.getDisplayName(TextStyle.FULL, locale)
+    val status = when {
+        day.trained -> stringResource(R.string.t2_day_trained, full)
+        day.planned -> stringResource(R.string.t2_day_planned, full)
+        else -> full
+    }
+    Column(modifier.semantics(mergeDescendants = true) { contentDescription = status }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(name.uppercase(locale), style = MaterialTheme.typography.labelMedium, color = cs.onSurfaceVariant)
+        Box(Modifier.size(34.dp).background(if (isToday) cs.primary else androidx.compose.ui.graphics.Color.Transparent, CircleShape), contentAlignment = Alignment.Center) {
+            Text(day.date.dayOfMonth.toString(), style = MaterialTheme.typography.titleMedium, color = if (isToday) cs.onPrimary else cs.onSurface)
+        }
+        val dot = when { day.trained -> cs.primary; day.planned -> cs.outline; else -> androidx.compose.ui.graphics.Color.Transparent }
+        Box(Modifier.size(6.dp).background(dot, CircleShape))
+    }
+}
+
+@Composable
+private fun TodayRow(state: HomeUiState, onStart: (TrainingSheet) -> Unit, onResume: (TrainingSheet) -> Unit, onOpenPlan: () -> Unit) {
+    val today = state.today ?: return
+    val resume = state.resume
+    val sheet = resume ?: today.sheet
+    Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            GlyphSquare(Icons.Outlined.FitnessCenter)
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.t2_today), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    sheet?.name ?: stringResource(if (today.configured) R.string.t2_rest else R.string.set_plan_title),
+                    style = MaterialTheme.typography.titleMedium, maxLines = 2
+                )
             }
             when {
-                today.sheet != null -> {
-                    Text(today.sheet.name, style = MaterialTheme.typography.headlineSmall)
-                    Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                        Text(stringResource(R.string.start_workout))
+                resume != null -> SoftPillButton(stringResource(R.string.t2_tab_resume), null, { onResume(resume) })
+                today.sheet != null -> SoftPillButton(stringResource(R.string.t2_tab_start), null, { onStart(today.sheet) })
+                !today.configured -> SoftPillButton(stringResource(R.string.open_plan), null, onOpenPlan)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BodyWeightCard(state: HomeUiState, goalKg: Double?, locale: Locale, onOpenBody: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val weights = state.bodyWeights.takeLast(30)
+    RfCard(Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.t2_body_weight), style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+                if (goalKg != null) Tag(stringResource(R.string.t2_goal_chip, formatCount(goalKg, locale)), TagTone.Goal)
+                Spacer(Modifier.weight(1f))
+                SoftPillButton(stringResource(R.string.t2_log_weight), Icons.Outlined.Add, onOpenBody)
+            }
+            if (weights.isEmpty()) {
+                Text(stringResource(R.string.t2_no_weight), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+            } else {
+                val last = weights.last().weightKg
+                val delta = if (weights.size > 1) last - weights[weights.size - 2].weightKg else 0.0
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(formatCount(last, locale), style = MaterialTheme.typography.displayMedium)
+                    Text("kg", style = MaterialTheme.typography.titleMedium, color = cs.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
+                    if (delta != 0.0) {
+                        Icon(if (delta > 0) Icons.Outlined.ArrowUpward else Icons.Outlined.ArrowDownward, null, tint = cs.onSurfaceVariant, modifier = Modifier.padding(bottom = 8.dp).size(16.dp))
+                        Text(formatCount(kotlin.math.abs(delta), locale), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
                     }
                 }
-                !today.configured -> {
-                    Text(stringResource(R.string.set_plan_title), style = MaterialTheme.typography.titleLarge)
-                    Text(stringResource(R.string.set_plan_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = onOpenPlan, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.open_plan)) }
-                }
-                else -> Text(stringResource(R.string.today_rest), style = MaterialTheme.typography.bodyLarge)
+                if (goalKg != null) Text(stringResource(R.string.t2_goal_line, formatCount(goalKg, locale)), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
+                val zone = java.time.ZoneId.systemDefault()
+                val month = DateTimeFormatter.ofPattern("MMM", locale)
+                fun label(i: Int) = java.time.Instant.ofEpochMilli(weights[i].recordedAt).atZone(zone).format(month)
+                AreaLineChart(
+                    points = weights.map { it.weightKg.toFloat() }, goal = goalKg?.toFloat(),
+                    labels = if (weights.size > 1) listOf(label(0), label(weights.lastIndex)) else listOf(label(0))
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SummaryCard(state: HomeUiState) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-        Column(Modifier.padding(20.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text(stringResource(R.string.volume_last_7_days), color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text(
-                        com.repforge.app.presentation.formatCount(
-                            kotlin.math.round(state.summary.weeklyVolumeKg),
-                            androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-                        ) + " kg",
-                        style = MaterialTheme.typography.headlineLarge
-                    )
-                }
-                Icon(Icons.Rounded.AutoGraph, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+private fun StreakCard(state: HomeUiState, target: Int, today: LocalDate, onOpenHistory: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    val monday = remember(today) { mondayOf(today) }
+    val streak = streakWeeks(state.weeklyCounts, target, monday)
+    val thisWeek = state.weeklyCounts[monday] ?: 0
+    RfCard(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Outlined.LocalFireDepartment, null, tint = cs.secondary, modifier = Modifier.size(32.dp))
+            Column(Modifier.weight(1f)) {
+                Text(pluralCount(R.plurals.t2_streak_weeks, streak), style = MaterialTheme.typography.titleLarge)
+                Text(
+                    stringResource(R.string.t2_week_progress, thisWeek, target, state.weeklyCounts.values.sum()),
+                    style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant
+                )
             }
-            Spacer(Modifier.height(16.dp))
-            Text(
-                pluralCount(R.plurals.sets_count, state.summary.completedSets) + " · " +
-                    pluralCount(R.plurals.active_sheets_count, state.summary.activeSheets)
-            )
-        }
-    }
-}
-
-@Composable
-private fun SheetCard(sheet: TrainingSheet, onStart: () -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit) {
-    Card {
-        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column {
-                Text(sheet.name, style = MaterialTheme.typography.titleMedium)
-                Text(pluralCount(R.plurals.exercises_count, sheet.exerciseCount), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = null)
-                Text(stringResource(R.string.start_workout))
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onDuplicate, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.duplicate)) }
-                OutlinedButton(onClick = onDelete, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.delete)) }
-            }
-        }
-    }
-}
-
-@Composable
-@OptIn(ExperimentalLayoutApi::class)
-private fun EmptySheetsCard(onCreate: () -> Unit, onPickTemplate: () -> Unit) {
-    Card {
-        Column(Modifier.fillMaxWidth().padding(24.dp)) {
-            Icon(Icons.Rounded.FitnessCenter, contentDescription = null)
-            Spacer(Modifier.height(12.dp))
-            Text(stringResource(R.string.no_sheets_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
-            Text(stringResource(R.string.no_sheets_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(16.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onCreate) { Text(stringResource(R.string.create_first_sheet)) }
-                OutlinedButton(onClick = onPickTemplate) { Text(stringResource(R.string.start_with_template)) }
-            }
+            CircleIconButton(Icons.Outlined.CalendarMonth, stringResource(R.string.t2_history), onOpenHistory)
         }
     }
 }

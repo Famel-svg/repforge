@@ -16,6 +16,12 @@ import com.repforge.app.domain.metrics.activityHeatmap
 import com.repforge.app.domain.metrics.bodyMuscleTotals
 import com.repforge.app.domain.metrics.weeksSpanned
 import com.repforge.app.domain.metrics.WorkoutDay
+import com.repforge.app.domain.metrics.WeightRange
+import com.repforge.app.domain.metrics.filterWeights
+import com.repforge.app.domain.metrics.weightDelta
+import com.repforge.app.domain.model.BodyWeight
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import com.repforge.app.domain.metrics.muscleLookup
 import com.repforge.app.domain.metrics.weeklyMuscleVolume
 import com.repforge.app.data.ExerciseCatalog
@@ -62,19 +68,44 @@ data class ProgressUiState(
     val muscleLocked: Boolean = true,
     val heatmap: Heatmap = Heatmap(emptyList(), 0),
     /** Sets per body muscle by range; free users only get [BodyRange.Week]. */
-    val bodyMap: Map<BodyRange, Map<String, Double>> = emptyMap()
+    val bodyMap: Map<BodyRange, Map<String, Double>> = emptyMap(),
+    /** Body weights inside [weightRange], oldest first. */
+    val weights: List<BodyWeight> = emptyList(),
+    val weightRange: WeightRange = WeightRange.Days90,
+    val weightGoalKg: Double? = null,
+    val latestWeightKg: Double? = null,
+    /** Change across [weights]; null with fewer than two records. */
+    val weightDeltaKg: Double? = null
 )
 
-class ProgressViewModel(repository: WorkoutRepository, isPro: StateFlow<Boolean>, catalog: ExerciseCatalog) : ViewModel() {
+private class WeightInfo(val shown: List<BodyWeight>, val range: WeightRange, val goal: Double?, val latest: Double?, val delta: Double?)
+
+/** [weightGoalKg] is the SettingsStore goal (`preferences.map { it.weightGoalKg }`); without it no goal line is drawn. */
+class ProgressViewModel(
+    repository: WorkoutRepository, isPro: StateFlow<Boolean>, catalog: ExerciseCatalog,
+    weightGoalKg: Flow<Double?> = flowOf(null)
+) : ViewModel() {
     private val muscles = flow { emit(muscleLookup(catalog.all().map { it.name to MuscleInfo(it.muscle, it.secondary) })) }
     private val selectedId = MutableStateFlow<Long?>(null)
     private val range = MutableStateFlow(ProgressRange.Days30)
+    private val weightRange = MutableStateFlow(WeightRange.Days90)
 
-    val state: StateFlow<ProgressUiState> = combine(repository.observeHistory(), selectedId, range, isPro, muscles) { history, id, r, pro, lookup ->
+    private val base = combine(repository.observeHistory(), selectedId, range, isPro, muscles) { history, id, r, pro, lookup ->
         buildState(history, id, r, pro, lookup, System.currentTimeMillis(), ZoneId.systemDefault())
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUiState())
+    }
+    private val weightInfo = combine(repository.observeBodyWeights(), weightGoalKg, weightRange) { all, goal, r ->
+        val chrono = all.asReversed()
+        val shown = filterWeights(chrono, r, System.currentTimeMillis(), ZoneId.systemDefault())
+        WeightInfo(shown, r, goal, chrono.lastOrNull()?.weightKg, weightDelta(shown))
+    }
+
+    val state: StateFlow<ProgressUiState> = combine(base, weightInfo) { s, w -> s.copy(weights = w.shown, weightRange = w.range, weightGoalKg = w.goal, latestWeightKg = w.latest, weightDeltaKg = w.delta) }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ProgressUiState())
 
     fun toggleExercise(exerciseId: Long) = selectedId.update { if (it == exerciseId) null else exerciseId }
+
+    fun selectWeightRange(value: WeightRange) {
+        weightRange.value = value
+    }
 
     fun selectRange(value: ProgressRange) {
         range.value = value

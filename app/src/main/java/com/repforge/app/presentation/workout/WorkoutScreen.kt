@@ -6,6 +6,24 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.ViewCarousel
+import androidx.compose.material.icons.outlined.ViewList
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.snapshots.SnapshotStateMap
+import com.repforge.app.RepForgeApplication
+import com.repforge.app.presentation.components.CircleIconButton
+import com.repforge.app.presentation.components.SoftPillButton
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -161,7 +179,6 @@ import java.util.Date
 
 private const val HISTORY_PAGE = 20
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutScreen(
     viewModel: WorkoutViewModel,
@@ -185,26 +202,58 @@ fun WorkoutScreen(
     var showAdd by remember { mutableStateOf(false) }
     var expandedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var expansionResolved by rememberSaveable { mutableStateOf(false) }
+    var listMode by rememberSaveable { mutableStateOf(false) }
     val restSeconds = preferences.restSeconds
     var remaining by rememberSaveable { mutableStateOf(restSeconds) }
+    var restTotal by rememberSaveable { mutableStateOf(restSeconds) }
     var appliedRest by rememberSaveable { mutableStateOf(restSeconds) }
     var running by rememberSaveable { mutableStateOf(false) }
+    // Bumped by "+15s" so the notification/alarm is rescheduled for the new end time.
+    var extended by rememberSaveable { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     LaunchedEffect(viewModel) { viewModel.messages.collect { snackbarHostState.showSnackbar(context.getString(it)) } }
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val view = LocalView.current
+    val reducedMotion = rememberReducedMotion()
     DisposableEffect(view) {
         view.keepScreenOn = true
         onDispose { view.keepScreenOn = false }
+    }
+    val pagerState = rememberPagerState { exercises.size }
+    // Typed-but-unlogged rows survive rotation; flattened to primitives: [exerciseId, position, reps, kg, sec, km, type, rpe(-1 = none)].
+    val draftsByExercise = rememberSaveable(
+        saver = listSaver<MutableMap<Long, SnapshotStateMap<Int, RowDraft>>, Any>(
+            save = { all -> all.flatMap { (id, rows) -> rows.flatMap { (pos, d) -> listOf(id, pos, d.reps, d.weightKg, d.durationSec, d.distanceKm, d.setType, d.rpe ?: -1.0) } } },
+            restore = { flat ->
+                mutableMapOf<Long, SnapshotStateMap<Int, RowDraft>>().also { all ->
+                    flat.chunked(8).forEach { c ->
+                        all.getOrPut(c[0] as Long) { mutableStateMapOf() }[c[1] as Int] =
+                            RowDraft(c[2] as Int, c[3] as Double, c[4] as Int, c[5] as Double, c[6] as String, (c[7] as Double).takeIf { it >= 0 })
+                    }
+                }
+            }
+        )
+    ) { mutableMapOf<Long, SnapshotStateMap<Int, RowDraft>>() }
+    val extraRows = rememberSaveable(
+        saver = listSaver<SnapshotStateMap<Long, Int>, Long>(
+            save = { map -> map.flatMap { (k, v) -> listOf(k, v.toLong()) } },
+            restore = { flat -> mutableStateMapOf<Long, Int>().also { m -> flat.chunked(2).forEach { m[it[0]] = it[1].toInt() } } }
+        )
+    ) { mutableStateMapOf() }
+    val equipmentByName by produceState(emptyMap<String, String>()) {
+        val catalog = (context.applicationContext as? RepForgeApplication)?.catalog ?: return@produceState
+        value = runCatching {
+            buildMap { catalog.all().forEach { put(ExerciseCatalog.normalize(it.name), it.equipment); put(ExerciseCatalog.normalize(it.nameEn), it.equipment) } }
+        }.getOrDefault(emptyMap())
     }
 
     // A new default only applies to an idle timer, and never on rotation (appliedRest survives it).
     LaunchedEffect(restSeconds) {
         if (restSeconds != appliedRest) {
             appliedRest = restSeconds
-            if (!running) remaining = restSeconds
+            if (!running) { remaining = restSeconds; restTotal = restSeconds }
         }
     }
 
@@ -214,7 +263,7 @@ fun WorkoutScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(Unit) { onDispose { RestNotifier.cancel(context) } }
 
-    LaunchedEffect(running) {
+    LaunchedEffect(running, extended) {
         if (running && remaining > 0 && preferences.restNotification) {
             if (Build.VERSION.SDK_INT >= 33 && !askedNotifications &&
                 ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -240,7 +289,9 @@ fun WorkoutScreen(
         if (expansionResolved || exercises.isEmpty() || exercises.any { it.id !in byExercise }) return@LaunchedEffect
         val now = System.currentTimeMillis()
         val zone = ZoneId.systemDefault()
-        expandedId = exercises.firstOrNull { entriesOnDay(byExercise[it.id].orEmpty(), now, zone).isEmpty() }?.id
+        val firstOpen = exercises.indexOfFirst { entriesOnDay(byExercise[it.id].orEmpty(), now, zone).isEmpty() }
+        expandedId = exercises.getOrNull(firstOpen)?.id
+        if (firstOpen > 0) pagerState.scrollToPage(firstOpen)
         expansionResolved = true
     }
 
@@ -254,82 +305,181 @@ fun WorkoutScreen(
         }
     }
 
+    fun startRest() { remaining = restSeconds; restTotal = restSeconds; running = true }
+
+    fun goTo(page: Int) {
+        scope.launch { if (reducedMotion) pagerState.scrollToPage(page) else pagerState.animateScrollToPage(page) }
+    }
+
+    /** Shared tail of every logged set: haptics, rest (only after a superset's last exercise) and the confirmation snackbar. */
+    fun afterLog(index: Int, groups: List<Int?>, record: String?) {
+        if (preferences.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (isGroupEnd(groups, index)) startRest()
+        else { expandedId = exercises[index + 1].id; goTo(index + 1) }
+        announce(if (record != null) context.getString(R.string.new_pr, record) else context.getString(R.string.set_logged))
+    }
+
+    fun deleteWithUndo(entry: SetEntry) {
+        viewModel.deleteEntry(entry.id)
+        announce(context.getString(R.string.set_removed), context.getString(R.string.undo)) { viewModel.restoreEntry(entry) }
+    }
+
+    /** Logs one focus-mode row through the same path as list mode (validation, PR detection, view-model addEntry). */
+    fun logDraft(index: Int, exercise: Exercise, entries: List<SetEntry>, d: RowDraft): Boolean {
+        val kind = exercise.kind
+        val isLoad = kind == KIND_REPS || kind == KIND_BODYWEIGHT
+        val reps = if (isLoad) d.reps else 1
+        val weight = if (isLoad) d.weightKg else 0.0
+        val duration = if (isLoad) null else d.durationSec.takeIf { it > 0 }
+        val distance = if (kind == KIND_CARDIO) d.distanceKm.takeIf { it > 0 } else null
+        val error = validateSetInput(1, reps, weight) ?: validateKindEffort(kind, duration, distance)
+        if (error != null) { announce(context.getString(error.res())); return false }
+        val beat = d.setType != SET_WARMUP && beatsKindRecord(kind, entries, weight, duration, distance)
+        val record = if (!beat) null else when (kind) {
+            KIND_TIMED -> formatDuration(duration ?: 0)
+            KIND_CARDIO -> formatDistanceKm(distance ?: 0.0)
+            else -> formatKg(weight)
+        }
+        viewModel.addEntry(exercise.id, 1, reps, weight, d.setType, d.rpe, duration, distance)
+        afterLog(index, exercises.map { it.supersetGroup }, record)
+        return true
+    }
+
+    val zone = remember { ZoneId.systemDefault() }
+    val nowMs = remember(entriesByExercise) { System.currentTimeMillis() }
+    val extraSnapshot = extraRows.toMap()
+    val (doneSets, totalSets) = remember(exercises, entriesByExercise, extraSnapshot) {
+        var done = 0
+        var total = 0
+        exercises.forEach { ex ->
+            val all = entriesByExercise?.get(ex.id).orEmpty()
+            val d = entriesOnDay(all, nowMs, zone).size
+            done += d
+            total += totalRows(d, plannedSetCount(previousSessionSets(all, nowMs, zone)), extraSnapshot[ex.id] ?: 0)
+        }
+        done to total
+    }
+    val restVisible = running || remaining != restSeconds
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(sheetName, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (session != null) ElapsedClock(session.startedAt)
+            Column(Modifier.statusBarsPadding()) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CircleIconButton(Icons.Outlined.Close, stringResource(R.string.t4_close_workout), onBack)
+                    Column(Modifier.weight(1f).padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(sheetName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        HeaderMeta(session?.startedAt, doneSets, totalSets)
                     }
-                },
-                navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back)) } },
-                actions = {
-                    IconButton(onSearch) { Icon(Icons.Rounded.Search, stringResource(R.string.search_exercise)) }
                     // No running workout (e.g. opened from the widget): offer to start one instead of finishing.
-                    if (sheetSession != null) {
-                        if (session != null) TextButton(onClick = { viewModel.finishSession(session.id, onFinished) }) { Text(stringResource(R.string.finish_workout)) }
-                        else TextButton(onClick = { viewModel.startSession() }) { Text(stringResource(R.string.start)) }
+                    when {
+                        session != null -> CircleIconButton(Icons.Outlined.Check, stringResource(R.string.finish_workout), { viewModel.finishSession(session.id, onFinished) }, tint = MaterialTheme.colorScheme.primary)
+                        sheetSession != null -> SoftPillButton(stringResource(R.string.start), onClick = { viewModel.startSession() })
+                        else -> Spacer(Modifier.size(48.dp))
+                    }
+                }
+                ProgressBar(if (totalSets == 0) 0f else doneSets / totalSets.toFloat(), Modifier.padding(horizontal = 16.dp))
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (!listMode && exercises.isNotEmpty()) stringResource(R.string.t4_exercise_of, pagerState.currentPage + 1, exercises.size) else "",
+                        Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    IconButton(onSearch) { Icon(Icons.Outlined.Search, stringResource(R.string.search_exercise)) }
+                    IconButton({ listMode = !listMode }) {
+                        Icon(
+                            if (listMode) Icons.Outlined.ViewCarousel else Icons.Outlined.ViewList,
+                            stringResource(if (listMode) R.string.t4_focus_mode else R.string.t4_list_mode)
+                        )
                     }
                     Box {
-                        IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreVert, stringResource(R.string.more)) }
+                        IconButton(onClick = { showMenu = true }) { Icon(Icons.Outlined.MoreVert, stringResource(R.string.more)) }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.add_exercise)) }, leadingIcon = { Icon(Icons.Outlined.Add, null) }, onClick = { showMenu = false; showAdd = true })
                             DropdownMenuItem(text = { Text(stringResource(R.string.progression_rule)) }, onClick = { showMenu = false; showRule = true })
                             if (session != null) DropdownMenuItem(text = { Text(stringResource(R.string.discard_workout)) }, onClick = { showMenu = false; showDiscard = true })
                         }
                     }
                 }
-            )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAdd = true }) { Icon(Icons.Rounded.Add, stringResource(R.string.add_exercise)) }
-        },
         bottomBar = {
-            RestTimerBar(
-                remaining = remaining, total = restSeconds, running = running,
-                onToggle = { if (remaining == 0) remaining = restSeconds; running = !running },
-                onReset = { running = false; remaining = restSeconds }
-            )
+            if (!listMode && exercises.isNotEmpty()) Row(
+                Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { goTo(pagerState.currentPage - 1) }, enabled = pagerState.currentPage > 0,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp), shape = CircleShape
+                ) { Text(stringResource(R.string.t4_prev), style = MaterialTheme.typography.labelLarge) }
+                Button(
+                    onClick = { goTo(pagerState.currentPage + 1) }, enabled = pagerState.currentPage < exercises.lastIndex,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp), shape = CircleShape
+                ) { Text(stringResource(R.string.t4_next), style = MaterialTheme.typography.labelLarge) }
+            }
         }
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (exercises.isEmpty()) item { Text(stringResource(R.string.add_exercises_hint), Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            itemsIndexed(exercises, key = { _, item -> item.id }) { index, exercise ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            val restInset = if (restVisible) REST_CARD_INSET else 0.dp
+            if (exercises.isEmpty()) Text(stringResource(R.string.add_exercises_hint), Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else if (listMode) LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                itemsIndexed(exercises, key = { _, item -> item.id }) { index, exercise ->
+                    val entries = entriesByExercise?.get(exercise.id).orEmpty()
+                    val groups = exercises.map { it.supersetGroup }
+                    val linkedPrev = exercise.supersetGroup != null && groups.getOrNull(index - 1) == exercise.supersetGroup
+                    val linkedNext = exercise.supersetGroup != null && groups.getOrNull(index + 1) == exercise.supersetGroup
+                    ExerciseCard(
+                        exercise, entries, sheetRule = sheetRule, isPro = isPro, onUpgrade = onOpenPro,
+                        expanded = expandedId == exercise.id,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < exercises.lastIndex,
+                        linkedPrev = linkedPrev,
+                        linkedNext = linkedNext,
+                        onSuperset = { join -> viewModel.setSuperset(exercise.id, join) },
+                        onToggle = { expandedId = if (expandedId == exercise.id) null else exercise.id },
+                        onMove = { up -> viewModel.moveExercise(exercise.id, up) },
+                        onEdit = { name, target, kind, perSide, rule -> viewModel.updateExercise(exercise.id, name, target, kind, perSide, rule) },
+                        onNote = { viewModel.updateNote(exercise.id, it) },
+                        onDelete = { viewModel.deleteExercise(exercise.id) },
+                        onDeleteEntry = ::deleteWithUndo
+                    ) { reps, weight, record, setType, rpe, durationSec, distanceKm ->
+                        viewModel.addEntry(exercise.id, 1, reps, weight, setType, rpe, durationSec, distanceKm)
+                        afterLog(index, groups, record)
+                    }
+                }
+                item { Spacer(Modifier.height(24.dp + restInset)) }
+            } else HorizontalPager(pagerState, Modifier.fillMaxSize(), key = { exercises.getOrNull(it)?.id ?: it }) { page ->
+                val exercise = exercises.getOrNull(page) ?: return@HorizontalPager
                 val entries = entriesByExercise?.get(exercise.id).orEmpty()
                 val groups = exercises.map { it.supersetGroup }
-                val linkedPrev = exercise.supersetGroup != null && groups.getOrNull(index - 1) == exercise.supersetGroup
-                val linkedNext = exercise.supersetGroup != null && groups.getOrNull(index + 1) == exercise.supersetGroup
-                ExerciseCard(
-                    exercise, entries, sheetRule = sheetRule, isPro = isPro, onUpgrade = onOpenPro,
-                    expanded = expandedId == exercise.id,
-                    canMoveUp = index > 0,
-                    canMoveDown = index < exercises.lastIndex,
-                    linkedPrev = linkedPrev,
-                    linkedNext = linkedNext,
+                val actions = FocusActions(
                     onSuperset = { join -> viewModel.setSuperset(exercise.id, join) },
-                    onToggle = { expandedId = if (expandedId == exercise.id) null else exercise.id },
                     onMove = { up -> viewModel.moveExercise(exercise.id, up) },
                     onEdit = { name, target, kind, perSide, rule -> viewModel.updateExercise(exercise.id, name, target, kind, perSide, rule) },
                     onNote = { viewModel.updateNote(exercise.id, it) },
                     onDelete = { viewModel.deleteExercise(exercise.id) },
-                    onDeleteEntry = { entry ->
-                        viewModel.deleteEntry(entry.id)
-                        announce(context.getString(R.string.set_removed), context.getString(R.string.undo)) { viewModel.restoreEntry(entry) }
-                    }
-                ) { reps, weight, record, setType, rpe, durationSec, distanceKm ->
-                    viewModel.addEntry(exercise.id, 1, reps, weight, setType, rpe, durationSec, distanceKm)
-                    if (preferences.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    // Inside a superset the rest only starts after its last exercise; until then the next card opens.
-                    if (isGroupEnd(groups, index)) {
-                        remaining = restSeconds
-                        running = true
-                    } else expandedId = exercises[index + 1].id
-                    announce(if (record != null) context.getString(R.string.new_pr, record) else context.getString(R.string.set_logged))
-                }
+                    onUpgrade = onOpenPro,
+                    onLog = { _, draft -> logDraft(page, exercise, entries, draft) },
+                    onUncheck = ::deleteWithUndo,
+                    onAddRow = { extraRows[exercise.id] = (extraRows[exercise.id] ?: 0) + 1 }
+                )
+                FocusPage(
+                    exercise, entries, extraRows[exercise.id] ?: 0,
+                    equipment = equipmentByName[ExerciseCatalog.normalize(exercise.name)],
+                    sheetRule = sheetRule, isPro = isPro,
+                    drafts = draftsByExercise.getOrPut(exercise.id) { mutableStateMapOf() },
+                    canMoveUp = page > 0, canMoveDown = page < exercises.lastIndex,
+                    linkedNext = exercise.supersetGroup != null && groups.getOrNull(page + 1) == exercise.supersetGroup,
+                    actions = actions,
+                    modifier = Modifier.padding(bottom = restInset)
+                )
             }
-            // Keeps the last card clear of the floating action button.
-            item { Spacer(Modifier.height(72.dp)) }
+            RestTimerCard(
+                visible = restVisible, remaining = remaining, total = restTotal,
+                onToggle = { if (remaining == 0) startRest() else running = !running },
+                onAdd = { remaining += 15; restTotal = maxOf(restTotal, remaining); extended++ },
+                onSkip = { running = false; remaining = restSeconds; restTotal = restSeconds },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp)
+            )
         }
     }
     if (showAdd) ExerciseDialog(
@@ -351,19 +501,22 @@ fun WorkoutScreen(
     )
 }
 
-/** Own composable so the once-a-second tick only recomposes the clock. Time comes from the stored start, never from a counter. */
+/** Rough height of the floating rest card plus margins; lists and pages reserve it so the last row stays reachable. */
+private val REST_CARD_INSET = 190.dp
+
+/** "mm:ss · a/b séries". Own composable so the once-a-second tick only recomposes the meta line. Time comes from the stored start. */
 @Composable
-private fun ElapsedClock(startedAt: Long) {
+private fun HeaderMeta(startedAt: Long?, done: Int, total: Int) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(startedAt) {
-        while (true) {
+        while (startedAt != null) {
             now = System.currentTimeMillis()
             delay(1_000)
         }
     }
-    val text = formatDuration(((now - startedAt) / 1000).toInt())
-    val description = stringResource(R.string.elapsed_cd, text)
-    Text(text, Modifier.semantics { contentDescription = description }, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    val text = if (startedAt == null) stringResource(R.string.t4_meta_plain, done, total)
+    else stringResource(R.string.t4_meta_clock, formatDuration(((now - startedAt) / 1000).toInt().coerceAtLeast(0)), done, total)
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -681,12 +834,12 @@ private fun ExerciseCard(
 }
 
 @Composable
-private fun setTypeLabel(t: String) = stringResource(when (t) { SET_WARMUP -> R.string.set_warmup; SET_DROP -> R.string.set_drop; SET_FAILURE -> R.string.set_failure; else -> R.string.set_normal })
+internal fun setTypeLabel(t: String) = stringResource(when (t) { SET_WARMUP -> R.string.set_warmup; SET_DROP -> R.string.set_drop; SET_FAILURE -> R.string.set_failure; else -> R.string.set_normal })
 
 @Composable
-private fun setMarker(t: String) = when (t) { SET_WARMUP -> stringResource(R.string.marker_warmup) + " "; SET_DROP -> stringResource(R.string.marker_drop) + " "; SET_FAILURE -> stringResource(R.string.marker_failure) + " "; else -> "" }
+internal fun setMarker(t: String) = when (t) { SET_WARMUP -> stringResource(R.string.marker_warmup) + " "; SET_DROP -> stringResource(R.string.marker_drop) + " "; SET_FAILURE -> stringResource(R.string.marker_failure) + " "; else -> "" }
 
-private fun formatRpe(r: Double) = if (r % 1.0 == 0.0) r.toInt().toString() else "%.1f".format(java.util.Locale.getDefault(), r)
+internal fun formatRpe(r: Double) = if (r % 1.0 == 0.0) r.toInt().toString() else "%.1f".format(java.util.Locale.getDefault(), r)
 
 @Composable
 private fun StepperField(
@@ -715,7 +868,7 @@ private fun StepperField(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun PlatesDialog(targetKg: Double, isPro: Boolean, onUpgrade: () -> Unit, onDismiss: () -> Unit) {
+internal fun PlatesDialog(targetKg: Double, isPro: Boolean, onUpgrade: () -> Unit, onDismiss: () -> Unit) {
     var bar by rememberSaveable { mutableStateOf(BAR_OPTIONS_KG.first()) }
     val result = remember(targetKg, bar) { calculatePlates(targetKg, bar) }
     AlertDialog(
@@ -742,24 +895,6 @@ private fun PlatesDialog(targetKg: Double, isPro: Boolean, onUpgrade: () -> Unit
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun RestTimerBar(remaining: Int, total: Int, running: Boolean, onToggle: () -> Unit, onReset: () -> Unit) {
-    Surface(tonalElevation = 3.dp) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Column(Modifier.padding(end = 16.dp)) {
-                    Text(stringResource(R.string.rest), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("%02d:%02d".format(remaining / 60, remaining % 60), style = MaterialTheme.typography.headlineSmall)
-                }
-                Button(onClick = onToggle) { Text(stringResource(if (running) R.string.pause else R.string.start)) }
-                OutlinedButton(onClick = onReset) { Text(stringResource(R.string.reset)) }
-            }
-            LinearProgressIndicator(progress = { remaining / total.coerceAtLeast(1).toFloat() }, modifier = Modifier.fillMaxWidth())
-        }
-    }
-}
-
 @Composable
 private fun kindLabel(kind: String) = stringResource(when (kind) {
     KIND_BODYWEIGHT -> R.string.kind_bodyweight; KIND_TIMED -> R.string.kind_timed; KIND_CARDIO -> R.string.kind_cardio; else -> R.string.kind_reps
@@ -773,7 +908,7 @@ private fun ruleLabel(rule: String) = stringResource(when (rule) {
 /** [selected] null = follow the sheet (only offered when [allowInherit]). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RuleChips(selected: String?, allowInherit: Boolean, onSelect: (String?) -> Unit) {
+internal fun RuleChips(selected: String?, allowInherit: Boolean, onSelect: (String?) -> Unit) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (allowInherit) FilterChip(selected == null, { onSelect(null) }, { Text(stringResource(R.string.rule_inherit)) })
         PROGRESSION_RULES.forEach { r -> FilterChip(selected == r, { onSelect(r) }, { Text(ruleLabel(r)) }) }
@@ -782,7 +917,7 @@ private fun RuleChips(selected: String?, allowInherit: Boolean, onSelect: (Strin
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ExerciseDialog(
+internal fun ExerciseDialog(
     initialName: String = "",
     initialTarget: String = "",
     initialKind: String = KIND_REPS,

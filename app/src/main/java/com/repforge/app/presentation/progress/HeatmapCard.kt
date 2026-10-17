@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Card
+import com.repforge.app.presentation.components.RfCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +43,7 @@ import java.time.format.TextStyle as DateTextStyle
 
 @Composable
 private fun heatColor(level: Int): Color =
-    if (level == 0) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f * level)
+    if (level == 0) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f * level)
 
 @Composable
 fun HeatmapCard(heatmap: Heatmap) {
@@ -54,8 +54,10 @@ fun HeatmapCard(heatmap: Heatmap) {
     val labelStyle = TextStyle(fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     val colors = (0..4).map { heatColor(it) }
     val description = pluralCount(R.plurals.heatmap_description, heatmap.trainedDays)
-    Card {
-        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val accent = MaterialTheme.colorScheme.primary
+    val today = heatmap.weeks.lastOrNull()?.lastOrNull { it != null }
+    RfCard(Modifier.fillMaxWidth(), padding = 18.dp) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.heatmap_title), style = MaterialTheme.typography.titleMedium)
             Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val cols = heatmap.weeks.size.coerceAtLeast(1)
@@ -84,7 +86,7 @@ fun HeatmapCard(heatmap: Heatmap) {
                     }
                     days.forEachIndexed { r, c ->
                         if (c != null) drawRoundRect(
-                            colors[c.level], Offset(w * cell, top + r * cell), Size(cell - gap, cell - gap), CornerRadius(cell * 0.2f)
+                            colors[c.level], Offset(w * cell, top + r * cell), Size(cell - gap, cell - gap), CornerRadius(3.dp.toPx())
                         )
                     }
                 }
@@ -92,7 +94,7 @@ fun HeatmapCard(heatmap: Heatmap) {
                     heatmap.weeks.forEachIndexed { w, days ->
                         val r = days.indexOf(s)
                         if (r >= 0) drawRoundRect(
-                            colors[4], Offset(w * cell, top + r * cell), Size(cell - gap, cell - gap), CornerRadius(cell * 0.2f),
+                            colors[4], Offset(w * cell, top + r * cell), Size(cell - gap, cell - gap), CornerRadius(3.dp.toPx()),
                             style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx())
                         )
                     }
@@ -108,9 +110,9 @@ fun HeatmapCard(heatmap: Heatmap) {
                 style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.heatmap_less), style = MaterialTheme.typography.labelSmall)
-                colors.forEach { Canvas(Modifier.size(10.dp)) { drawRoundRect(it, cornerRadius = CornerRadius(2.dp.toPx())) } }
-                Text(stringResource(R.string.heatmap_more), style = MaterialTheme.typography.labelSmall)
+                Text(stringResource(R.string.heatmap_less), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                colors.forEach { Canvas(Modifier.size(10.dp)) { drawRoundRect(it, cornerRadius = CornerRadius(3.dp.toPx())) } }
+                Text(stringResource(R.string.heatmap_more), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

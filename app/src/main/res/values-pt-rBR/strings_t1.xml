@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="t1_decrease">Diminuir</string>
+    <string name="t1_increase">Aumentar</string>
+    <string name="t1_edit_value">Editar valor</string>
+    <string name="t1_chart_description">Gráfico, %1$d pontos, último %2$s</string>
+</resources>

@@ -2,65 +2,83 @@
 
 package com.repforge.app.presentation.progress
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.LocalFireDepartment
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.MonitorWeight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.repforge.app.domain.metrics.DayVolume
-import com.repforge.app.domain.metrics.MuscleSets
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import com.repforge.app.domain.metrics.ExerciseHistory
-import com.repforge.app.domain.metrics.ProgressPoint
+import com.repforge.app.R
 import com.repforge.app.domain.logging.formatDistanceKm
 import com.repforge.app.domain.logging.formatDuration
+import com.repforge.app.domain.metrics.DayVolume
+import com.repforge.app.domain.metrics.ExerciseHistory
+import com.repforge.app.domain.metrics.MuscleSets
+import com.repforge.app.domain.metrics.ProgressPoint
+import com.repforge.app.domain.metrics.ProgressRange
+import com.repforge.app.domain.metrics.WeightRange
+import com.repforge.app.domain.metrics.labelIndices
 import com.repforge.app.domain.model.KIND_BODYWEIGHT
 import com.repforge.app.domain.model.KIND_CARDIO
 import com.repforge.app.domain.model.KIND_TIMED
-import androidx.annotation.StringRes
-import com.repforge.app.domain.metrics.ProgressRange
-import androidx.compose.ui.platform.LocalConfiguration
-import com.repforge.app.presentation.pluralCount
-import androidx.compose.ui.res.stringArrayResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.runtime.remember
-import com.repforge.app.R
+import com.repforge.app.presentation.components.AreaLineChart
+import com.repforge.app.presentation.components.CircleIconButton
+import com.repforge.app.presentation.components.LargeTitleHeader
+import com.repforge.app.presentation.components.RfCard
+import com.repforge.app.presentation.components.SectionHeader
+import com.repforge.app.presentation.components.SegmentedPill
+import com.repforge.app.presentation.components.SoftPillButton
+import com.repforge.app.presentation.components.Tag
+import com.repforge.app.presentation.components.TagTone
 import com.repforge.app.presentation.exerciseDisplayName
 import com.repforge.app.presentation.formatCount
 import com.repforge.app.presentation.muscleLabel
+import com.repforge.app.presentation.pluralCount
 import java.time.DayOfWeek
 import java.time.format.DateTimeFormatter
 
@@ -98,100 +116,103 @@ private fun rangeLabel(range: ProgressRange) = stringResource(
 )
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
-fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit) {
+private fun Gutter(content: @Composable () -> Unit) = Box(Modifier.padding(horizontal = 16.dp)) { content() }
+
+@Composable
+fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit, onOpenHistory: () -> Unit = {}) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.nav_progress)) }) }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             item {
-                Text(stringResource(R.string.your_pace), style = MaterialTheme.typography.headlineSmall)
-                Text(stringResource(R.string.pace_tagline), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LargeTitleHeader(stringResource(R.string.nav_progress), stringResource(R.string.pace_tagline), action = {
+                    CircleIconButton(Icons.Outlined.History, stringResource(R.string.t5_open_history), onOpenHistory)
+                })
             }
+            item { Gutter { StatTiles(state) } }
+            item { Gutter { HeatmapCard(state.heatmap) } }
+            item { Gutter { WeightCard(state, viewModel::selectWeightRange) } }
             item {
-                Card {
-                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.consistency), style = MaterialTheme.typography.titleMedium)
-                        val c = state.consistency
-                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Stat(stringResource(R.string.streak), pluralCount(R.plurals.days_count, c.currentStreak))
-                            Stat(stringResource(R.string.last_7_days), stringResource(R.string.x_of_7, c.daysLast7))
-                            Stat(stringResource(R.string.days_trained), "${c.totalDays}")
+                Gutter {
+                    RfCard(Modifier.fillMaxWidth(), padding = 18.dp) {
+                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(stringResource(R.string.volume_per_day), style = MaterialTheme.typography.titleMedium)
+                            val total = state.week.sumOf { it.volumeKg }
+                            Text(stringResource(R.string.volume_summary, kg(total), pluralCount(R.plurals.sets_count, state.weekSets)), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (state.week.isNotEmpty()) {
+                                if (total == 0.0) Text(stringResource(R.string.log_first_workout), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                VolumeBarChart(state.week)
+                            }
                         }
                     }
                 }
             }
-            item {
-                Card {
-                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.volume_per_day), style = MaterialTheme.typography.titleMedium)
-                        val total = state.week.sumOf { it.volumeKg }
-                        Text(stringResource(R.string.volume_summary, kg(total), pluralCount(R.plurals.sets_count, state.weekSets)), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (state.week.isNotEmpty()) {
-                            if (total == 0.0) Text(stringResource(R.string.log_first_workout), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            VolumeBarChart(state.week)
-                        }
-                    }
-                }
-            }
-            item { HeatmapCard(state.heatmap) }
-            item { BodyMapCard(state.bodyMap, state.muscleLocked, onOpenPro) }
-            item { MuscleVolumeCard(state.muscleWeeks, state.muscleLocked, onOpenPro) }
-            item { Text(stringResource(R.string.progress_by_exercise), style = MaterialTheme.typography.titleLarge) }
+            item { Gutter { BodyMapCard(state.bodyMap, state.muscleLocked, onOpenPro) } }
+            item { Gutter { MuscleVolumeCard(state.muscleWeeks, state.muscleLocked, onOpenPro) } }
+            item { SectionHeader(stringResource(R.string.progress_by_exercise), modifier = Modifier.padding(horizontal = 16.dp).padding(top = 12.dp)) }
             if (state.exercises.isEmpty()) {
-                item { Text(stringResource(R.string.exercises_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Gutter { Text(stringResource(R.string.exercises_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
             }
             items(state.exercises, key = { "ex${it.exerciseId}" }) { ex ->
                 val open = state.detail?.exercise?.exerciseId == ex.exerciseId
-                Card {
-                    Column(Modifier.fillMaxWidth()) {
-                        Column(
-                            Modifier.fillMaxWidth()
-                                .clickable(onClickLabel = stringResource(if (open) R.string.collapse_chart else R.string.view_chart), role = Role.Button) { viewModel.toggleExercise(ex.exerciseId) }
-                                .padding(18.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(exerciseDisplayName(ex.name), style = MaterialTheme.typography.titleMedium)
-                            Text(lastValue(ex)?.let { stringResource(R.string.sheet_last_load, ex.sheetName, it) } ?: ex.sheetName, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(if (open) R.string.collapse else R.string.view_progress), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-                        }
-                        if (open) state.detail?.let { d ->
-                            Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    ProgressRange.entries.forEach { r ->
-                                        FilterChip(selected = d.range == r, onClick = { viewModel.selectRange(r) }, label = { Text(if (r.pro) stringResource(R.string.range_pro, rangeLabel(r)) else rangeLabel(r)) })
+                Gutter {
+                    RfCard(Modifier.fillMaxWidth(), padding = 0.dp) {
+                        Column(Modifier.fillMaxWidth()) {
+                            Column(
+                                Modifier.fillMaxWidth()
+                                    .clickable(onClickLabel = stringResource(if (open) R.string.collapse_chart else R.string.view_chart), role = Role.Button) { viewModel.toggleExercise(ex.exerciseId) }
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(exerciseDisplayName(ex.name), style = MaterialTheme.typography.titleMedium)
+                                Text(lastValue(ex)?.let { stringResource(R.string.sheet_last_load, ex.sheetName, it) } ?: ex.sheetName, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                                Text(stringResource(if (open) R.string.collapse else R.string.view_progress), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                            }
+                            if (open) state.detail?.let { d ->
+                                Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    SegmentedPill(
+                                        ProgressRange.entries.map { r -> if (r.pro) stringResource(R.string.range_pro, rangeLabel(r)) else rangeLabel(r) },
+                                        ProgressRange.entries.indexOf(d.range),
+                                        { viewModel.selectRange(ProgressRange.entries[it]) },
+                                        Modifier.fillMaxWidth()
+                                    )
+                                    if (d.locked) ProUpsell(onOpenPro) else when (d.stats.kind) {
+                                        KIND_TIMED -> ProgressChart(d.series, rangeLabel(d.range), { formatDuration(it.toInt()) }, R.string.chart_value_single, R.string.chart_value_range, R.string.value_range)
+                                        KIND_CARDIO -> ProgressChart(d.series, rangeLabel(d.range), { distance(it) }, R.string.chart_value_single, R.string.chart_value_range, R.string.value_range)
+                                        else -> ProgressChart(d.series, rangeLabel(d.range), { kg(it) }, R.string.chart_1rm_single, R.string.chart_1rm_range, R.string.est_1rm_range)
                                     }
-                                }
-                                if (d.locked) ProUpsell(onOpenPro) else when (d.stats.kind) {
-                                    KIND_TIMED -> ProgressChart(d.series, rangeLabel(d.range), { formatDuration(it.toInt()) }, R.string.chart_value_single, R.string.chart_value_range, R.string.value_range)
-                                    KIND_CARDIO -> ProgressChart(d.series, rangeLabel(d.range), { distance(it) }, R.string.chart_value_single, R.string.chart_value_range, R.string.value_range)
-                                    else -> ProgressChart(d.series, rangeLabel(d.range), { kg(it) }, R.string.chart_1rm_single, R.string.chart_1rm_range, R.string.est_1rm_range)
-                                }
-                                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    when (d.stats.kind) {
-                                        KIND_TIMED -> Stat(stringResource(R.string.stat_longest_hold), formatDuration(d.stats.bestDurationSec))
-                                        KIND_CARDIO -> Stat(stringResource(R.string.stat_longest_distance), distance(d.stats.bestDistanceKm))
-                                        else -> if (d.stats.kind != KIND_BODYWEIGHT || d.stats.prKg > 0) {
-                                            Stat(stringResource(R.string.stat_pr), kg(d.stats.prKg))
-                                            Stat(stringResource(R.string.stat_best_1rm), kg(d.stats.bestOneRepMaxKg))
+                                    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        when (d.stats.kind) {
+                                            KIND_TIMED -> Stat(stringResource(R.string.stat_longest_hold), formatDuration(d.stats.bestDurationSec))
+                                            KIND_CARDIO -> Stat(stringResource(R.string.stat_longest_distance), distance(d.stats.bestDistanceKm))
+                                            else -> if (d.stats.kind != KIND_BODYWEIGHT || d.stats.prKg > 0) {
+                                                Stat(stringResource(R.string.stat_pr), kg(d.stats.prKg))
+                                                Stat(stringResource(R.string.stat_best_1rm), kg(d.stats.bestOneRepMaxKg))
+                                            }
                                         }
+                                        Stat(stringResource(R.string.stat_total_sets), "${d.stats.totalSets}")
                                     }
-                                    Stat(stringResource(R.string.stat_total_sets), "${d.stats.totalSets}")
                                 }
                             }
                         }
                     }
                 }
             }
-            item { Text(stringResource(R.string.recent_workouts), style = MaterialTheme.typography.titleLarge) }
+            item { SectionHeader(stringResource(R.string.recent_workouts), modifier = Modifier.padding(horizontal = 16.dp).padding(top = 12.dp)) }
             if (state.recent.isEmpty()) {
-                item { Text(stringResource(R.string.no_workouts_yet), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Gutter { Text(stringResource(R.string.no_workouts_yet), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
             }
             items(state.recent, key = { "day${it.date}" }) { w ->
-                Card {
-                    Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("${weekday(w.date.dayOfWeek)}, ${w.date.format(dayFormat())}", style = MaterialTheme.typography.titleMedium)
-                        Text(w.sheetNames.joinToString(", "))
-                        Text(pluralCount(R.plurals.sets_count, w.sets) + " · " + kg(w.volumeKg), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Gutter {
+                    RfCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("${weekday(w.date.dayOfWeek)}, ${w.date.format(dayFormat())}", style = MaterialTheme.typography.titleMedium)
+                            Text(w.sheetNames.joinToString(", "))
+                            Text(pluralCount(R.plurals.sets_count, w.sets) + " · " + kg(w.volumeKg), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                     }
                 }
             }
@@ -199,17 +220,89 @@ fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit) {
     }
 }
 
+/** Muted Pro lock: dimmed block with a lock pill, the explanation and a learn-more button. */
 @Composable
 internal fun ProUpsell(
     onOpenPro: () -> Unit,
     title: String = stringResource(R.string.upsell_history_title),
     body: String = stringResource(R.string.upsell_history_body)
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
-            Text(body, style = MaterialTheme.typography.bodyMedium)
-            TextButton(onClick = onOpenPro) { Text(stringResource(R.string.learn_pro)) }
+    Column(
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Outlined.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(16.dp))
+            Tag(stringResource(R.string.t5_pro_locked), TagTone.Accent)
+            Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+        }
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SoftPillButton(stringResource(R.string.learn_pro), onClick = onOpenPro)
+    }
+}
+
+@Composable
+private fun StatTiles(state: ProgressUiState) {
+    val c = state.consistency
+    val cs = MaterialTheme.colorScheme
+    val delta = state.weightDeltaKg
+    val latest = state.latestWeightKg
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatTile(Icons.Outlined.LocalFireDepartment, stringResource(R.string.streak), pluralCount(R.plurals.days_count, c.currentStreak), Modifier.weight(1f), iconTint = cs.secondary)
+            StatTile(Icons.Outlined.CalendarMonth, stringResource(R.string.last_7_days), stringResource(R.string.x_of_7, c.daysLast7), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatTile(Icons.Outlined.FitnessCenter, stringResource(R.string.days_trained), "${c.totalDays}", Modifier.weight(1f))
+            val good = delta == null || latest == null || (state.weightGoalKg?.let { (latest - it) * delta <= 0 } ?: (delta <= 0))
+            StatTile(
+                Icons.Outlined.MonitorWeight, stringResource(R.string.t5_stat_weight), latest?.let { kg(it) } ?: "—", Modifier.weight(1f),
+                sub = delta?.let { (if (it > 0) "+" else "") + kg(it) }, subColor = if (good) cs.primary else cs.error
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatTile(
+    icon: ImageVector, label: String, value: String, modifier: Modifier,
+    iconTint: Color = MaterialTheme.colorScheme.primary, sub: String? = null, subColor: Color = Color.Unspecified
+) {
+    RfCard(modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
+                Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            }
+            Text(value, style = MaterialTheme.typography.headlineMedium, maxLines = 1)
+            if (sub != null) Text(sub, style = MaterialTheme.typography.bodySmall, color = subColor)
+        }
+    }
+}
+
+@Composable
+private fun WeightCard(state: ProgressUiState, onRange: (WeightRange) -> Unit) {
+    val locale = LocalConfiguration.current.locales[0]
+    val dayFormat = dayFormat()
+    val labels = listOf(R.string.t5_range_30d, R.string.t5_range_90d, R.string.t5_range_1y, R.string.range_all).map { stringResource(it) }
+    RfCard(Modifier.fillMaxWidth(), padding = 18.dp) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.body_weight), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                state.weightGoalKg?.let { Tag(stringResource(R.string.t5_weight_goal, formatCount(it, locale) + " kg"), TagTone.Goal) }
+            }
+            SegmentedPill(labels, WeightRange.entries.indexOf(state.weightRange), { onRange(WeightRange.entries[it]) }, Modifier.fillMaxWidth())
+            if (state.weights.isEmpty()) {
+                Text(stringResource(R.string.t5_weight_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                val ws = state.weights
+                AreaLineChart(
+                    ws.map { it.weightKg.toFloat() }, state.weightGoalKg?.toFloat(),
+                    labelIndices(ws.size).map { i ->
+                        java.time.Instant.ofEpochMilli(ws[i].recordedAt).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(dayFormat)
+                    }
+                )
+            }
         }
     }
 }
@@ -226,7 +319,7 @@ private fun Stat(label: String, value: String) {
 private fun VolumeBarChart(days: List<DayVolume>) {
     val max = days.maxOf { it.volumeKg }.coerceAtLeast(1.0)
     val bar = MaterialTheme.colorScheme.primary
-    val stub = MaterialTheme.colorScheme.outline
+    val stub = MaterialTheme.colorScheme.surfaceContainerHighest
     val summary = days.map { "${weekday(it.date.dayOfWeek)}: ${kg(it.volumeKg)}" }.joinToString(". ")
     val chartDescription = stringResource(R.string.volume_chart_description, summary)
     Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = chartDescription }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -235,21 +328,22 @@ private fun VolumeBarChart(days: List<DayVolume>) {
             val slot = size.width / days.size
             val barWidth = slot * 0.6f
             days.forEachIndexed { i, d ->
-                val h = if (d.volumeKg <= 0.0) 2.dp.toPx() else ((d.volumeKg / max).toFloat() * size.height).coerceAtLeast(4.dp.toPx())
-                drawRect(
+                val h = if (d.volumeKg <= 0.0) 4.dp.toPx() else ((d.volumeKg / max).toFloat() * size.height).coerceAtLeast(6.dp.toPx())
+                drawRoundRect(
                     color = if (d.volumeKg <= 0.0) stub else bar,
                     topLeft = Offset(i * slot + (slot - barWidth) / 2f, size.height - h),
-                    size = Size(barWidth, h)
+                    size = Size(barWidth, h),
+                    cornerRadius = CornerRadius(4.dp.toPx())
                 )
             }
         }
         Row(Modifier.fillMaxWidth()) {
-            days.forEach { Text(weekday(it.date.dayOfWeek), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, maxLines = 1) }
+            days.forEach { Text(weekday(it.date.dayOfWeek), Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
         }
     }
 }
 
-/** Line chart of [series]; [format] renders a value, the string ids are the accessibility summaries and the min-max caption. */
+/** Area chart of [series]; [format] renders a value, the string ids are the accessibility summaries and the min-max caption. */
 @Composable
 private fun ProgressChart(
     series: List<ProgressPoint>, rangeName: String, format: @Composable (Double) -> String,
@@ -259,8 +353,6 @@ private fun ProgressChart(
         Text(stringResource(R.string.no_records_in_period, rangeName), color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
-    val line = MaterialTheme.colorScheme.primary
-    val axis = MaterialTheme.colorScheme.outlineVariant
     val min = series.minOf { it.value }
     val max = series.maxOf { it.value }
     val dayFormat = dayFormat()
@@ -274,32 +366,7 @@ private fun ProgressChart(
     }
     Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = summary }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(stringResource(captionRes, format(min), format(max)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Canvas(Modifier.fillMaxWidth().height(160.dp)) {
-            val pad = 8.dp.toPx()
-            val w = size.width - 2 * pad
-            val h = size.height - 2 * pad
-            val firstDay = series.first().date.toEpochDay()
-            val span = (series.last().date.toEpochDay() - firstDay).coerceAtLeast(1)
-            val spread = (max - min).takeIf { it > 0.0 }
-            val points = series.map {
-                val x = if (series.size == 1) size.width / 2f else pad + w * (it.date.toEpochDay() - firstDay) / span
-                val y = if (spread == null) size.height / 2f else pad + h * (1f - ((it.value - min) / spread).toFloat())
-                Offset(x, y)
-            }
-            drawLine(axis, Offset(0f, size.height), Offset(size.width, size.height), strokeWidth = 1.dp.toPx())
-            if (points.size > 1) {
-                val path = Path().apply {
-                    moveTo(points[0].x, points[0].y)
-                    points.drop(1).forEach { lineTo(it.x, it.y) }
-                }
-                drawPath(path, line, style = Stroke(width = 3.dp.toPx()))
-            }
-            points.forEach { drawCircle(line, radius = 5.dp.toPx(), center = it) }
-        }
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(series.first().date.format(dayFormat), style = MaterialTheme.typography.labelSmall)
-            if (series.size > 1) Text(series.last().date.format(dayFormat), style = MaterialTheme.typography.labelSmall)
-        }
+        AreaLineChart(series.map { it.value.toFloat() }, null, labelIndices(series.size).map { series[it].date.format(dayFormat) })
         if (series.size == 1) Text(stringResource(R.string.log_more_for_line), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -312,17 +379,17 @@ private fun MuscleVolumeCard(weeks: List<List<MuscleSets>>, locked: Boolean, onO
     val current = weeks.firstOrNull().orEmpty()
     val max = (weeks.flatten().maxOfOrNull { it.sets } ?: 0.0).coerceAtLeast(1.0)
     val labels = stringArrayResource(R.array.week_labels)
-    Card {
-        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    RfCard(Modifier.fillMaxWidth(), padding = 18.dp) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.weekly_muscle_volume), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.weekly_muscle_hint), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.weekly_muscle_hint), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
             if (current.isEmpty()) Text(stringResource(R.string.log_sets_for_muscle), color = MaterialTheme.colorScheme.onSurfaceVariant)
             current.forEach { m ->
                 val before = weeks.drop(1).map { w -> w.firstOrNull { it.muscle == m.muscle }?.sets ?: 0.0 }
                 val muscleName = muscleLabel(m.muscle)
                 val desc = stringResource(R.string.muscle_sets_value, muscleName, sets(m.sets)) +
                     if (before.isEmpty()) "" else stringResource(R.string.previous_weeks, before.map { sets(it) }.joinToString(", "))
-                Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = desc }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = desc }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(muscleName, style = MaterialTheme.typography.labelLarge)
                         Text(com.repforge.app.presentation.setsText(m.sets), style = MaterialTheme.typography.labelLarge)
@@ -341,7 +408,7 @@ private fun MuscleVolumeCard(weeks: List<List<MuscleSets>>, locked: Boolean, onO
 
 @Composable
 private fun MuscleBar(fraction: Double) {
-    Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+    Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
         Row(Modifier.fillMaxHeight().fillMaxWidth(fraction.toFloat().coerceIn(0.02f, 1f)).background(MaterialTheme.colorScheme.primary)) {}
     }
 }
