@@ -39,6 +39,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -136,7 +138,19 @@ internal fun FocusPage(
     var showPlates by rememberSaveable { mutableStateOf(false) }
     val displayName = exerciseDisplayName(exercise.name)
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val scroll = rememberScrollState()
+    // The rest card appears over a page the user already scrolled to the end: follow the new end so the last row and "+ Série" are not covered.
+    var atEnd by remember { mutableStateOf(false) }
+    LaunchedEffect(scroll) {
+        snapshotFlow { scroll.isScrollInProgress }.collect { if (!it) atEnd = scroll.maxValue > 0 && scroll.value >= scroll.maxValue - 2 }
+    }
+    LaunchedEffect(bottomInset) {
+        if (bottomInset > 0.dp && atEnd) {
+            withFrameNanos { }; withFrameNanos { } // let the taller content lay out
+            scroll.animateScrollTo(scroll.maxValue)
+        }
+    }
+    Column(modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 if (exercise.supersetGroup != null) Text(stringResource(R.string.superset), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)

@@ -23,7 +23,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -48,7 +47,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Surface
 import com.repforge.app.R
 import com.repforge.app.RepForgeApplication
 import com.repforge.app.domain.model.TrainingSheet
@@ -196,13 +206,39 @@ private fun RoutineRow(
                 IconButton(onClick = { menu = true }) {
                     Icon(Icons.Outlined.MoreVert, stringResource(R.string.t3_routine_options_cd, sheet.name), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                if (menu) AnchoredMenu(onDismiss = { menu = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.start)) }, onClick = { menu = false; onStart() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.duplicate)) }, onClick = { menu = false; onDuplicate() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; onDelete() })
                 }
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * Menu popup pinned to the parent (the icon button): right edge aligned with the anchor, opening below it and
+ * nudged up over the button when it overshoots the window slightly, flipping above only when it overshoots by more.
+ * DropdownMenu also keeps a 48dp margin to the window edge (which excludes the system bar), so it flipped above and
+ * covered the weekday list even though the menu missed fitting by a few pixels.
+ */
+@Composable
+private fun AnchoredMenu(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    val provider = remember {
+        object : PopupPositionProvider {
+            override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
+                val x = (anchorBounds.right - popupContentSize.width).coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0))
+                // Overlapping the button's lower half is fine (the glyph sits in its middle); beyond that, open above.
+                val over = anchorBounds.bottom + popupContentSize.height - windowSize.height
+                val y = if (over <= anchorBounds.height / 2) anchorBounds.bottom - over.coerceAtLeast(0) else (anchorBounds.top - popupContentSize.height).coerceAtLeast(0)
+                return IntOffset(x, y)
+            }
+        }
+    }
+    Popup(popupPositionProvider = provider, onDismissRequest = onDismiss, properties = PopupProperties(focusable = true)) {
+        Surface(shape = MaterialTheme.shapes.extraSmall, color = MaterialTheme.colorScheme.surfaceContainer, shadowElevation = 3.dp) {
+            Column(Modifier.width(IntrinsicSize.Max).widthIn(min = 112.dp).padding(vertical = 8.dp)) { content() }
         }
     }
 }
