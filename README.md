@@ -1,160 +1,153 @@
 # RepForge
 
-![RepForge icon](assets/icon.png)
+Caderno de treino nativo para Android: fichas, plano semanal, registro de séries em um toque e evolução. Offline, sem conta, sem anúncios.
 
-RepForge é um app Android nativo (Kotlin + Jetpack Compose + Room), offline-first,
-para registrar treinos de musculação com o mínimo de toques. Sem conta, sem
-anúncios, sem analytics. Versão 2.0.0 (versionCode 10), `applicationId`
-`com.repforge.app`.
+[![CI](https://github.com/Famel-svg/repforge/actions/workflows/ci.yml/badge.svg)](https://github.com/Famel-svg/repforge/actions/workflows/ci.yml)
+![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white)
+![Android](https://img.shields.io/badge/Android-minSdk%2026%20%7C%20targetSdk%2036-3DDC84?logo=android&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Screenshots
+**Português** | [English](#english)
 
-Capturas em `docs/store/screenshots/pt-BR/` (anteriores à navegação em 4 abas; serão refeitas em aparelho real antes da publicação):
+## Telas
 
-| Início | Treino | Evolução | Volume por músculo |
-| --- | --- | --- | --- |
-| <img src="docs/store/screenshots/pt-BR/01-inicio.png" width="180" alt="Início"> | <img src="docs/store/screenshots/pt-BR/02-treino.png" width="180" alt="Treino"> | <img src="docs/store/screenshots/pt-BR/03-evolucao.png" width="180" alt="Evolução"> | <img src="docs/store/screenshots/pt-BR/04-volume-musculo.png" width="180" alt="Volume por músculo"> |
-
-| 1RM por exercício | Peso corporal | Catálogo |
-| --- | --- | --- |
-| <img src="docs/store/screenshots/pt-BR/05-1rm-exercicio.png" width="180" alt="1RM por exercício"> | <img src="docs/store/screenshots/pt-BR/06-peso-corporal.png" width="180" alt="Peso corporal"> | <img src="docs/store/screenshots/pt-BR/07-catalogo.png" width="180" alt="Catálogo"> |
-
-Arquivos: `01-inicio.png`, `02-treino.png`, `03-evolucao.png`,
-`04-volume-musculo.png`, `05-1rm-exercicio.png`, `06-peso-corporal.png`,
-`07-catalogo.png`.
+<table>
+  <tr>
+    <td align="center"><img src="docs/store/screenshots/pt-BR/01-inicio.png" width="220"><br>Início: semana, treino de hoje, peso corporal e sequência</td>
+    <td align="center"><img src="docs/store/screenshots/pt-BR/02-treino.png" width="220"><br>Treino: série em um toque, recorde, última vez e timer de descanso</td>
+    <td align="center"><img src="docs/store/screenshots/pt-BR/03-resumo.png" width="220"><br>Resumo: duração, séries, volume, exercícios e músculos</td>
+    <td align="center"><img src="docs/store/screenshots/pt-BR/04-plano.png" width="220"><br>Plano: ficha de cada dia da semana e rotinas</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/store/screenshots/pt-BR/05-evolucao.png" width="220"><br>Evolução: sequência, atividade de 52 semanas e peso corporal</td>
+    <td align="center"><img src="docs/store/screenshots/pt-BR/06-mapa-muscular.png" width="220"><br>Equilíbrio muscular: séries por músculo, frente e costas</td>
+    <td align="center"><img src="docs/store/screenshots/pt-BR/07-biblioteca.png" width="220"><br>Biblioteca: 264 exercícios com busca e filtros</td>
+    <td align="center"><img src="docs/store/screenshots/pt-BR/08-historico.png" width="220"><br>Histórico: treinos por mês com séries e volume</td>
+  </tr>
+</table>
 
 ## Funcionalidades
 
-- Navegação em 4 abas: Treino, Plano, Evolução e Biblioteca; configurações pela
-  engrenagem na tela inicial.
-- Fichas de treino: criar, duplicar, remover e reordenar exercícios. Modelos
-  iniciais: Full body, ABC e Upper/Lower.
-- Plano semanal por dia da semana, reagendamento pontual e cartão "Treino de
-  hoje" na tela inicial.
-- Sessão de treino com cronômetro, finalizar ou descartar e resumo final
-  (duração, séries, volume, recordes, exercícios e músculos). Pergunta opcional
-  de peso corporal ao iniciar.
-- Tipos de exercício: repetições, por tempo (cronômetro), peso corporal (com
-  carga extra opcional), por lado e cardio (duração/distância).
-- Regras de progressão por ficha, com ajuste por exercício: nenhuma, linear,
-  dupla, por tempo e deload.
-- Catálogo offline de 264 exercícios em pt-BR (nomes em inglês quando o idioma
-  é inglês), exercícios personalizados e aba Biblioteca.
-- Registro de série em um toque, com preenchimento automático e botões +/-;
-  tipos de série (aquecimento, drop, falha), RPE opcional e nota por exercício.
-- Séries do dia com desfazer; supersets (o descanso começa após o último
-  exercício do grupo).
-- Timer de descanso em barra, notificação do timer e tela sempre ligada durante
-  o treino.
-- Aba Evolução: sequência de treinos, mapa de atividade de 52 semanas, volume
-  dos últimos 7 dias, séries semanais por músculo, mapa corporal frente/costas
-  com músculos não treinados, gráfico de 1RM por exercício e treinos recentes.
-- Peso corporal com histórico (guardado só no aparelho).
-- Widget para a tela inicial.
-- Tema sistema/claro/escuro, 8 cores de destaque e sons.
-- Backup JSON (exportar/importar, com deduplicação; inclui plano, sessões e
-  regras) e importação de CSV do Strong e do Hevy.
-- Inglês e português (pt-BR), com idioma por app.
-- Onboarding de primeira execução.
-- Sem anúncios, sem conta, sem analytics. O único uso de rede é o Google Play
-  Billing, para a compra do Pro.
+**Treino guiado**
+- Registro de série em um toque, com valores pré-preenchidos e botões +/-.
+- Timer de descanso (com notificação), cronômetro da sessão e tela sempre ligada durante o treino.
+- Tipos de exercício: repetições, por tempo, peso corporal (carga extra opcional), por lado e cardio.
+- Tipos de série (aquecimento, drop, falha), RPE opcional, nota por exercício, supersets e desfazer.
+- Recordes, última performance e resumo ao finalizar.
 
-## Grátis x RepForge Pro
+**Plano semanal**
+- Ficha por dia da semana, reagendamento pontual e cartão "Treino de hoje".
+- Fichas criáveis e duplicáveis; modelos Full body, ABC e Upper/Lower.
+- Regras de progressão por ficha: nenhuma, linear, dupla, por tempo e deload.
 
-RepForge Pro é uma compra única vitalícia via Google Play Billing
-(`repforge_pro_lifetime`).
+**Evolução**
+- Sequência semanal, mapa de atividade de 52 semanas, volume dos últimos 7 dias.
+- Séries por músculo com mapa corporal (frente/costas), 1RM por exercício e histórico de treinos.
+- Peso corporal com gráfico (dados só no aparelho).
 
-| Recurso | Grátis | Pro |
-| --- | --- | --- |
-| Fichas, plano semanal, sessões, exercícios, histórico, registro, timer, supersets | sim | sim |
-| Regras de progressão, tipos de exercício, Biblioteca, widget, temas e cores | sim | sim |
-| Backup/importação, peso corporal, evolução básica, mapa de atividade | sim | sim |
-| Mapa corporal (período mais curto) | sim | sim |
-| Gráfico de 1RM nos períodos de 90 dias e todo o histórico | - | sim |
-| Comparação de volume por músculo em 4 semanas | - | sim |
-| Mapa corporal por mês e todo o histórico | - | sim |
-| Sugestões de progressão de carga | - | sim |
-| Calculadora de anilhas | - | sim |
+**Biblioteca**
+- Catálogo offline de 264 exercícios em pt-BR (nomes em inglês quando o idioma do app é inglês), com busca por nome, músculo e equipamento, mais exercícios personalizados.
 
-## Dados
+**Backup e importação**
+- Exportar/importar JSON (com deduplicação; inclui plano, sessões e regras).
+- Importação de CSV do Strong e do Hevy.
 
-Room (`repforge.db`, versão 5) com migrações até a 5 e schemas exportados em
-`app/schemas/`. Mudança de schema exige subir a versão e registrar uma
-`Migration` (testada por teste instrumentado). Preferências em DataStore.
+**Widget e notificações**
+- Widget de tela inicial (Glance) e notificação do timer de descanso.
 
-Backup: `repforge-backup-YYYY-MM-DD.json`, texto legível; guarde com cuidado.
-A importação valida o arquivo antes de escrever, só adiciona dados (sem apagar),
-roda em transação e aceita também o formato do app Expo 1.0.x.
+**RepForge Pro**
+- Compra única vitalícia via Google Play Billing. Nada do que é gratuito passa a ser pago.
+- Pro: 1RM em 90 dias e todo o histórico, comparação de volume por músculo, mapa corporal mensal/total, sugestões de progressão de carga e calculadora de anilhas.
 
-### Quem usa o app Expo 1.0.x
+Também: tema sistema/claro/escuro, cores de destaque, inglês e pt-BR com idioma por app, onboarding.
 
-O APK 1.0.8 foi assinado pela chave do EAS (certificado SHA-256
-`ff032cb5…fe616e`). Com outra chave, o Android recusa instalar a 2.0 por cima,
-então o app antigo e os dados continuam intactos. Caminho: exportar o backup no
-1.0.x, desinstalar, instalar a 2.0 e importar o arquivo. Se publicar na Play
-com a chave do EAS, a atualização acontece no lugar e o histórico do Expo não é
-migrado automaticamente: avise os usuários para exportar antes.
+## Arquitetura
+
+```
+app/src/main/java/com/repforge/app/
+  data/          Room (WorkoutDatabase), repositório, DataStore, backup, import CSV, Billing (ProStore)
+  domain/        regras puras: modelos, progressão, métricas, plano, anilhas, validação, modelos de ficha
+  presentation/  telas Compose por feature, tema, navegação
+  widget/        widget Glance
+  notify/        notificação do timer de descanso
+```
+
+- **Camadas** data / domain / presentation, com a lógica de negócio em `domain` coberta por testes unitários.
+- **Room v5** com migrações 1→5 e schemas exportados em `app/schemas`; o `MigrationTest` instrumentado valida as migrações.
+- **Offline-first e sem conta:** dados locais; o catálogo vem de `assets/exercises.json`. A única chamada de rede do app é o Google Play Billing.
+- **Navegação:** Navigation Compose com 4 abas (Início/Treino, Plano, Evolução, Biblioteca).
+- `proxy/` é um Cloudflare Worker legado, da versão anterior; não é usado pelo app.
+
+## Stack
+
+| Área | Tecnologia |
+|---|---|
+| Linguagem | Kotlin |
+| UI | Jetpack Compose, Material 3 (BOM 2025.09.00) |
+| Navegação | Navigation Compose 2.9 |
+| Persistência | Room 2.8 (KSP), DataStore Preferences |
+| Widget | Glance AppWidget |
+| Compras | Google Play Billing 9 |
+| Build | Gradle (Kotlin DSL), R8 em release |
+| Testes | JUnit (unitários), AndroidX Test + room-testing (instrumentados) |
+| CI | GitHub Actions |
 
 ## Build e testes
 
-Requisitos: JDK 21 (`JAVA_HOME`) e Android SDK com API 36.
+Requer JDK 21 e Android SDK.
 
-```powershell
-# testes unitários + lint + APK debug (o que o CI roda)
-./gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
-
-# testes instrumentados (emulador/dispositivo conectado)
-./gradlew.bat :app:connectedDebugAndroidTest
-
-# release (AAB para a Play Store)
-./gradlew.bat :app:bundleRelease
+```bash
+./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug   # o mesmo que o CI
+./gradlew :app:connectedDebugAndroidTest                              # testes instrumentados (aparelho/emulador)
 ```
 
-APK debug: `app/build/outputs/apk/debug/app-debug.apk`.
+Build de release assinado: crie `keystore.properties` na raiz (ignorado pelo git) com `storeFile`, `storePassword`, `keyAlias` e `keyPassword`, e rode `./gradlew :app:bundleRelease`.
 
-O release usa R8. Para assinar, crie `keystore.properties` na raiz (ignorado
-pelo git):
+## Status
 
-```properties
-storeFile=caminho/para/release.jks
-storePassword=...
-keyAlias=...
-keyPassword=...
-```
+Pré-lançamento (versão 2.0.0). Textos da loja, política de privacidade e checklist estão em `docs/store/`; o teste fechado no Google Play ainda está pendente. Roteiro em `docs/product-roadmap.md`. A branch `main` ainda contém a versão antiga em Expo/React Native (1.0.x); a reescrita nativa está na branch `codex/repforge-kotlin-rebuild`.
 
-Sem esse arquivo o resultado não é assinado. O CI fica em
-`.github/workflows/ci.yml`.
+## Nota legal
 
-QA do Pro sem Play Store (só build debug):
-
-```powershell
-adb shell run-as com.repforge.app touch files/force_pro   # ativa
-adb shell run-as com.repforge.app rm files/force_pro      # desativa
-```
-
-Reinicie o app depois. Builds release ignoram o arquivo.
-
-## Estrutura
-
-```text
-app/src/main/java/com/repforge/app/
-├── data/          # Room, backup, DataStore, Pro/Billing
-├── domain/        # modelos, repositório, métricas e progressão
-└── presentation/  # Compose, Navigation, ViewModels e tema
-docs/              # roadmap, textos da loja, política de privacidade
-proxy/             # LEGADO: Worker WorkoutX, não é mais usado pelo app
-```
-
-`proxy/` (Cloudflare Worker da busca WorkoutX) é legado e não é usado pelo app
-desde que o catálogo passou a ser offline.
-
-## Documentação
-
-- [Roadmap](docs/product-roadmap.md)
-- [Ficha da loja](docs/store/play-listing.md), [Data safety](docs/store/data-safety.md),
-  [Política de privacidade](docs/store/privacy-policy.md),
-  [Checklist de publicação](docs/store/release-checklist.md)
+O design é inspirado na experiência de uso do openGym, mas nenhum código ou recurso visual foi copiado. O catálogo de exercícios é original, escrito para este projeto.
 
 ## Licença
 
-MIT. Veja [LICENSE](LICENSE).
+[MIT](LICENSE).
+
+## Autor
+
+Rafael - [LinkedIn](https://www.linkedin.com/in/SEU-PERFIL)
+
+---
+
+## English
+
+RepForge is a native Android strength-training logbook: workout sheets, a weekly plan, one-tap set logging and progress tracking. Offline, no account, no ads. Built with Kotlin and Jetpack Compose (Material 3).
+
+**Features**
+- Guided workouts: one-tap set logging, rest timer with notification, supersets, undo, PRs, warm-up/drop/failure sets, RPE, summary on finish.
+- Weekly plan with per-day routines, one-off rescheduling, templates (Full body, ABC, Upper/Lower) and progression rules (linear, double, time-based, deload).
+- Progress: streak, 52-week activity map, weekly volume, sets per muscle with front/back body map, 1RM per exercise, body weight chart, workout history.
+- Library: offline catalog of 264 original exercises (pt-BR, with English names when the app language is English), search and filters, custom exercises.
+- Backup: JSON export/import and CSV import from Strong and Hevy.
+- Home screen widget (Glance) and rest-timer notification.
+- RepForge Pro: one-time lifetime purchase through Google Play Billing; free features stay free.
+- English and Brazilian Portuguese, per-app language.
+
+**Architecture:** data / domain / presentation layers; Room v5 with migrations 1 to 5 and exported schemas (instrumented `MigrationTest`); DataStore; Navigation Compose; offline-first, with Play Billing as the only network use. `proxy/` is a legacy Cloudflare Worker from the previous version and is not used by the app.
+
+**Build and test** (JDK 21, Android SDK):
+
+```bash
+./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+```
+
+Release builds read signing data from a git-ignored `keystore.properties`.
+
+**Status:** pre-launch (v2.0.0); Google Play closed testing is pending. `main` still holds the old Expo/React Native app; the native rewrite lives on `codex/repforge-kotlin-rebuild`.
+
+**Legal:** the design is inspired by openGym's UX; no code or assets were copied. The exercise catalog is original. Licensed under [MIT](LICENSE).
+
+**Author:** Rafael - [LinkedIn](https://www.linkedin.com/in/SEU-PERFIL)
