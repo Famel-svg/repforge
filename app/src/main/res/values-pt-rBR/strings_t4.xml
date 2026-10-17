@@ -30,4 +30,7 @@
     <string name="t4_equipment">Equipamento</string>
     <string name="t4_muscle">Músculo</string>
     <string name="t4_summary_pr_badge">PR</string>
+    <string name="t4_summary_records_neutral">Recordes</string>
+    <string name="t4_summary_no_records_history">Nenhum recorde nesta sessão.</string>
+    <string name="t4_summary_back">Voltar</string>
 </resources>

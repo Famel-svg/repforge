@@ -10,8 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -19,7 +20,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -28,19 +31,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.repforge.app.R
 import com.repforge.app.domain.logging.formatDuration
-import com.repforge.app.domain.metrics.HistoryItem
-import com.repforge.app.presentation.components.CircleIconButton
+import com.repforge.app.domain.metrics.HistoryDay
 import com.repforge.app.presentation.components.EmptyState
-import com.repforge.app.presentation.components.LargeTitleHeader
 import com.repforge.app.presentation.components.RfCard
 import com.repforge.app.presentation.components.SectionHeader
+import com.repforge.app.presentation.exerciseDisplayName
 import com.repforge.app.presentation.formatCount
 import com.repforge.app.presentation.pluralCount
-import java.time.Instant
+import com.repforge.app.presentation.progress.BackHeader
+import com.repforge.app.presentation.progress.rememberListDateFormat
 import java.time.YearMonth
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -48,27 +49,23 @@ import java.util.Locale
 fun HistoryScreen(viewModel: HistoryViewModel, onOpenSession: (Long) -> Unit, onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val locale = LocalConfiguration.current.locales[0]
-    val dayFormat = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
+    val dayFormat = rememberListDateFormat()
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
     LazyColumn(
         Modifier.fillMaxSize().padding(padding),
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item {
-            LargeTitleHeader(stringResource(R.string.t5_history_title), action = {
-                CircleIconButton(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back), onBack)
-            })
-        }
+        item { BackHeader(stringResource(R.string.t5_history_title), onBack) }
         if (state.loaded && state.months.isEmpty()) item {
             EmptyState(Icons.Outlined.History, stringResource(R.string.t5_history_empty_title), stringResource(R.string.t5_history_empty_body))
         }
-        state.months.forEach { (month, sessions) ->
+        state.months.forEach { (month, days) ->
             item(key = "m$month") {
                 SectionHeader(monthLabel(month, locale), modifier = Modifier.padding(horizontal = 16.dp).padding(top = 12.dp))
             }
-            items(sessions, key = { "s${it.id}" }) { s ->
-                SessionRow(s, dayFormat, locale, Modifier.padding(horizontal = 16.dp)) { onOpenSession(s.id) }
+            items(days, key = { "d${it.date}" }) { d ->
+                DayRow(d, dayFormat, locale, Modifier.padding(horizontal = 16.dp), onOpenSession)
             }
         }
     }
@@ -79,21 +76,34 @@ private fun monthLabel(month: YearMonth, locale: Locale) =
     month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale).replaceFirstChar { it.titlecase(locale) } + " " + month.year
 
 @Composable
-private fun SessionRow(s: HistoryItem, dayFormat: DateTimeFormatter, locale: Locale, modifier: Modifier, onClick: () -> Unit) {
-    val date = Instant.ofEpochMilli(s.startedAt).atZone(ZoneId.systemDefault()).toLocalDate().format(dayFormat)
-    val meta = listOf(
-        formatDuration((s.durationMs / 1000).toInt()),
-        pluralCount(R.plurals.sets_count, s.sets),
-        formatCount(s.volumeKg, locale) + " kg"
+private fun DayRow(d: HistoryDay, dayFormat: DateTimeFormatter, locale: Locale, modifier: Modifier, onOpenSession: (Long) -> Unit) {
+    var expanded by rememberSaveable(d.date) { mutableStateOf(false) }
+    val meta = listOfNotNull(
+        d.durationMs?.let { formatDuration((it / 1000).toInt()) },
+        pluralCount(R.plurals.sets_count, d.sets),
+        formatCount(d.volumeKg, locale) + " kg"
     ).joinToString(" · ")
-    RfCard(modifier.fillMaxWidth(), onClick = onClick) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(s.sheetName ?: stringResource(R.string.t5_history_untitled), style = MaterialTheme.typography.titleMedium)
-                Text(date, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val sessionId = d.sessionId
+    RfCard(modifier.fillMaxWidth(), onClick = { if (sessionId != null) onOpenSession(sessionId) else expanded = !expanded }) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(d.date.format(dayFormat), style = MaterialTheme.typography.titleMedium)
+                    Text(d.sheetNames.joinToString(", "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(
+                    if (sessionId != null) Icons.AutoMirrored.Outlined.KeyboardArrowRight else if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                    contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (sessionId == null && expanded) d.exercises.forEach { e ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(exerciseDisplayName(e.name), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    val best = if (e.bestWeightKg > 0) " · " + stringResource(R.string.t5_history_best, formatCount(e.bestWeightKg, locale) + " kg × " + e.bestReps) else ""
+                    Text(pluralCount(R.plurals.sets_count, e.sets) + best, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
     }
 }

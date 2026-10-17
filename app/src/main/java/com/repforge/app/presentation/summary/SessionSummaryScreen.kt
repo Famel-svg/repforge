@@ -38,6 +38,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.navigation.NavBackStackEntry
 import com.repforge.app.R
 import com.repforge.app.domain.logging.formatDistanceKm
 import com.repforge.app.domain.logging.formatDuration
@@ -58,45 +60,54 @@ import com.repforge.app.presentation.workout.rememberReducedMotion
 
 /** Full-screen celebration after a workout: scale-in check, stat tiles, new records and a filled "Done". */
 @Composable
-fun SessionSummaryScreen(viewModel: SessionSummaryViewModel, onDone: () -> Unit) {
+fun SessionSummaryScreen(
+    viewModel: SessionSummaryViewModel,
+    onDone: () -> Unit,
+    // Route `summary/{sessionId}?history={bool}` wins when set; the parameter is the fallback for callers that pass it directly.
+    fromHistory: Boolean = false
+) {
+    val history = fromHistory || ((LocalViewModelStoreOwner.current as? NavBackStackEntry)?.arguments?.getBoolean("history", false) == true)
     val summary by viewModel.state.collectAsStateWithLifecycle()
+    val header by viewModel.header.collectAsStateWithLifecycle()
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val s = summary
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (s == null) CircularProgressIndicator(Modifier.align(Alignment.Center))
-            else Summary(s)
+            else Summary(s, history, header)
         }
         Button(
             onClick = onDone, shape = CircleShape,
             modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp).heightIn(min = 52.dp)
-        ) { Text(stringResource(R.string.summary_done), style = MaterialTheme.typography.labelLarge) }
+        ) { Text(stringResource(if (history) R.string.t4_summary_back else R.string.summary_done), style = MaterialTheme.typography.labelLarge) }
     }
 }
 
 @Composable
-private fun Summary(s: SessionSummary) {
+private fun Summary(s: SessionSummary, history: Boolean, header: Pair<String?, Long>?) {
     val locale = LocalConfiguration.current.locales[0]
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 16.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        CheckBadge()
+        if (!history) CheckBadge()
         Text(
-            stringResource(R.string.summary_title), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onSurface,
+            if (history) listOfNotNull(header?.first, header?.second?.let { java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM, locale).format(java.util.Date(it)) })
+                .joinToString(" · ").ifEmpty { stringResource(R.string.t4_summary_back) }
+            else stringResource(R.string.summary_title), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center, modifier = Modifier.semantics { heading() }
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatTile(stringResource(R.string.summary_duration), formatDuration((s.durationMs / 1000).toInt()), Modifier.weight(1f))
             StatTile(stringResource(R.string.summary_sets), s.sets.toString(), Modifier.weight(1f))
-            StatTile(stringResource(R.string.summary_volume), formatCount(kotlin.math.round(s.volumeKg), locale) + " kg", Modifier.weight(1f))
+            StatTile(stringResource(R.string.summary_volume), formatCount(s.volumeKg, locale) + " kg", Modifier.weight(1f))
         }
         if (s.sets == 0) Text(stringResource(R.string.summary_empty), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         else {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionHeader(stringResource(R.string.summary_records))
+                SectionHeader(stringResource(if (history) R.string.t4_summary_records_neutral else R.string.summary_records))
                 RfCard(Modifier.fillMaxWidth()) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (s.records.isEmpty()) Text(stringResource(R.string.summary_no_records), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (s.records.isEmpty()) Text(stringResource(if (history) R.string.t4_summary_no_records_history else R.string.summary_no_records), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         s.records.forEach { r ->
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Tag(stringResource(R.string.t4_summary_pr_badge), TagTone.Accent)

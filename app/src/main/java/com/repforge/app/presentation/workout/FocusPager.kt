@@ -106,7 +106,8 @@ internal fun FocusPage(
     canMoveDown: Boolean,
     linkedNext: Boolean,
     actions: FocusActions,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    bottomInset: androidx.compose.ui.unit.Dp = 0.dp
 ) {
     val zone = remember { ZoneId.systemDefault() }
     val now = remember(entries) { System.currentTimeMillis() }
@@ -185,7 +186,8 @@ internal fun FocusPage(
             onCheck = { p, d -> if (actions.onLog(p, d)) drafts.remove(p) },
             onUncheck = actions.onUncheck, onAddRow = actions.onAddRow
         )
-        Spacer(Modifier.height(24.dp))
+        // Room for the floating rest card lives inside the scroll area so the viewport stays full height (landscape).
+        Spacer(Modifier.height(24.dp + bottomInset))
     }
 
     if (showPlates) PlatesDialog(draftAt(today.size).weightKg, isPro, onUpgrade = { showPlates = false; actions.onUpgrade() }, onDismiss = { showPlates = false })

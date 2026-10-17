@@ -49,7 +49,7 @@ fun AreaLineChart(
         if (hi - lo < 1e-3f) { lo -= 1f; hi += 1f }
         val pad = (hi - lo) * 0.1f; lo -= pad; hi += pad
         val tickW = measurer.measure(fmt(hi), small).size.width + 8.dp.toPx()
-        val labelH = if (labels.isEmpty()) 0f else 20.dp.toPx()
+        val labelH = if (labels.isEmpty()) 0f else 26.dp.toPx()
         val left = tickW; val top = 8.dp.toPx(); val right = size.width - 16.dp.toPx(); val bottom = size.height - labelH
         fun y(v: Float) = bottom - (v - lo) / (hi - lo) * (bottom - top)
         fun x(i: Int) = if (points.size == 1) (left + right) / 2 else left + i * (right - left) / (points.size - 1)
@@ -59,12 +59,13 @@ fun AreaLineChart(
             val v = lo + (hi - lo) * k / 2f
             drawLine(cs.outlineVariant, Offset(left, y(v)), Offset(right, y(v)), 1.dp.toPx(), pathEffect = dots)
             val m = measurer.measure(fmt(v), small)
-            drawText(m, topLeft = Offset(left - m.size.width - 6.dp.toPx(), y(v) - m.size.height / 2f))
+            // lowest tick sits above its gridline so it never collides with the x labels
+            drawText(m, topLeft = Offset(left - m.size.width - 6.dp.toPx(), if (k == 0) y(v) - m.size.height else y(v) - m.size.height / 2f))
         }
         labels.forEachIndexed { i, l ->
             val m = measurer.measure(l, small)
             val cx = if (labels.size == 1) left else left + i * (right - left) / (labels.size - 1)
-            drawText(m, topLeft = Offset((cx - m.size.width / 2f).coerceIn(0f, size.width - m.size.width), bottom + 4.dp.toPx()))
+            drawText(m, topLeft = Offset((cx - m.size.width / 2f).coerceIn(0f, size.width - m.size.width), bottom + 8.dp.toPx()))
         }
         if (goal != null) drawLine(
             cs.tertiary, Offset(left, y(goal)), Offset(right, y(goal)), 1.5.dp.toPx(),

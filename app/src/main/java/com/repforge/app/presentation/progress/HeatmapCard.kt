@@ -2,6 +2,7 @@ package com.repforge.app.presentation.progress
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -48,7 +49,7 @@ private fun heatColor(level: Int): Color =
 @Composable
 fun HeatmapCard(heatmap: Heatmap) {
     val locale = LocalConfiguration.current.locales[0]
-    val dateFormat = remember(locale) { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale) }
+    val dateFormat = rememberListDateFormat()
     var selected by remember { mutableStateOf<HeatmapCell?>(null) }
     val measurer = rememberTextMeasurer()
     val labelStyle = TextStyle(fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -61,42 +62,48 @@ fun HeatmapCard(heatmap: Heatmap) {
             Text(stringResource(R.string.heatmap_title), style = MaterialTheme.typography.titleMedium)
             Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant)
             val cols = heatmap.weeks.size.coerceAtLeast(1)
-            Canvas(
-                Modifier.fillMaxWidth().height(100.dp).semantics { contentDescription = description }
-                    .pointerInput(heatmap) {
-                        detectTapGestures { p ->
-                            val cell = size.width / cols.toFloat()
-                            val top = 14.dp.toPx()
-                            val w = (p.x / cell).toInt()
-                            val r = ((p.y - top) / cell).toInt()
-                            selected = if (p.y >= top) heatmap.weeks.getOrNull(w)?.getOrNull(r) else null
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                // Square cells capped at the legend's size so the canvas is exactly as tall as the grid.
+                val cellDp = minOf(maxWidth / cols, 12.dp)
+                val topDp = 14.dp
+                Canvas(
+                    Modifier.fillMaxWidth().height(topDp + cellDp * 7).semantics { contentDescription = description }
+                        .pointerInput(heatmap) {
+                            detectTapGestures { p ->
+                                val cell = cellDp.toPx()
+                                val top = topDp.toPx()
+                                val w = (p.x / cell).toInt()
+                                val r = ((p.y - top) / cell).toInt()
+                                selected = if (p.y >= top) heatmap.weeks.getOrNull(w)?.getOrNull(r) else null
+                            }
                         }
-                    }
-            ) {
-                val cell = size.width / cols
-                val gap = cell * 0.18f
-                val top = 14.dp.toPx()
-                var lastLabel = -3
-                heatmap.weeks.forEachIndexed { w, days ->
-                    days.firstOrNull { it?.date?.dayOfMonth == 1 }?.let { first ->
-                        if (w - lastLabel >= 3) {
-                            lastLabel = w
-                            drawText(measurer, first.date.month.getDisplayName(DateTextStyle.SHORT, locale), Offset(w * cell, 0f), labelStyle)
-                        }
-                    }
-                    days.forEachIndexed { r, c ->
-                        if (c != null) drawRoundRect(
-                            colors[c.level], Offset(w * cell, top + r * cell), Size(cell - gap, cell - gap), CornerRadius(3.dp.toPx())
-                        )
-                    }
-                }
-                selected?.let { s ->
+                ) {
+                    val cell = cellDp.toPx()
+                    val gap = 2.dp.toPx()
+                    val radius = CornerRadius((cell - gap) * 0.3f) // legend proportions: 3dp on 10dp
+                    val top = topDp.toPx()
+                    var lastLabel = -3
                     heatmap.weeks.forEachIndexed { w, days ->
-                        val r = days.indexOf(s)
-                        if (r >= 0) drawRoundRect(
-                            colors[4], Offset(w * cell, top + r * cell), Size(cell - gap, cell - gap), CornerRadius(3.dp.toPx()),
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx())
-                        )
+                        days.firstOrNull { it?.date?.dayOfMonth == 1 }?.let { first ->
+                            if (w - lastLabel >= 3) {
+                                lastLabel = w
+                                drawText(measurer, first.date.month.getDisplayName(DateTextStyle.SHORT, locale), Offset(w * cell, 0f), labelStyle)
+                            }
+                        }
+                        days.forEachIndexed { r, c ->
+                            if (c != null) drawRoundRect(
+                                colors[c.level], Offset(w * cell, top + r * cell), Size(cell - gap, cell - gap), radius
+                            )
+                        }
+                    }
+                    selected?.let { s ->
+                        heatmap.weeks.forEachIndexed { w, days ->
+                            val r = days.indexOf(s)
+                            if (r >= 0) drawRoundRect(
+                                colors[4], Offset(w * cell, top + r * cell), Size(cell - gap, cell - gap), radius,
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx())
+                            )
+                        }
                     }
                 }
             }

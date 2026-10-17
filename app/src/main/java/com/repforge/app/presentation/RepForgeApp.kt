@@ -117,10 +117,14 @@ fun RepForgeApp(initialSheetId: Long? = null) {
             if (currentRoute == SETTINGS_ROUTE || Destination.entries.any { it.route == currentRoute }) RepForgeBottomBar(
                 currentRoute, resuming = homeState.resume != null, onStart = ::onStartTap,
                 onTab = { destination ->
-                    navController.navigate(destination.route) {
-                        popUpTo(Destination.Home.route) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                    if (destination == Destination.Home) navController.popBackStack(Destination.Home.route, inclusive = false)
+                    else {
+                        val fromSettings = currentRoute == SETTINGS_ROUTE // not a tab: never save/restore it
+                        navController.navigate(destination.route) {
+                            popUpTo(Destination.Home.route) { saveState = !fromSettings }
+                            launchSingleTop = true
+                            restoreState = !fromSettings
+                        }
                     }
                 }
             )
@@ -161,7 +165,7 @@ fun RepForgeApp(initialSheetId: Long? = null) {
             composable("history") {
                 HistoryScreen(
                     viewModel { HistoryViewModel(application.repository) },
-                    onOpenSession = { navController.navigate("summary/$it") },
+                    onOpenSession = { navController.navigate("summary/$it?history=true") },
                     onBack = dropUnlessResumed { navController.popBackStack() }
                 )
             }
@@ -194,7 +198,10 @@ fun RepForgeApp(initialSheetId: Long? = null) {
                     }
                 )
             }
-            composable("summary/{$SESSION_ID}", arguments = listOf(navArgument(SESSION_ID) { type = NavType.LongType })) { entry ->
+            composable(
+                "summary/{$SESSION_ID}?history={history}",
+                arguments = listOf(navArgument(SESSION_ID) { type = NavType.LongType }, navArgument("history") { type = NavType.BoolType; defaultValue = false })
+            ) { entry ->
                 val sessionId = entry.arguments!!.getLong(SESSION_ID)
                 val done = dropUnlessResumed { navController.popBackStack() }
                 SessionSummaryScreen(viewModel { SessionSummaryViewModel(application.repository, application.catalog, sessionId) }, onDone = done)

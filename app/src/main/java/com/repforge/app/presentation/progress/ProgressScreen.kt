@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.FitnessCenter
@@ -58,7 +57,6 @@ import com.repforge.app.domain.logging.formatDistanceKm
 import com.repforge.app.domain.logging.formatDuration
 import com.repforge.app.domain.metrics.DayVolume
 import com.repforge.app.domain.metrics.ExerciseHistory
-import com.repforge.app.domain.metrics.MuscleSets
 import com.repforge.app.domain.metrics.ProgressPoint
 import com.repforge.app.domain.metrics.ProgressRange
 import com.repforge.app.domain.metrics.WeightRange
@@ -77,14 +75,13 @@ import com.repforge.app.presentation.components.Tag
 import com.repforge.app.presentation.components.TagTone
 import com.repforge.app.presentation.exerciseDisplayName
 import com.repforge.app.presentation.formatCount
-import com.repforge.app.presentation.muscleLabel
 import com.repforge.app.presentation.pluralCount
 import java.time.DayOfWeek
 import java.time.format.DateTimeFormatter
 
 /** "dd/MM" in pt-BR, "MM/dd" in en. */
 @Composable
-private fun dayFormat(): DateTimeFormatter {
+internal fun dayFormat(): DateTimeFormatter {
     val locale = LocalConfiguration.current.locales[0]
     return remember(locale) { DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, "dd/MM"), locale) }
 }
@@ -120,6 +117,7 @@ private fun Gutter(content: @Composable () -> Unit) = Box(Modifier.padding(horiz
 
 @Composable
 fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit, onOpenHistory: () -> Unit = {}) {
+    val listDate = rememberListDateFormat()
     val state by viewModel.state.collectAsStateWithLifecycle()
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         LazyColumn(
@@ -150,8 +148,7 @@ fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit, onOpenHi
                     }
                 }
             }
-            item { Gutter { BodyMapCard(state.bodyMap, state.muscleLocked, onOpenPro) } }
-            item { Gutter { MuscleVolumeCard(state.muscleWeeks, state.muscleLocked, onOpenPro) } }
+            item { Gutter { BodyMapCard(state.bodyMap, state.muscleWeeks, state.muscleLocked, onOpenPro) } }
             item { SectionHeader(stringResource(R.string.progress_by_exercise), modifier = Modifier.padding(horizontal = 16.dp).padding(top = 12.dp)) }
             if (state.exercises.isEmpty()) {
                 item { Gutter { Text(stringResource(R.string.exercises_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
@@ -209,7 +206,7 @@ fun ProgressScreen(viewModel: ProgressViewModel, onOpenPro: () -> Unit, onOpenHi
                 Gutter {
                     RfCard(Modifier.fillMaxWidth()) {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("${weekday(w.date.dayOfWeek)}, ${w.date.format(dayFormat())}", style = MaterialTheme.typography.titleMedium)
+                            Text("${weekday(w.date.dayOfWeek)}, ${w.date.format(listDate)}", style = MaterialTheme.typography.titleMedium)
                             Text(w.sheetNames.joinToString(", "))
                             Text(pluralCount(R.plurals.sets_count, w.sets) + " · " + kg(w.volumeKg), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -248,11 +245,11 @@ private fun StatTiles(state: ProgressUiState) {
     val delta = state.weightDeltaKg
     val latest = state.latestWeightKg
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatTile(Icons.Outlined.LocalFireDepartment, stringResource(R.string.streak), pluralCount(R.plurals.days_count, c.currentStreak), Modifier.weight(1f), iconTint = cs.secondary)
             StatTile(Icons.Outlined.CalendarMonth, stringResource(R.string.last_7_days), stringResource(R.string.x_of_7, c.daysLast7), Modifier.weight(1f))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatTile(Icons.Outlined.FitnessCenter, stringResource(R.string.days_trained), "${c.totalDays}", Modifier.weight(1f))
             val good = delta == null || latest == null || (state.weightGoalKg?.let { (latest - it) * delta <= 0 } ?: (delta <= 0))
             StatTile(
@@ -268,7 +265,7 @@ private fun StatTile(
     icon: ImageVector, label: String, value: String, modifier: Modifier,
     iconTint: Color = MaterialTheme.colorScheme.primary, sub: String? = null, subColor: Color = Color.Unspecified
 ) {
-    RfCard(modifier.fillMaxWidth()) {
+    RfCard(modifier.fillMaxSize()) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
@@ -368,47 +365,5 @@ private fun ProgressChart(
         Text(stringResource(captionRes, format(min), format(max)), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         AreaLineChart(series.map { it.value.toFloat() }, null, labelIndices(series.size).map { series[it].date.format(dayFormat) })
         if (series.size == 1) Text(stringResource(R.string.log_more_for_line), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun sets(v: Double) = formatCount(v, LocalConfiguration.current.locales[0])
-
-@Composable
-private fun MuscleVolumeCard(weeks: List<List<MuscleSets>>, locked: Boolean, onOpenPro: () -> Unit) {
-    val current = weeks.firstOrNull().orEmpty()
-    val max = (weeks.flatten().maxOfOrNull { it.sets } ?: 0.0).coerceAtLeast(1.0)
-    val labels = stringArrayResource(R.array.week_labels)
-    RfCard(Modifier.fillMaxWidth(), padding = 18.dp) {
-        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(R.string.weekly_muscle_volume), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.weekly_muscle_hint), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-            if (current.isEmpty()) Text(stringResource(R.string.log_sets_for_muscle), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            current.forEach { m ->
-                val before = weeks.drop(1).map { w -> w.firstOrNull { it.muscle == m.muscle }?.sets ?: 0.0 }
-                val muscleName = muscleLabel(m.muscle)
-                val desc = stringResource(R.string.muscle_sets_value, muscleName, sets(m.sets)) +
-                    if (before.isEmpty()) "" else stringResource(R.string.previous_weeks, before.map { sets(it) }.joinToString(", "))
-                Column(Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = desc }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(muscleName, style = MaterialTheme.typography.labelLarge)
-                        Text(com.repforge.app.presentation.setsText(m.sets), style = MaterialTheme.typography.labelLarge)
-                    }
-                    MuscleBar(m.sets / max)
-                    if (before.isNotEmpty()) Text(
-                        before.mapIndexed { i, v -> "${labels[i + 1]} ${sets(v)}" }.joinToString(" · "),
-                        style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            if (locked) ProUpsell(onOpenPro, stringResource(R.string.upsell_muscle_title), stringResource(R.string.upsell_muscle_body))
-        }
-    }
-}
-
-@Composable
-private fun MuscleBar(fraction: Double) {
-    Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-        Row(Modifier.fillMaxHeight().fillMaxWidth(fraction.toFloat().coerceIn(0.02f, 1f)).background(MaterialTheme.colorScheme.primary)) {}
     }
 }

@@ -114,4 +114,16 @@ class SetLoggingTest {
         assertFalse(beatsKindRecord("bodyweight", prev, 0.0, null, null))
         assertFalse(beatsKindRecord("timed", emptyList(), 0.0, 60, null))
     }
+
+    @Test fun typedLoadIsStoredExactly() {
+        val pt = java.util.Locale("pt", "BR")
+        assertEquals(72.5, parseLoadKg("72.5")!!, 0.0)
+        assertEquals(72.5, parseLoadKg("72,5")!!, 0.0)
+        assertEquals(72.55, parseLoadKg("72.55")!!, 0.0)
+        assertEquals(72.5, parseLoadKg("72.504")!!, 0.0)
+        assertEquals("72,5", formatWeightInput(parseLoadKg("72.5")!!, pt))
+        assertEquals("72,55", formatWeightInput(72.55, pt))
+        assertEquals("72,5 kg", formatKg(72.5, pt))
+        assertEquals(75.0, stepWeightKg(72.5, WEIGHT_STEP_KG), 0.0)
+    }
 }

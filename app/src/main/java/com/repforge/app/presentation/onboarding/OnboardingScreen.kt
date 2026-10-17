@@ -30,6 +30,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,11 +90,13 @@ fun OnboardingScreen(onFinish: () -> Unit, onFinishWithTemplate: () -> Unit = on
             onClick = { if (last) onFinish() else scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } },
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp), shape = CircleShape, colors = pill,
         ) { Text(stringResource(if (last) R.string.get_started else R.string.next), style = MaterialTheme.typography.labelLarge) }
-        if (last) {
-            Spacer(Modifier.height(8.dp))
-            TextButton(onClick = onFinishWithTemplate, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-                Text(stringResource(R.string.start_with_template), style = MaterialTheme.typography.labelLarge, color = cs.primary)
-            }
+        // Slot is always laid out (invisible before the last page) so pages keep the same content height.
+        Spacer(Modifier.height(8.dp))
+        TextButton(
+            onClick = onFinishWithTemplate, enabled = last,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).alpha(if (last) 1f else 0f).clearAndSetSemantics {}
+        ) {
+            Text(stringResource(R.string.start_with_template), style = MaterialTheme.typography.labelLarge, color = cs.primary)
         }
     }
 }

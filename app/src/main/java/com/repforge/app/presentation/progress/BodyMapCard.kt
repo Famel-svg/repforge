@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -39,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import com.repforge.app.R
 import com.repforge.app.domain.metrics.BODY_MUSCLES
 import com.repforge.app.domain.metrics.BodyRange
+import com.repforge.app.domain.metrics.MuscleSets
+import com.repforge.app.domain.metrics.bodyMuscleTotals
 import com.repforge.app.presentation.formatCount
 import com.repforge.app.presentation.muscleLabel
 
@@ -103,7 +106,7 @@ private fun Figure(regions: List<Region>, totals: Map<String, Double>, max: Doub
 }
 
 @Composable
-fun BodyMapCard(bodyMap: Map<BodyRange, Map<String, Double>>, locked: Boolean, onOpenPro: () -> Unit) {
+fun BodyMapCard(bodyMap: Map<BodyRange, Map<String, Double>>, muscleWeeks: List<List<MuscleSets>>, locked: Boolean, onOpenPro: () -> Unit) {
     var range by rememberSaveable { mutableStateOf(BodyRange.Week) }
     val rangeLocked = range.pro && locked
     val totals = if (rangeLocked) emptyMap() else bodyMap[range].orEmpty()
@@ -112,6 +115,9 @@ fun BodyMapCard(bodyMap: Map<BodyRange, Map<String, Double>>, locked: Boolean, o
     fun n(v: Double) = formatCount(v, locale)
     val ranked = BODY_MUSCLES.filter { (totals[it] ?: 0.0) > 0 }.sortedByDescending { totals[it] }
     val untrained = BODY_MUSCLES.filter { (totals[it] ?: 0.0) <= 0 }
+    // Pro: previous weeks next to the current one (week view only).
+    val weekLabels = stringArrayResource(R.array.week_labels)
+    val before = if (range == BodyRange.Week && !locked) muscleWeeks.drop(1).map { bodyMuscleTotals(listOf(it)) } else emptyList()
     val labels = BODY_MUSCLES.map { it to muscleLabel(it) }.toMap()
     val summary = ranked.joinToString(", ") { "${labels.getValue(it)} ${n(totals.getValue(it))}" }
         .ifEmpty { stringResource(R.string.bodymap_none) }
@@ -147,10 +153,16 @@ fun BodyMapCard(bodyMap: Map<BodyRange, Map<String, Double>>, locked: Boolean, o
                     }
                 }
                 if (ranked.isEmpty()) Text(stringResource(R.string.bodymap_none), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                ranked.forEach {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(labels.getValue(it), style = MaterialTheme.typography.labelLarge)
-                        Text(com.repforge.app.presentation.setsText(totals.getValue(it)), style = MaterialTheme.typography.labelLarge)
+                ranked.forEach { m ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(labels.getValue(m), style = MaterialTheme.typography.labelLarge)
+                            Text(com.repforge.app.presentation.setsText(totals.getValue(m)), style = MaterialTheme.typography.labelLarge)
+                        }
+                        if (before.isNotEmpty()) Text(
+                            before.mapIndexed { i, w -> "${weekLabels[i + 1]} ${n(w[m] ?: 0.0)}" }.joinToString(" · "),
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
                 Text(stringResource(R.string.bodymap_untrained), style = MaterialTheme.typography.titleSmall)

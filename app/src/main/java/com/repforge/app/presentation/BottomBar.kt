@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -53,13 +54,13 @@ internal fun RepForgeBottomBar(currentRoute: String?, resuming: Boolean, onTab: 
     val onAccent = if (resuming) cs.onSecondary else cs.onPrimary
     Column(Modifier.background(cs.surfaceContainerLow).navigationBarsPadding()) {
         HairlineDivider()
-        Row(Modifier.fillMaxWidth().height(72.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(80.dp), verticalAlignment = Alignment.CenterVertically) {
             val tab = @Composable { d: Destination, m: Modifier -> TabItem(d, currentRoute == d.route, m) { onTab(d) } }
             tab(Destination.Home, Modifier.weight(1f))
             tab(Destination.Plan, Modifier.weight(1f))
-            Box(Modifier.weight(1f).height(72.dp)) {
+            Box(Modifier.weight(1f).height(80.dp)) {
                 Column(
-                    Modifier.align(Alignment.Center).offset(y = (-6).dp).pressScale()
+                    Modifier.align(Alignment.Center).offset(y = (-2).dp).pressScale()
                         .selectable(selected = false, role = Role.Button, onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onStart() }),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -69,6 +70,7 @@ internal fun RepForgeBottomBar(currentRoute: String?, resuming: Boolean, onTab: 
                             .background(accent, CircleShape),
                         contentAlignment = Alignment.Center
                     ) { Icon(if (resuming) Icons.Rounded.PlayArrow else Icons.Rounded.FitnessCenter, contentDescription = null, tint = onAccent, modifier = Modifier.size(28.dp)) }
+                    Spacer(Modifier.height(8.dp)) // clears the 5dp halo ring
                     Text(stringResource(if (resuming) R.string.t2_tab_resume else R.string.t2_tab_start), style = MaterialTheme.typography.labelSmall, color = accent)
                 }
             }
@@ -82,7 +84,7 @@ internal fun RepForgeBottomBar(currentRoute: String?, resuming: Boolean, onTab: 
 private fun TabItem(d: Destination, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
     Column(
-        modifier.height(72.dp).selectable(selected = selected, role = Role.Tab, onClick = onClick),
+        modifier.height(80.dp).selectable(selected = selected, role = Role.Tab, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
     ) {
         Icon(d.icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))

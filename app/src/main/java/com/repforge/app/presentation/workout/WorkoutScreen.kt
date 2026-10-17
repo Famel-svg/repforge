@@ -167,7 +167,7 @@ import com.repforge.app.domain.model.SET_NORMAL
 import com.repforge.app.domain.model.SET_TYPES
 import com.repforge.app.domain.model.SET_WARMUP
 import com.repforge.app.domain.model.SetEntry
-import com.repforge.app.domain.validation.parseWeightKg
+import com.repforge.app.domain.logging.parseLoadKg
 import com.repforge.app.domain.validation.validateSetInput
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -207,6 +207,7 @@ fun WorkoutScreen(
     var remaining by rememberSaveable { mutableStateOf(restSeconds) }
     var restTotal by rememberSaveable { mutableStateOf(restSeconds) }
     var appliedRest by rememberSaveable { mutableStateOf(restSeconds) }
+    var restExerciseId by rememberSaveable { mutableStateOf(-1L) }
     var running by rememberSaveable { mutableStateOf(false) }
     // Bumped by "+15s" so the notification/alarm is rescheduled for the new end time.
     var extended by rememberSaveable { mutableIntStateOf(0) }
@@ -314,12 +315,16 @@ fun WorkoutScreen(
     /** Shared tail of every logged set: haptics, rest (only after a superset's last exercise) and the confirmation snackbar. */
     fun afterLog(index: Int, groups: List<Int?>, record: String?) {
         if (preferences.hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-        if (isGroupEnd(groups, index)) startRest()
+        if (isGroupEnd(groups, index)) { restExerciseId = exercises[index].id; startRest() }
         else { expandedId = exercises[index + 1].id; goTo(index + 1) }
         announce(if (record != null) context.getString(R.string.new_pr, record) else context.getString(R.string.set_logged))
     }
 
     fun deleteWithUndo(entry: SetEntry) {
+        // Unchecking the set that started the running rest cancels that rest.
+        if (restExerciseId == entry.exerciseId && entriesByExercise?.get(entry.exerciseId)?.firstOrNull()?.id == entry.id) {
+            running = false; remaining = restSeconds; restTotal = restSeconds; restExerciseId = -1L
+        }
         viewModel.deleteEntry(entry.id)
         announce(context.getString(R.string.set_removed), context.getString(R.string.undo)) { viewModel.restoreEntry(entry) }
     }
@@ -360,6 +365,7 @@ fun WorkoutScreen(
         done to total
     }
     val restVisible = running || remaining != restSeconds
+    var restCardHeightPx by remember { mutableStateOf(0) }
 
     Scaffold(
         topBar = {
@@ -419,7 +425,8 @@ fun WorkoutScreen(
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            val restInset = if (restVisible) REST_CARD_INSET else 0.dp
+            // Measured card height plus its 12dp margins; 0 until first layout.
+            val restInset = if (restVisible) with(LocalDensity.current) { restCardHeightPx.toDp() } + 24.dp else 0.dp
             if (exercises.isEmpty()) Text(stringResource(R.string.add_exercises_hint), Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
             else if (listMode) LazyColumn(Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 itemsIndexed(exercises, key = { _, item -> item.id }) { index, exercise ->
@@ -470,7 +477,7 @@ fun WorkoutScreen(
                     canMoveUp = page > 0, canMoveDown = page < exercises.lastIndex,
                     linkedNext = exercise.supersetGroup != null && groups.getOrNull(page + 1) == exercise.supersetGroup,
                     actions = actions,
-                    modifier = Modifier.padding(bottom = restInset)
+                    bottomInset = restInset
                 )
             }
             RestTimerCard(
@@ -478,6 +485,7 @@ fun WorkoutScreen(
                 onToggle = { if (remaining == 0) startRest() else running = !running },
                 onAdd = { remaining += 15; restTotal = maxOf(restTotal, remaining); extended++ },
                 onSkip = { running = false; remaining = restSeconds; restTotal = restSeconds },
+                onHeight = { restCardHeightPx = it },
                 modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp)
             )
         }
@@ -500,9 +508,6 @@ fun WorkoutScreen(
         dismissButton = { OutlinedButton(onClick = { showDiscard = false }) { Text(stringResource(R.string.cancel)) } }
     )
 }
-
-/** Rough height of the floating rest card plus margins; lists and pages reserve it so the last row stays reachable. */
-private val REST_CARD_INSET = 190.dp
 
 /** "mm:ss · a/b séries". Own composable so the once-a-second tick only recomposes the meta line. Time comes from the stored start. */
 @Composable
@@ -735,11 +740,11 @@ private fun ExerciseCard(
                 }
                 if (showLoadField) StepperField(
                     value = weightText, label = stringResource(R.string.load_kg), keyboardType = KeyboardType.Decimal,
-                    minusEnabled = (parseWeightKg(weightText) ?: 0.0) > 0.0,
+                    minusEnabled = (parseLoadKg(weightText) ?: 0.0) > 0.0,
                     minusDescription = stringResource(R.string.decrease_load), plusDescription = stringResource(R.string.increase_load),
                     onValueChange = { weightInput = it; inputError = null },
-                    onMinus = { weightInput = formatWeightInput(stepWeightKg(parseWeightKg(weightText), -WEIGHT_STEP_KG)); inputError = null },
-                    onPlus = { weightInput = formatWeightInput(stepWeightKg(parseWeightKg(weightText), WEIGHT_STEP_KG)); inputError = null },
+                    onMinus = { weightInput = formatWeightInput(stepWeightKg(parseLoadKg(weightText), -WEIGHT_STEP_KG)); inputError = null },
+                    onPlus = { weightInput = formatWeightInput(stepWeightKg(parseLoadKg(weightText), WEIGHT_STEP_KG)); inputError = null },
                     trailing = { IconButton(onClick = { showPlates = true }) { Icon(Icons.Rounded.FitnessCenter, stringResource(R.string.plate_calculator)) } }
                 )
                 TextButton(onClick = { showMore = !showMore }) { Text(stringResource(if (showMore) R.string.less else R.string.more)) }
@@ -757,9 +762,9 @@ private fun ExerciseCard(
                         // Timed/cardio sets log one rep and no load; a malformed duration/distance becomes -1 so validation rejects it.
                         val parsedReps = if (isLoadKind) repsText.trim().toIntOrNull() else 1
                         // Blank load means bodyweight; only a malformed number is an error.
-                        val parsedWeight = if (showLoadField) (if (weightText.isBlank()) 0.0 else parseWeightKg(weightText)) else 0.0
+                        val parsedWeight = if (showLoadField) (if (weightText.isBlank()) 0.0 else parseLoadKg(weightText)) else 0.0
                         val duration = if (isLoadKind) null else durationText.trim().let { if (it.isEmpty()) null else parseDuration(it) ?: -1 }
-                        val distance = if (kind != KIND_CARDIO) null else distanceText.trim().let { if (it.isEmpty()) null else parseWeightKg(it) ?: -1.0 }
+                        val distance = if (kind != KIND_CARDIO) null else distanceText.trim().let { if (it.isEmpty()) null else parseLoadKg(it) ?: -1.0 }
                         inputError = validateSetInput(1, parsedReps, parsedWeight) ?: validateKindEffort(kind, duration, distance)
                         if (inputError == null) {
                             val beat = setType != SET_WARMUP && beatsKindRecord(kind, entries, parsedWeight!!, duration, distance)
@@ -793,7 +798,7 @@ private fun ExerciseCard(
         }
     }
     }
-    if (showPlates) PlatesDialog(parseWeightKg(weightText) ?: 0.0, isPro, onUpgrade = { showPlates = false; onUpgrade() }, onDismiss = { showPlates = false })
+    if (showPlates) PlatesDialog(parseLoadKg(weightText) ?: 0.0, isPro, onUpgrade = { showPlates = false; onUpgrade() }, onDismiss = { showPlates = false })
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },

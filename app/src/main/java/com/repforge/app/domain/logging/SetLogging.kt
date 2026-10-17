@@ -45,7 +45,13 @@ fun entriesOnDay(entries: List<SetEntry>, now: Long, zone: ZoneId): List<SetEntr
 
 fun stepReps(current: Int?, delta: Int): Int = ((current ?: 0) + delta).coerceAtLeast(1)
 
-fun stepWeightKg(current: Double?, delta: Double): Double = ((current ?: 0.0) + delta).coerceAtLeast(0.0)
+fun stepWeightKg(current: Double?, delta: Double): Double = roundKg(((current ?: 0.0) + delta).coerceAtLeast(0.0))
+
+/** Rounds to 0.01 (decimal HALF_UP, so 72.5 stays 72.5 and no binary-float noise leaks into storage). */
+fun roundKg(kg: Double): Double = java.math.BigDecimal.valueOf(kg).setScale(2, java.math.RoundingMode.HALF_UP).toDouble()
+
+/** Parses a typed load ("72.5" or "72,5") to at most 0.01 kg; null when malformed. */
+fun parseLoadKg(text: String): Double? = com.repforge.app.domain.validation.parseWeightKg(text)?.let(::roundKg)
 
 /** Ids in display order after moving [id] one slot; null when it is absent or already at that end. */
 fun movedOrder(orderedIds: List<Long>, id: Long, up: Boolean): List<Long>? {
@@ -56,7 +62,8 @@ fun movedOrder(orderedIds: List<Long>, id: Long, up: Boolean): List<Long>? {
 }
 
 /** Numbers follow [locale] (device/app locale by default): "80,5" in pt-BR, "80.5" in en. */
-fun formatKg(weightKg: Double, locale: Locale = Locale.getDefault()): String = "%.1f kg".format(locale, weightKg)
+fun formatKg(weightKg: Double, locale: Locale = Locale.getDefault()): String =
+    (if (roundKg(weightKg) * 10 % 1.0 == 0.0) "%.1f kg" else "%.2f kg").format(locale, weightKg)
 
 /** "m:ss", or "h:mm:ss" from one hour; whole seconds. */
 fun formatDuration(totalSec: Int): String {
@@ -81,7 +88,7 @@ fun formatDistanceInput(km: Double, locale: Locale = Locale.getDefault()): Strin
 
 /** Text for the load field: "80" or "82,5". */
 fun formatWeightInput(weightKg: Double, locale: Locale = Locale.getDefault()): String =
-    if (weightKg % 1.0 == 0.0) weightKg.toLong().toString() else "%.1f".format(locale, weightKg)
+    if (weightKg % 1.0 == 0.0) weightKg.toLong().toString() else "%.2f".format(locale, weightKg).trimEnd('0')
 
 /**
  * Per-kind set text: reps "10 × 80,0 kg" (or "3 × 10 · 80,0 kg" for older aggregated rows), bodyweight "10×" / "10× + 5,0 kg",

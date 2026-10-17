@@ -49,9 +49,11 @@ import com.repforge.app.presentation.components.LargeTitleHeader
 import com.repforge.app.presentation.components.RfCard
 import com.repforge.app.presentation.components.SegmentedPill
 import com.repforge.app.presentation.res
-import java.text.DateFormat
+import com.repforge.app.domain.metrics.localDate
+import com.repforge.app.presentation.progress.BackHeader
+import com.repforge.app.presentation.progress.dayFormat
+import com.repforge.app.presentation.progress.rememberListDateFormat
 import java.time.ZoneId
-import java.util.Date
 
 @Composable
 fun BodyWeightScreen(viewModel: BodyWeightViewModel, onBack: () -> Unit) {
@@ -60,7 +62,9 @@ fun BodyWeightScreen(viewModel: BodyWeightViewModel, onBack: () -> Unit) {
     var input by rememberSaveable { mutableStateOf("") }
     var rangeIndex by rememberSaveable { mutableIntStateOf(1) }
     var error by remember { mutableStateOf<AppError?>(null) }
-    val dateFormat = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
+    val dateFormat = rememberListDateFormat()
+    val chartFormat = dayFormat()
+    val zone = ZoneId.systemDefault()
     val ranges = WeightRange.entries
     val rangeLabels = listOf(R.string.t5_range_30d, R.string.t5_range_90d, R.string.t5_range_1y, R.string.range_all).map { stringResource(it) }
     val shown = filterWeights(weights.asReversed(), ranges[rangeIndex], System.currentTimeMillis(), ZoneId.systemDefault())
@@ -72,9 +76,7 @@ fun BodyWeightScreen(viewModel: BodyWeightViewModel, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                LargeTitleHeader(stringResource(R.string.body_weight), action = {
-                    CircleIconButton(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.back), onBack)
-                })
+                BackHeader(stringResource(R.string.body_weight), onBack)
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
@@ -109,7 +111,7 @@ fun BodyWeightScreen(viewModel: BodyWeightViewModel, onBack: () -> Unit) {
                         } else {
                             AreaLineChart(
                                 shown.map { it.weightKg.toFloat() }, goal?.toFloat(),
-                                labelIndices(shown.size).map { dateFormat.format(Date(shown[it].recordedAt)) }
+                                labelIndices(shown.size).map { localDate(shown[it].recordedAt, zone).format(chartFormat) }
                             )
                         }
                     }
@@ -123,7 +125,7 @@ fun BodyWeightScreen(viewModel: BodyWeightViewModel, onBack: () -> Unit) {
                             if (i > 0) HairlineDivider(inset = 16.dp)
                             Row(Modifier.fillMaxWidth().padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(formatKg(w.weightKg), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-                                Text(dateFormat.format(Date(w.recordedAt)), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(localDate(w.recordedAt, zone).format(dateFormat), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 IconButton(onClick = { viewModel.delete(w.id) }) {
                                     Icon(Icons.Outlined.Delete, stringResource(R.string.remove_record_of, formatKg(w.weightKg)), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }

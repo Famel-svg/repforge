@@ -10,10 +10,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -252,9 +252,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
                     )
                     HairlineDivider()
                     SettingRow(Icons.Rounded.Palette, Blue, stringResource(R.string.accent_color))
-                    val dark = isSystemInDarkTheme()
-                    FlowRow(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Accent.entries.forEach { accent ->
+                    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                    Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                      Accent.entries.chunked(4).forEach { rowAccents ->
+                       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        rowAccents.forEach { accent ->
                             val selected = accent == state.accent
                             val name = stringResource(accent.label())
                             val swatch = Color(if (dark) accent.dark else accent.light)
@@ -272,6 +274,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, pro: ProStore, onOpenBodyWeight
                                 }
                             }
                         }
+                       }
+                      }
                     }
                 }
 

@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
@@ -66,7 +67,7 @@ import com.repforge.app.domain.model.RPE_VALUES
 import com.repforge.app.domain.model.SET_NORMAL
 import com.repforge.app.domain.model.SET_TYPES
 import com.repforge.app.domain.model.SetEntry
-import com.repforge.app.domain.validation.parseWeightKg
+import com.repforge.app.domain.logging.parseLoadKg
 import com.repforge.app.presentation.components.RfCard
 
 /** Editable values of one pending row; only the fields of the exercise kind are used when logging. */
@@ -101,11 +102,11 @@ private const val DISTANCE_STEP_KM = 0.5
 
 private val weightCol = SetColumn(
     R.string.t4_col_weight, true, { load(it.weightKg) }, { d, s -> d.copy(weightKg = stepWeightKg(d.weightKg, s * WEIGHT_STEP_KG)) },
-    { d, t -> parseWeightKg(t)?.takeIf { it >= 0 }?.let { d.copy(weightKg = it) } }, { load(it.weightKg) }
+    { d, t -> parseLoadKg(t)?.takeIf { it >= 0 }?.let { d.copy(weightKg = it) } }, { load(it.weightKg) }
 )
 private val extraCol = SetColumn(
     R.string.t4_col_extra, true, { extra(it.weightKg) }, { d, s -> d.copy(weightKg = stepWeightKg(d.weightKg, s * WEIGHT_STEP_KG)) },
-    { d, t -> parseWeightKg(t)?.takeIf { it >= 0 }?.let { d.copy(weightKg = it) } }, { extra(it.weightKg) }
+    { d, t -> parseLoadKg(t)?.takeIf { it >= 0 }?.let { d.copy(weightKg = it) } }, { extra(it.weightKg) }
 )
 private val repsCol = SetColumn(
     R.string.t4_col_reps, false, { it.reps.toString() }, { d, s -> d.copy(reps = stepReps(d.reps, s)) },
@@ -118,7 +119,7 @@ private val timeCol = SetColumn(
 private val distanceCol = SetColumn(
     R.string.t4_col_distance, true, { formatDistanceInput(it.distanceKm).ifBlank { "0" } },
     { d, s -> d.copy(distanceKm = (d.distanceKm + s * DISTANCE_STEP_KM).coerceAtLeast(0.0)) },
-    { d, t -> parseWeightKg(t)?.takeIf { it >= 0 }?.let { d.copy(distanceKm = it) } }, { formatDistanceInput(it.distanceKm ?: 0.0).ifBlank { "0" } }
+    { d, t -> parseLoadKg(t)?.takeIf { it >= 0 }?.let { d.copy(distanceKm = it) } }, { formatDistanceInput(it.distanceKm ?: 0.0).ifBlank { "0" } }
 )
 
 internal fun columnsFor(kind: String): List<SetColumn> = when (kind) {
@@ -149,7 +150,8 @@ internal fun SetTable(
     modifier: Modifier = Modifier
 ) {
     val cols = columnsFor(exercise.kind)
-    var editing by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    // Row/column packed as row * 16 + col (-1 = closed) so it survives rotation.
+    var editing by rememberSaveable { mutableStateOf(-1) }
     var optionsFor by remember { mutableStateOf<Int?>(null) }
     RfCard(modifier.fillMaxWidth(), padding = 12.dp) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -171,7 +173,7 @@ internal fun SetTable(
                     PendingRow(
                         p + 1, draft, cols,
                         onStep = { c, s -> drafts[p] = cols[c].step(draft, s) },
-                        onEdit = { c -> editing = p to c },
+                        onEdit = { c -> editing = p * 16 + c },
                         onOptions = { optionsFor = p },
                         onCheck = { onCheck(p, draft) }
                     )
@@ -186,12 +188,14 @@ internal fun SetTable(
             }
         }
     }
-    editing?.let { (p, c) ->
+    editing.takeIf { it >= 0 }?.let { packed ->
+        val p = packed / 16
+        val c = packed % 16
         val draft = draftAt(p)
         EditValueDialog(
             initial = cols[c].text(draft).removePrefix("+"), decimal = cols[c].decimal,
             onConfirm = { text -> cols[c].parse(draft, text)?.let { drafts[p] = it } },
-            onDismiss = { editing = null }
+            onDismiss = { editing = -1 }
         )
     }
     optionsFor?.let { p ->
@@ -284,7 +288,7 @@ private fun StepButton(icon: ImageVector, cd: String, onClick: () -> Unit) {
 
 @Composable
 internal fun EditValueDialog(initial: String, decimal: Boolean, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
-    var text by remember { mutableStateOf(initial) }
+    var text by rememberSaveable { mutableStateOf(initial) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.t1_edit_value)) },

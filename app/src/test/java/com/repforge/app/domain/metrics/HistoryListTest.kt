@@ -15,22 +15,35 @@ class HistoryListTest {
     private fun ms(d: LocalDate, h: Int = 9) = d.atTime(h, 0).toInstant(ZoneOffset.UTC).toEpochMilli()
     private fun entry(at: Long, type: String = "normal") = HistoryEntry(1, "X", "A", 3, 10, 50.0, at, type)
 
-    @Test fun itemsCountOnlyWorkingSetsInsideSession() {
+    @Test fun daysComeFromEntriesAndAttachSession() {
         val d = LocalDate.of(2026, 3, 10)
-        val s = FinishedSession(1, "A", ms(d, 9), ms(d, 10))
-        val items = historyItems(listOf(s), listOf(entry(ms(d, 9)), entry(ms(d, 10), SET_WARMUP), entry(ms(d, 12))))
-        assertEquals(3, items[0].sets)
-        assertEquals(1500.0, items[0].volumeKg, 0.0)
-        assertEquals(3_600_000L, items[0].durationMs)
+        val s = FinishedSession(7, "A", ms(d, 9), ms(d, 10))
+        val days = historyDays(listOf(s), listOf(entry(ms(d, 9)), entry(ms(d, 10), SET_WARMUP), entry(ms(d, 12))), zone)
+        assertEquals(1, days.size)
+        assertEquals(6, days[0].sets)
+        assertEquals(3000.0, days[0].volumeKg, 0.0)
+        assertEquals(3_600_000L, days[0].durationMs)
+        assertEquals(7L, days[0].sessionId)
+        assertEquals(listOf("A"), days[0].sheetNames)
+    }
+
+    @Test fun daysWithoutSessionStillListedWithExercises() {
+        val d1 = LocalDate.of(2026, 3, 10)
+        val d2 = LocalDate.of(2026, 3, 11)
+        val days = historyDays(emptyList(), listOf(entry(ms(d1)), entry(ms(d2)), entry(ms(d2, 10)), entry(ms(d2), SET_WARMUP)), zone)
+        assertEquals(listOf(d2, d1), days.map { it.date })
+        assertNull(days[0].sessionId)
+        assertNull(days[0].durationMs)
+        assertEquals(1, days[0].exercises.size)
+        assertEquals(6, days[0].exercises[0].sets)
+        assertEquals(50.0, days[0].exercises[0].bestWeightKg, 0.0)
     }
 
     @Test fun groupsNewestMonthFirst() {
-        val a = HistoryItem(1, "A", ms(LocalDate.of(2026, 2, 28)), 0, 0, 0.0)
-        val b = HistoryItem(2, "A", ms(LocalDate.of(2026, 3, 1)), 0, 0, 0.0)
-        val c = HistoryItem(3, "A", ms(LocalDate.of(2026, 3, 20)), 0, 0, 0.0)
-        val g = groupByMonth(listOf(a, b, c), zone)
+        fun day(d: LocalDate) = HistoryDay(d, emptyList(), 0, 0.0, null, null, emptyList())
+        val g = groupByMonth(listOf(day(LocalDate.of(2026, 2, 28)), day(LocalDate.of(2026, 3, 1)), day(LocalDate.of(2026, 3, 20))))
         assertEquals(listOf(YearMonth.of(2026, 3), YearMonth.of(2026, 2)), g.map { it.first })
-        assertEquals(listOf(3L, 2L), g[0].second.map { it.id })
+        assertEquals(listOf(LocalDate.of(2026, 3, 20), LocalDate.of(2026, 3, 1)), g[0].second.map { it.date })
     }
 
     @Test fun weightRangeFilterAndDelta() {
