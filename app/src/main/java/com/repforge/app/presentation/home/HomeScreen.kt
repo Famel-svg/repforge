@@ -176,7 +176,7 @@ private fun BodyWeightCard(state: HomeUiState, goalKg: Double?, locale: Locale, 
                 }
                 if (goalKg != null) Text(stringResource(R.string.t2_goal_line, formatCount(goalKg, locale)), style = MaterialTheme.typography.bodyMedium, color = cs.onSurfaceVariant)
                 val zone = java.time.ZoneId.systemDefault()
-                val month = DateTimeFormatter.ofPattern("MMM", locale)
+                val month = com.repforge.app.presentation.progress.dayFormat()
                 fun label(i: Int) = java.time.Instant.ofEpochMilli(weights[i].recordedAt).atZone(zone).format(month)
                 AreaLineChart(
                     points = weights.map { it.weightKg.toFloat() }, goal = goalKg?.toFloat(),

@@ -91,11 +91,13 @@ private fun Summary(s: SessionSummary, history: Boolean, header: Pair<String?, L
     ) {
         if (!history) CheckBadge()
         Text(
-            if (history) listOfNotNull(header?.first, header?.second?.let { java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM, locale).format(java.util.Date(it)) })
-                .joinToString(" · ").ifEmpty { stringResource(R.string.t4_summary_back) }
+            if (history) header?.first ?: stringResource(R.string.t4_summary_back)
             else stringResource(R.string.summary_title), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center, modifier = Modifier.semantics { heading() }
         )
+        if (history) header?.second?.let {
+            Text(java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM, locale).format(java.util.Date(it)), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatTile(stringResource(R.string.summary_duration), formatDuration((s.durationMs / 1000).toInt()), Modifier.weight(1f))
             StatTile(stringResource(R.string.summary_sets), s.sets.toString(), Modifier.weight(1f))

@@ -19,7 +19,6 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.foundation.layout.Box
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
@@ -197,7 +196,7 @@ private fun RoutineRow(
                 IconButton(onClick = { menu = true }) {
                     Icon(Icons.Outlined.MoreVert, stringResource(R.string.t3_routine_options_cd, sheet.name), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, offset = DpOffset((-8).dp, 0.dp)) {
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.start)) }, onClick = { menu = false; onStart() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.duplicate)) }, onClick = { menu = false; onDuplicate() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; onDelete() })

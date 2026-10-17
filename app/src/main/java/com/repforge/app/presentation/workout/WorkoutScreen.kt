@@ -114,6 +114,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 import com.repforge.app.presentation.pluralCount
@@ -486,7 +488,7 @@ fun WorkoutScreen(
                 onAdd = { remaining += 15; restTotal = maxOf(restTotal, remaining); extended++ },
                 onSkip = { running = false; remaining = restSeconds; restTotal = restSeconds },
                 onHeight = { restCardHeightPx = it },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp)
+                modifier = (if (LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) Modifier.align(Alignment.BottomEnd).widthIn(max = 420.dp) else Modifier.align(Alignment.BottomCenter)).padding(12.dp)
             )
         }
     }
