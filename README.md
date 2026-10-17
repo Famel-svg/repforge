@@ -117,7 +117,7 @@ O design é inspirado na experiência de uso do openGym, mas nenhum código ou r
 
 ## Autor
 
-Rafael - [LinkedIn](https://www.linkedin.com/in/SEU-PERFIL)
+Rafael - [LinkedIn](https://www.linkedin.com/in/rafaeltanimoto/)
 
 ---
 
@@ -150,4 +150,4 @@ Release builds read signing data from a git-ignored `keystore.properties`.
 
 **Legal:** the design is inspired by openGym's UX; no code or assets were copied. The exercise catalog is original. Licensed under [MIT](LICENSE).
 
-**Author:** Rafael - [LinkedIn](https://www.linkedin.com/in/SEU-PERFIL)
+**Author:** Rafael - [LinkedIn](https://www.linkedin.com/in/rafaeltanimoto/)
